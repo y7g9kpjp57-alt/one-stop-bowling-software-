@@ -72,6 +72,8 @@ async function initCloudSync(){
   cloudReady=true;setSyncNotice('Live sync connected • changes shared with all devices',true);
   cloudChannel=cloud.channel('bowls-live-demo').on('postgres_changes',{event:'UPDATE',schema:'public',table:'bowls_live_state',filter:`id=eq.${LIVE_STATE_ID}`},payload=>{
    let next=payload.new?.state;if(!next?.competitions?.length)return;
+   // Ignore our own echoed update so the scoring form does not jump/re-render while typing.
+   if(JSON.stringify(next)===JSON.stringify(db)){setSyncNotice('Live sync connected • changes shared with all devices',true);return}
    cloudApplying=true;db=next;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render();setSyncNotice('Live sync connected • latest changes received',true);
   }).subscribe(status=>{if(status==='SUBSCRIBED')setSyncNotice('Live sync connected • changes shared with all devices',true)});
  }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • live sync could not connect, but this device will keep saving locally',false)}
@@ -99,6 +101,8 @@ function liveScore(obj){let a=0,b=0,count=0;liveEntries(obj).forEach(e=>{if(e&&(
 function scoringLabel(c=comp()){return (c.settings.scoringMode||'final')==='live_optional'?'Live end-by-end optional':'Final score only'}
 function currentScore(obj){if(completed(obj))return {a:+obj.scoreA,b:+obj.scoreB,final:true,ends:liveScore(obj).count};let l=liveScore(obj);return {a:l.a,b:l.b,final:false,ends:l.count}}
 function attachBowlsEndRules(root=document,onChange=()=>{}){root.querySelectorAll('[data-live-a],[data-live-b]').forEach(inp=>{inp.addEventListener('input',()=>{let key=inp.getAttribute('data-live-a')||inp.getAttribute('data-live-b'),isA=inp.hasAttribute('data-live-a'),other=root.querySelector(`[${isA?'data-live-b':'data-live-a'}=\"${key}\"]`);let v=inp.value===''?null:Math.max(0,+inp.value||0);if(v!==null&&v>0&&other)other.value='0';onChange()})})}
+let liveAutoSaveTimer=null;
+function queueLiveAutoSave(saveForm,delay=450){clearTimeout(liveAutoSaveTimer);setSyncNotice('Live score changed • saving…',true);liveAutoSaveTimer=setTimeout(()=>{saveForm();saveDB()},delay)}
 function renderBuilder(s){
  let c=comp(),x=c.settings;x.scoringMode=x.scoringMode||'final';x.tournamentType=x.tournamentType||'standard';
  let agg=x.tournamentType==='aggregate';
@@ -275,32 +279,59 @@ function renderQuick(s){
  let c=comp(),x=c.settings,live=(x.scoringMode||'final')==='live_optional';
  if(isAggregate(c)){
   let rows=ensureAggregate(c),t=aggregateTotals(c);
-  s.innerHTML=`<div class="card"><h2>Aggregate Match Scoring</h2><p class="muted">${live?'Live end-by-end scoring is available but optional. You can also just enter each final rink score.':'Enter each final rink score.'}</p>
+  const rinkKey='bowlsAssignedRink:'+c.id;
+  let assigned=+sessionStorage.getItem(rinkKey)||0;
+  if(assigned<1||assigned>rows.length)assigned=0;
+
+  // Scorers are deliberately locked to one rink at a time to reduce entry mistakes.
+  if(role==='scorer'&&!assigned){
+   s.innerHTML=`<div class="card"><h2>Select Your Rink</h2><p class="muted">Choose the rink you are scoring. Only that rink will be shown until you deliberately change it.</p><div class="formgrid"><div class="field"><label>Assigned rink</label><select id="assignedRink"><option value="">Choose rink…</option>${rows.map(r=>`<option value="${r.rink}">Rink ${r.rink}${r.skipA||r.skipB?` • ${esc(r.skipA||'TBC')} v ${esc(r.skipB||'TBC')}`:''}</option>`).join('')}</select></div></div><button class="btn primary" id="openAssignedRink" style="width:100%;margin-top:12px">Open This Rink</button></div>`;
+   document.getElementById('openAssignedRink').onclick=()=>{let n=+document.getElementById('assignedRink').value;if(!n)return alert('Please choose a rink first.');sessionStorage.setItem(rinkKey,String(n));render()};
+   return;
+  }
+
+  let visibleRows=role==='scorer'?rows.filter(r=>r.rink===assigned):rows;
+  s.innerHTML=`<div class="card"><h2>Aggregate Match Scoring</h2><p class="muted">${live?'Live end-by-end scoring is available but optional. Scores auto-save as they are entered.':'Enter each final rink score.'}</p>
   <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;text-align:center;align-items:center;margin:16px 0"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div id="aggLiveTotalA" style="font-size:38px;font-weight:900">${t.a}</div></div><b style="font-size:24px">–</b><div><b>${esc(x.aggregateSideB||'Side B')}</b><div id="aggLiveTotalB" style="font-size:38px;font-weight:900">${t.b}</div></div></div>
-  ${rows.map(r=>{let ls=liveScore(r);return `<div class="card" style="box-shadow:none"><h3>Rink ${r.rink}</h3><div class="formgrid" style="margin-bottom:10px"><div class="field"><label>${esc(x.aggregateSideA||'Side A')} skip (optional)</label><input data-agg-skip-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Skip name"></div><div class="field"><label>${esc(x.aggregateSideB||'Side B')} skip (optional)</label><input data-agg-skip-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Skip name"></div></div>${live?`<details><summary><b>Live ends</b> ${ls.count?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>${esc(x.aggregateSideB||'Side B')}</th></tr></thead><tbody>${Array.from({length:x.ends||21},(_,i)=>{let e=liveEntries(r)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="agg-${r.rink}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="agg-${r.rink}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-agg-a="${r.rink}" value="${r.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-agg-b="${r.rink}" value="${r.scoreB}"><div class="away"><b>${esc(x.aggregateSideB||'Side B')}</b><div class="meta">Final score</div></div></div></div>`}).join('')}
+  ${role==='scorer'?`<div class="oknotice" style="display:flex;gap:10px;align-items:center;justify-content:space-between"><div><b>YOU ARE SCORING RINK ${assigned}</b><div class="meta">Check the rink and skip names before entering a score.</div></div><button class="btn secondary" id="changeAssignedRink">Change Rink</button></div>`:''}
+  ${visibleRows.map(r=>{let ls=liveScore(r);return `<div class="card" style="box-shadow:none;border:2px solid ${role==='scorer'?'#0369a1':'var(--line)'}"><div style="text-align:center;margin-bottom:12px"><div style="font-size:30px;font-weight:900">RINK ${r.rink}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-top:8px"><div><b>${esc(x.aggregateSideA||'Side A')}</b>${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div><b>v</b><div><b>${esc(x.aggregateSideB||'Side B')}</b>${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div></div></div><div class="formgrid" style="margin-bottom:10px"><div class="field"><label>${esc(x.aggregateSideA||'Side A')} skip (optional)</label><input data-agg-skip-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Skip name"></div><div class="field"><label>${esc(x.aggregateSideB||'Side B')} skip (optional)</label><input data-agg-skip-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Skip name"></div></div>${live?`<details open><summary><b>Live ends</b> ${ls.count?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>${esc(x.aggregateSideB||'Side B')}</th></tr></thead><tbody>${Array.from({length:x.ends||21},(_,i)=>{let e=liveEntries(r)[i]||{a:'',b:''};return `<tr><td><b>${i+1}</b></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="agg-${r.rink}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="agg-${r.rink}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-agg-a="${r.rink}" value="${r.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-agg-b="${r.rink}" value="${r.scoreB}"><div class="away"><b>${esc(x.aggregateSideB||'Side B')}</b><div class="meta">Final score</div></div></div></div>`}).join('')}
   <button class="btn primary" style="width:100%;margin-top:12px" id="saveAggregate">Save Scores</button></div>`;
+
+  if(role==='scorer')document.getElementById('changeAssignedRink').onclick=()=>{if(confirm(`You are currently scoring Rink ${assigned}. Change to a different rink?`)){sessionStorage.removeItem(rinkKey);render()}};
+
   const refreshAggregatePreview=()=>{
    let totalA=0,totalB=0;
    rows.forEach(r=>{
+    // For rinks not visible on this scorer's device, use the already-saved state.
     let fa=document.querySelector(`[data-agg-a="${r.rink}"]`),fb=document.querySelector(`[data-agg-b="${r.rink}"]`);
-    if(fa&&fb&&fa.value!==''&&fb.value!==''){totalA+=Math.max(0,+fa.value||0);totalB+=Math.max(0,+fb.value||0);return}
-    if(live){for(let i=0;i<(x.ends||21);i++){let a=document.querySelector(`[data-live-a="agg-${r.rink}-${i}"]`),b=document.querySelector(`[data-live-b="agg-${r.rink}-${i}"]`);if(a?.value!==''||b?.value!==''){totalA+=Math.max(0,+a?.value||0);totalB+=Math.max(0,+b?.value||0)}}}
+    if(fa&&fb){
+     if(fa.value!==''&&fb.value!==''){totalA+=Math.max(0,+fa.value||0);totalB+=Math.max(0,+fb.value||0);return}
+     if(live){for(let i=0;i<(x.ends||21);i++){let a=document.querySelector(`[data-live-a="agg-${r.rink}-${i}"]`),b=document.querySelector(`[data-live-b="agg-${r.rink}-${i}"]`);if(a?.value!==''||b?.value!==''){totalA+=Math.max(0,+a?.value||0);totalB+=Math.max(0,+b?.value||0)}}}
+    }else{
+     let cs=currentScore(r);totalA+=cs.a;totalB+=cs.b;
+    }
    });
    let ta=document.getElementById('aggLiveTotalA'),tb=document.getElementById('aggLiveTotalB');if(ta)ta.textContent=totalA;if(tb)tb.textContent=totalB;
   };
-  attachBowlsEndRules(document,refreshAggregatePreview);document.querySelectorAll('[data-agg-a],[data-agg-b]').forEach(inp=>inp.addEventListener('input',refreshAggregatePreview));
-  document.getElementById('saveAggregate').onclick=()=>{
-   rows.forEach(r=>{let ia=document.querySelector(`[data-agg-a="${r.rink}"]`),ib=document.querySelector(`[data-agg-b="${r.rink}"]`),sa=document.querySelector(`[data-agg-skip-a="${r.rink}"]`),sb=document.querySelector(`[data-agg-skip-b="${r.rink}"]`);r.scoreA=ia.value===''?'':Math.max(0,+ia.value);r.scoreB=ib.value===''?'':Math.max(0,+ib.value);r.skipA=sa?.value.trim()||'';r.skipB=sb?.value.trim()||'';
+  const persistAggregateForm=()=>{
+   visibleRows.forEach(r=>{let ia=document.querySelector(`[data-agg-a="${r.rink}"]`),ib=document.querySelector(`[data-agg-b="${r.rink}"]`),sa=document.querySelector(`[data-agg-skip-a="${r.rink}"]`),sb=document.querySelector(`[data-agg-skip-b="${r.rink}"]`);r.scoreA=ia?.value===''?'':Math.max(0,+ia?.value||0);r.scoreB=ib?.value===''?'':Math.max(0,+ib?.value||0);r.skipA=sa?.value.trim()||'';r.skipB=sb?.value.trim()||'';
     if(live){r.liveEnds=Array.from({length:x.ends||21},(_,i)=>{let a=document.querySelector(`[data-live-a="agg-${r.rink}-${i}"]`),b=document.querySelector(`[data-live-b="agg-${r.rink}-${i}"]`);return {a:a?.value===''?'':Math.max(0,+a.value||0),b:b?.value===''?'':Math.max(0,+b.value||0)}})}
-   });saveDB();render()
-  };refreshAggregatePreview();return
+   })
+  };
+  const aggregateAutoSave=()=>{refreshAggregatePreview();queueLiveAutoSave(persistAggregateForm)};
+  attachBowlsEndRules(document,aggregateAutoSave);
+  document.querySelectorAll('[data-agg-a],[data-agg-b],[data-agg-skip-a],[data-agg-skip-b]').forEach(inp=>inp.addEventListener('input',aggregateAutoSave));
+  document.getElementById('saveAggregate').onclick=()=>{persistAggregateForm();saveDB();render()};refreshAggregatePreview();return
  }
  let fs=c.fixtures;if(!fs.length){s.innerHTML='<div class="card"><h2>Quick Score</h2><p>No fixtures generated yet.</p></div>';return}
  let session=Math.min(...fs.filter(f=>!completed(f)).map(f=>f.session).concat([Math.max(...fs.map(f=>f.session))]));
  s.innerHTML=`<div class="card"><h2>Quick Score</h2><p class="muted">${live?'Live end-by-end is optional. Update ends when convenient, or simply enter the final score.':'Enter the final result for each game.'}</p><div class="toolbar"><select id="sessionPick">${[...new Set(fs.map(f=>f.session))].map(n=>`<option ${n===session?'selected':''} value="${n}">Session ${n} • ${fs.find(f=>f.session===n).start}</option>`).join('')}</select></div><div id="scoreList"></div></div>`;
  let draw=()=>{let n=+document.getElementById('sessionPick').value;document.getElementById('scoreList').innerHTML=fs.filter(f=>f.session===n).map(f=>{let ls=liveScore(f);return `<div class="card" style="box-shadow:none"><div><b>${esc(fixtureTeamName(f,'a',c))}</b> v <b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">Group ${f.group} • Rink ${f.rink} • Game ${f.game}</div></div>${live?`<details style="margin-top:10px"><summary><b>Live ends</b> ${ls.count?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(fixtureTeamName(f,'a',c))}</th><th>${esc(fixtureTeamName(f,'b',c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(f)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${f.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${f.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(fixtureTeamName(f,'a',c))}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-sa="${f.id}" value="${f.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-sb="${f.id}" value="${f.scoreB}"><div class="away"><b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">Final score</div></div></div></div>`}).join('')+`<button class="btn primary" style="width:100%;margin-top:12px" id="saveScores">Save Scores</button>`;
-  attachBowlsEndRules(document.getElementById('scoreList'));
-  document.getElementById('saveScores').onclick=()=>{fs.filter(f=>f.session===n).forEach(f=>{let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);f.scoreA=a.value===''?'':Math.max(0,+a.value);f.scoreB=b.value===''?'':Math.max(0,+b.value);if(live){f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}});saveDB();render()}
+  const persistSessionForm=()=>{fs.filter(f=>f.session===n).forEach(f=>{let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);f.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);f.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(live){f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}})};
+  const sessionAutoSave=()=>queueLiveAutoSave(persistSessionForm);
+  attachBowlsEndRules(document.getElementById('scoreList'),sessionAutoSave);
+  document.querySelectorAll('[data-sa],[data-sb]').forEach(inp=>inp.addEventListener('input',sessionAutoSave));
+  document.getElementById('saveScores').onclick=()=>{persistSessionForm();saveDB();render()}
  };
  document.getElementById('sessionPick').onchange=draw;draw()
 }
