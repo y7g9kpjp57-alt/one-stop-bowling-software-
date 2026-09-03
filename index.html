@@ -38,7 +38,12 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:10;backgroun
 </main>
 <nav class="bottom" id="bottomNav"></nav>
 <div class="modal hidden" id="pinModal"><div class="modalbox"><h3 id="pinTitle">Enter PIN</h3><p class="muted" id="pinText"></p><input id="pinInput" inputmode="numeric" maxlength="8" type="password"><div style="display:flex;gap:8px"><button class="btn secondary" style="flex:1" id="pinCancel">Cancel</button><button class="btn primary" style="flex:1" id="pinGo">Unlock</button></div><p id="pinError" style="color:#b91c1c"></p></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
+const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
+const LIVE_STATE_ID='demo';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null;
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
@@ -47,7 +52,31 @@ const defaultComp=()=>({
 });
 let db=loadDB();let role='public', unlocked={public:true,scorer:false,admin:false}, tab='dashboard';
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
-function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));}
+function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&!cloudApplying)pushCloudState();}
+async function pushCloudState(){
+ try{
+  let {error}=await cloud.from('bowls_live_state').upsert({id:LIVE_STATE_ID,state:db,updated_at:new Date().toISOString()},{onConflict:'id'});
+  if(error)throw error;setSyncNotice('Live sync connected • changes shared with all devices',true);
+ }catch(e){console.error('Cloud save failed',e);setSyncNotice('Live sync temporarily unavailable • changes are still saved on this device',false)}
+}
+function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!el)return;el.textContent=msg;el.classList.toggle('oknotice',!!ok)}
+async function initCloudSync(){
+ try{
+  if(!window.supabase?.createClient)throw new Error('Supabase library did not load');
+  cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  setSyncNotice('Connecting live sync…',false);
+  let {data,error}=await cloud.from('bowls_live_state').select('state,updated_at').eq('id',LIVE_STATE_ID).maybeSingle();
+  if(error)throw error;
+  if(data?.state?.competitions?.length){cloudApplying=true;db=data.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render()}
+  else {cloudReady=true;await pushCloudState()}
+  cloudReady=true;setSyncNotice('Live sync connected • changes shared with all devices',true);
+  cloudChannel=cloud.channel('bowls-live-demo').on('postgres_changes',{event:'UPDATE',schema:'public',table:'bowls_live_state',filter:`id=eq.${LIVE_STATE_ID}`},payload=>{
+   let next=payload.new?.state;if(!next?.competitions?.length)return;
+   cloudApplying=true;db=next;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render();setSyncNotice('Live sync connected • latest changes received',true);
+  }).subscribe(status=>{if(status==='SUBSCRIBED')setSyncNotice('Live sync connected • changes shared with all devices',true)});
+ }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • live sync could not connect, but this device will keep saving locally',false)}
+}
+
 function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competitions.find(c=>c.id===db.active)||db.competitions[0]}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function tabsFor(){if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];if(role==='scorer')return [['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤']];return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]}
@@ -306,6 +335,6 @@ function tvFinalsHTML(c){if(!c.knockout?.length)return '<div class="tv-empty">Kn
 let tvPage=0,tvTimer=null,tvPaused=false;
 function renderTv(){let c=comp(),pages=['Live / Current Games','Group Tables','Upcoming Fixtures','Finals'],title=pages[tvPage%pages.length],body='';if(tvPage%4===0)body=tvMatchesHTML(tvCurrentGames(c),'Current Session','No games have been scheduled yet.');if(tvPage%4===1)body=tvTableHTML(c);if(tvPage%4===2)body=tvMatchesHTML(tvUpcoming(c),'Upcoming Fixtures','No upcoming fixtures.');if(tvPage%4===3)body=tvFinalsHTML(c);document.body.className='tv-mode';document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${title}</div></div><div class="tv-controls"><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>Updates automatically • Screen ${tvPage%4+1}/4</span></div></div>`;document.getElementById('tvPrev').onclick=()=>{tvPage=(tvPage+3)%4;renderTv()};document.getElementById('tvNext').onclick=()=>{tvPage=(tvPage+1)%4;renderTv()};document.getElementById('tvPause').onclick=()=>{tvPaused=!tvPaused;renderTv()};document.getElementById('tvFull').onclick=()=>document.documentElement.requestFullscreen?.();}
 function startTv(){renderTv();tvTimer=setInterval(()=>{try{db=loadDB()}catch(e){}if(!tvPaused){tvPage=(tvPage+1)%4;renderTv()}else renderTv()},10000);window.addEventListener('storage',()=>{db=loadDB();renderTv()});}
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){startTv()}else{let initial=params.get('view');if(initial==='scorer'||initial==='admin')setTimeout(()=>askPin(initial),100);render();}
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){startTv();initCloudSync()}else{let initial=params.get('view');if(initial==='scorer'||initial==='admin')setTimeout(()=>askPin(initial),100);render();initCloudSync();}
 </script>
 </body></html>
