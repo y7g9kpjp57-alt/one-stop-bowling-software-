@@ -132,7 +132,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.30';
+const APP_VERSION='2026.09.04.31';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -597,6 +597,7 @@ async function showNewTournamentWizard(){
  box.innerHTML=`<div class="modalbox" style="width:min(620px,100%);max-height:90vh;overflow:auto">
   <h2 style="margin-top:0">New Tournament</h2>
   <p class="muted">Your current tournament will stay unchanged.</p>
+  ${currentAppRole!=='owner'&&clubs.length?`<div class="oknotice notice"><b>Club Admin access:</b> ${clubs.map(x=>esc(x.name)).join(', ')}</div>`:''}
   <div class="formgrid">
    <div class="field"><label>Tournament name</label><input id="ntName" placeholder="e.g. Alness Open 2026"></div>
    ${clubs.length?`<div class="field"><label>Club account</label><select id="ntClubAccount">${currentAppRole==='owner'?'<option value="">Personal / no club</option>':''}${clubs.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</select></div>`:''}
@@ -624,11 +625,19 @@ async function showNewTournamentWizard(){
   let c=defaultComp();c.id='comp-'+Date.now();c.title=name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode=document.getElementById('ntScoring').value;c.settings.teamIdentifierMode=document.getElementById('ntTeamIdentifier')?.value||'home_away';
   if(t==='aggregate'){c.settings.aggregateRinks=Math.max(1,+document.getElementById('ntAggRinks').value||6);c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
   else{c.settings.teamCount=n;c.settings.rinks=r;c.settings.ends=ends;c.settings.start=document.getElementById('ntStart').value||'09:00';c.settings.minutes=mins;c.settings.knockoutMinutes=mins;c.settings.groupSize=Math.max(3,+document.getElementById('ntGroup').value||4);c.teams=Array.from({length:n},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:[]}))}
-  db.competitions.push(c);db.active=c.id;localStorage.setItem(APPKEY,JSON.stringify(db));box.remove();role='admin';tab='builder';render();
   let selectedClub=document.getElementById('ntClubAccount')?.value||null;
+  if(currentAppRole!=='owner'&&!selectedClub&&clubs.length===1)selectedClub=clubs[0].id;
+  if(currentAppRole!=='owner'&&!selectedClub)return alert('Your account has Club Admin access, but no club was selected. Please choose your club.');
+  if(!cloud)return alert('Online connection is required to create a club tournament.');
   let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:name,p_state:{competitions:[c],active:c.id},p_club_id:selectedClub});
-  if(error){alert('Tournament created on this device, but its share code could not be created: '+error.message);return}
-  let row=Array.isArray(data)?data[0]:data;if(row){let club=clubs.find(x=>x.id===row.club_id);setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'');setTournamentNotice();alert('Tournament created.\\n\\nTournament code: '+row.code)}
+  if(error){alert('Could not create tournament: '+error.message);return}
+  let row=Array.isArray(data)?data[0]:data;
+  if(!row)return alert('Could not create tournament. No tournament was returned by the server.');
+  db.competitions.push(c);db.active=c.id;localStorage.setItem(APPKEY,JSON.stringify(db));
+  let club=clubs.find(x=>x.id===row.club_id);
+  setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'');
+  box.remove();role='admin';tab='builder';startRemoteRefresh();render();
+  alert('Tournament created.\\n\\nClub: '+(club?.name||c.settings.clubName||'Club')+'\\nTournament code: '+row.code)
  };
 }
 async function duplicateCurrentTournament(){
