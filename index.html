@@ -130,7 +130,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.15';
+const APP_VERSION='2026.09.04.16';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -794,8 +794,20 @@ function renderQuick(s){
 
   // Scorers are deliberately locked to one rink at a time to reduce entry mistakes.
   if(role==='scorer'&&!assigned){
-   s.innerHTML=`<div class="card"><h2>Select Your Rink</h2><p class="muted">Choose the rink you are scoring. Only that rink will be shown until you deliberately change it.</p><div class="formgrid"><div class="field"><label>Assigned rink</label><select id="assignedRink"><option value="">Choose rink…</option>${rows.map(r=>`<option value="${r.rink}">Rink ${r.rink}${r.skipA||r.skipB?` • ${esc(r.skipA||'TBC')} v ${esc(r.skipB||'TBC')}`:''}</option>`).join('')}</select></div></div><button class="btn primary" id="openAssignedRink" style="width:100%;margin-top:12px">Open This Rink</button></div>`;
-   document.getElementById('openAssignedRink').onclick=()=>{let n=+document.getElementById('assignedRink').value;if(!n)return alert('Please choose a rink first.');sessionStorage.setItem(rinkKey,String(n));render()};
+   s.innerHTML=`<div class="card"><h2>Select Your Rink</h2><p class="muted">Tap the rink you are scoring. It will open straight away.</p>
+   <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+    ${rows.map(r=>`<button type="button" class="btn secondary rinkOpenBtn" data-open-rink="${r.rink}" style="padding:16px 10px;text-align:left;border:1px solid var(--line);background:#fff">
+      <b style="font-size:20px">Rink ${r.rink}</b>
+      <div class="meta" style="margin-top:5px">${esc(r.skipA||x.aggregateSideA||'Side A')} v ${esc(r.skipB||x.aggregateSideB||'Side B')}</div>
+    </button>`).join('')}
+   </div>
+   <div style="margin-top:14px"><label class="muted" style="font-size:12px;font-weight:700">Or choose from the list</label>
+   <select id="assignedRink" style="width:100%;margin-top:5px;padding:11px;border:1px solid var(--line);border-radius:9px;background:#fff"><option value="">Choose rink…</option>${rows.map(r=>`<option value="${r.rink}">Rink ${r.rink}${r.skipA||r.skipB?` • ${esc(r.skipA||'TBC')} v ${esc(r.skipB||'TBC')}`:''}</option>`).join('')}</select>
+   <button class="btn primary" id="openAssignedRink" style="width:100%;margin-top:10px">Open Selected Rink</button></div></div>`;
+   const openRink=n=>{n=+n;if(!n||n<1||n>rows.length)return alert('Please choose a rink first.');sessionStorage.setItem(rinkKey,String(n));render()};
+   document.querySelectorAll('[data-open-rink]').forEach(btn=>btn.onclick=()=>openRink(btn.dataset.openRink));
+   document.getElementById('openAssignedRink').onclick=()=>openRink(document.getElementById('assignedRink').value);
+   document.getElementById('assignedRink').onchange=e=>{if(e.target.value)openRink(e.target.value)};
    return;
   }
 
