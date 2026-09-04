@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.49';
+const APP_VERSION='2026.09.04.50';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -847,7 +847,7 @@ function renderBuilder(s){
    <div class="field"><label>Day 2 knockout start</label><input id="bDay2Start" type="time" value="${x.day2Start}"></div>
  </div></div>
  <div class="card" style="box-shadow:none;margin-top:14px;border:2px solid #bae6fd;background:#f0f9ff">
-  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin-bottom:4px">Recommended Setup</h3><p class="muted" style="margin:0">Calculated from entries, rinks, game times, qualification and target finish.</p></div><span class="pill wait" id="plannerStatus">Calculating…</span></div>
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin-bottom:4px">Recommended Setup</h3><p class="muted" style="margin:0">Prioritises practical groups of 4, then checks rinks, game times, qualification and target finish.</p></div><span class="pill wait" id="plannerStatus">Calculating…</span></div>
   <div id="plannerResult" style="margin-top:12px"></div>
   <button class="btn success" id="useRecommendation" type="button">Use Recommended Setup</button>
  </div>
@@ -1054,8 +1054,21 @@ function fullTournamentPlan(n,groupSize,rinks,minutes,koMinutes,start,target,qua
  let gp=planFor(n,groupSize,rinks,minutes,start),q=Math.min(n,qualifierCount(gp.sizes.length,qualify,bestRunners)),ko=knockoutPlan(q,rinks,koMinutes,day2Start),groupFinishMin=minutesOfDay(gp.finish),day1TargetMin=minutesOfDay(day1Target),finalMin=minutesOfDay(ko.finish),targetMin=minutesOfDay(target);if(groupFinishMin<minutesOfDay(start))groupFinishMin+=1440;if(day1TargetMin<minutesOfDay(start))day1TargetMin+=1440;if(finalMin<minutesOfDay(day2Start))finalMin+=1440;if(targetMin<minutesOfDay(day2Start))targetMin+=1440;return {...gp,groupGames:gp.games,groupSessions:gp.sessions,groupFinish:gp.finish,qualifiers:q,bracketSize:ko.bracketSize,koRounds:ko.rounds,koSessions:ko.sessions,finalFinish:ko.finish,totalSessions:gp.sessions+ko.sessions,onTime:finalMin<=targetMin,overBy:Math.max(0,finalMin-targetMin),minutesToTarget:targetMin-finalMin,day1OnTime:groupFinishMin<=day1TargetMin,day1OverBy:Math.max(0,groupFinishMin-day1TargetMin),eventFormat:'two_day'};
 }
 function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00'){
- let candidates=[];for(let g=3;g<=Math.min(8,n);g++){let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start),min=Math.min(...p.sizes),avg=n/p.sizes.length;if(min<3&&n>=3)continue;let imbalance=Math.max(...p.sizes)-Math.min(...p.sizes),latePenalty=(p.onTime&&p.day1OnTime)?0:50000+p.overBy*100+p.day1OverBy*100;let score;if(mode==='shortest')score=latePenalty+p.totalSessions*1000+(100-p.util)*2+imbalance*20+Math.abs(avg-4);else if(mode==='games')score=latePenalty-p.groupGames*1000+p.totalSessions*10+(100-p.util)+imbalance*20;else score=latePenalty+Math.abs(avg-4)*30+imbalance*12+(100-p.util)*.35+p.totalSessions*.3+p.backToBack*.2;candidates.push({g,p,score})}
- return candidates.sort((a,b)=>a.score-b.score||Number(b.p.onTime&&b.p.day1OnTime)-Number(a.p.onTime&&a.p.day1OnTime)||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
+ let candidates=[];
+ for(let g=3;g<=Math.min(8,n);g++){
+  let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start),min=Math.min(...p.sizes),avg=n/p.sizes.length;
+  if(min<3&&n>=3)continue;
+  let imbalance=Math.max(...p.sizes)-Math.min(...p.sizes),latePenalty=(p.onTime&&p.day1OnTime)?0:50000+p.overBy*100+p.day1OverBy*100;
+  let fourGroupPenalty=Math.abs(avg-4)*4000;
+  let exactFourBonus=(p.sizes.length&&p.sizes.every(z=>z===4))?-12000:0;
+  let extraGamesPenalty=Math.max(0,p.groupGames-(n*1.5))*20;
+  let score;
+  if(mode==='shortest')score=latePenalty+p.totalSessions*1000+(100-p.util)*2+imbalance*20+Math.abs(avg-4);
+  else if(mode==='games')score=latePenalty-p.groupGames*1000+p.totalSessions*10+(100-p.util)+imbalance*20;
+  else score=latePenalty+fourGroupPenalty+exactFourBonus+extraGamesPenalty+imbalance*200+(100-p.util)*.25+p.totalSessions*.3+p.backToBack*.2;
+  candidates.push({g,p,score});
+ }
+ return candidates.sort((a,b)=>a.score-b.score||Number(b.p.onTime&&b.p.day1OnTime)-Number(a.p.onTime&&a.p.day1OnTime)||Math.abs((a.p.sizes.reduce((x,y)=>x+y,0)/a.p.sizes.length)-4)-Math.abs((b.p.sizes.reduce((x,y)=>x+y,0)/b.p.sizes.length)-4)||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
 }
 function knockoutOnlyPlan(n,rinks,minutes,start){
  n=Math.max(2,+n||2);rinks=Math.max(1,+rinks||1);minutes=Math.max(10,+minutes||80);
