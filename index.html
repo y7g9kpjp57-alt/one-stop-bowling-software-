@@ -132,7 +132,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.28';
+const APP_VERSION='2026.09.04.29';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -317,10 +317,18 @@ async function shareTournamentInvite(kind){
 }
 async function showTournamentAccess(){
  if(!remoteTournamentId||!remoteTournamentCode){
-  return alert('This tournament is not currently linked online. Open it from My Tournaments or create/share it online first, then Invite / Access will work.');
+  return alert('Open an online tournament first. Use My Tournaments to open the saved tournament, then try Invite / Access again.');
  }
  document.getElementById('accessModal')?.remove();
- let c=comp(),canManage=['owner','admin'].includes(remoteTournamentAccess||currentAccess||currentAppRole||'');
+ let c=comp();
+ let accessRole='';
+ try{
+  if(typeof remoteAccessRole!=='undefined'&&remoteAccessRole)accessRole=remoteAccessRole;
+  else if(typeof currentAccess!=='undefined'&&currentAccess)accessRole=currentAccess;
+  else if(typeof currentAppRole!=='undefined'&&currentAppRole)accessRole=currentAppRole;
+  else if(typeof role!=='undefined'&&role)accessRole=role;
+ }catch(e){}
+ let canManage=['owner','admin'].includes(accessRole);
  let box=document.createElement('div');box.className='modal';box.id='accessModal';
  box.innerHTML=`<div class="modalbox" style="width:min(820px,100%);max-height:92vh;overflow:auto">
  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Invite / Access</h2><p class="muted" style="margin:5px 0 0">${esc(c.title||'Tournament')} • Code <b>${esc(remoteTournamentCode)}</b></p></div><button class="btn secondary" id="closeAccess">Close</button></div>
@@ -666,7 +674,20 @@ async function shareCurrentDraw(){
 function tabsFor(){if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];if(role==='scorer')return [['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤']];return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]}
 function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${x[1]}</button>`).join('');document.getElementById('bottomNav').innerHTML=tabs.slice(0,5).map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()})}
 function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc((c.title||'').trim()||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
-function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();if(c.archivedAt&&role!=='public'&&['builder','teams','draw','schedule','quick','knockout'].includes(tab)){s.innerHTML=`<div class="oknotice notice"><b>Archived competition.</b> Completed ${new Date(c.archivedAt).toLocaleString()} and locked against further changes.</div><div class="card"><h2>${esc((c.title||'').trim()||'Untitled competition')}</h2><p>You can still view Dashboard, Fixtures, Tables, Scorecards and the Admin archive tools.</p></div>`;return}({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions()}
+
+function wireGlobalToolbar(){
+ let a=document.getElementById('accessBtn');
+ if(a)a.onclick=async()=>{
+  try{await showTournamentAccess()}
+  catch(e){console.error('Invite / Access error',e);alert('Invite / Access error: '+(e?.message||String(e)))}
+ };
+ let mt=document.getElementById('myTournamentsBtn');if(mt)mt.onclick=showMyTournaments;
+ let oc=document.getElementById('openCodeBtn');if(oc)oc.onclick=()=>openTournamentByCode();
+}
+
+function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();if(c.archivedAt&&role!=='public'&&['builder','teams','draw','schedule','quick','knockout'].includes(tab)){s.innerHTML=`<div class="oknotice notice"><b>Archived competition.</b> Completed ${new Date(c.archivedAt).toLocaleString()} and locked against further changes.</div><div class="card"><h2>${esc((c.title||'').trim()||'Untitled competition')}</h2><p>You can still view Dashboard, Fixtures, Tables, Scorecards and the Admin archive tools.</p></div>`;return}({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions()
+ wireGlobalToolbar();
+}
 function completed(f){return Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!==''}
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
 function ensureAggregate(c=comp()){let x=c.settings,n=Math.max(1,+x.aggregateRinks||6);c.aggregateScores=c.aggregateScores||[];while(c.aggregateScores.length<n)c.aggregateScores.push({rink:c.aggregateScores.length+1,scoreA:'',scoreB:'',skipA:'',skipB:''});c.aggregateScores=c.aggregateScores.slice(0,n);c.aggregateScores.forEach((r,i)=>{r.rink=i+1;r.skipA=r.skipA||'';r.skipB=r.skipB||''});return c.aggregateScores}
