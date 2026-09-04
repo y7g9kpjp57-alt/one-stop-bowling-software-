@@ -99,6 +99,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
     <select id="competitionSelect" class="grow"></select>
     <button class="btn primary" id="newTournamentBtn">+ New Tournament</button>
     <button class="btn secondary" id="myTournamentsBtn">My Tournaments</button>
+    <button class="btn secondary" id="accessBtn">Invite / Access</button>
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
     <button class="btn secondary" id="exportBtn">Backup</button>
@@ -131,7 +132,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.22';
+const APP_VERSION='2026.09.04.23';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -196,7 +197,12 @@ async function openTournamentByCode(code=null){
    if(!je){let jr=Array.isArray(j)?j[0]:j;if(jr?.role)access=jr.role==='admin'?'owner':jr.role}
  }
  cloudApplying=true;db=row.state?.competitions?.length?row.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
- setRemoteTournament(row.id,row.code,access);startRemoteRefresh();role='public';tab='dashboard';setTournamentNotice();render();
+ setRemoteTournament(row.id,row.code,access);
+ let inviteJoin=new URLSearchParams(location.search).get('join');
+ if(inviteJoin==='scorer'&&currentUser&&access==='public'){
+  let req=await cloud.rpc('bowls_request_join',{p_code:row.code});
+  if(!req.error){access='pending';setRemoteTournament(row.id,row.code,access);setTimeout(()=>alert('Scorer access requested. The organiser must approve you before you can enter scores.'),250)}
+ }startRemoteRefresh();role='public';tab='dashboard';setTournamentNotice();render();
  if(access==='pending')alert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
  return true;
 }
@@ -269,6 +275,42 @@ async function archiveSavedTournament(row){
  if(error)return alert('Could not archive tournament: '+error.message);
  await showMyTournaments()
 }
+
+function appBaseUrl(){return location.origin+location.pathname}
+async function shareTournamentInvite(kind){
+ let c=comp(),code=remoteTournamentCode;if(!code)return alert('Open an online tournament first.');
+ let scorer=kind==='scorer',url=appBaseUrl()+'?code='+encodeURIComponent(code)+(scorer?'&join=scorer':'');
+ let text=scorer?`You have been invited to score ${c.title||'this bowls tournament'}. Sign in and request scorer access. Tournament code: ${code}.`:`Follow ${c.title||'this bowls tournament'} live. Tournament code: ${code}.`;
+ if(navigator.share){try{await navigator.share({title:(c.title||'Bowls Tournament')+(scorer?' – Scorer Invite':' – Live Scores'),text,url});return}catch(e){if(e?.name==='AbortError')return}}
+ try{await navigator.clipboard.writeText(text+'\n'+url);alert('Invite copied. Paste it into WhatsApp, Messenger, text or email.')}catch(e){prompt('Copy this invite:',text+'\n'+url)}
+}
+async function showTournamentAccess(){
+ if(!remoteTournamentId||!remoteTournamentCode)return alert('Open the tournament you want to share first.');
+ document.getElementById('accessModal')?.remove();
+ let c=comp(),canManage=['owner','admin'].includes(remoteTournamentRole||'');
+ let box=document.createElement('div');box.className='modal';box.id='accessModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(820px,100%);max-height:92vh;overflow:auto">
+ <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Invite / Access</h2><p class="muted" style="margin:5px 0 0">${esc(c.title||'Tournament')} • Code <b>${esc(remoteTournamentCode)}</b></p></div><button class="btn secondary" id="closeAccess">Close</button></div>
+ <div class="card" style="box-shadow:none;margin-top:14px"><h3>Public View</h3><p class="muted">Share a read-only live view. Public viewers cannot change scores.</p><button class="btn primary" id="sharePublicInvite" style="width:100%">Share Public View</button></div>
+ <div class="card" style="box-shadow:none"><h3>Scorer Invite</h3><p class="muted">The scorer signs in and requests access. You approve them before they can enter scores.</p><button class="btn primary" id="shareScorerInvite" style="width:100%">Share Scorer Invite</button></div>
+ ${canManage?`<div class="card" style="box-shadow:none"><h3>People & Permissions</h3><div id="accessMembers"><p class="muted">Loading…</p></div></div>`:`<div class="notice">Only the organiser or an admin can approve scorers.</div>`}
+ </div>`;
+ document.body.appendChild(box);
+ document.getElementById('closeAccess').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ document.getElementById('sharePublicInvite').onclick=()=>shareTournamentInvite('public');
+ document.getElementById('shareScorerInvite').onclick=()=>shareTournamentInvite('scorer');
+ if(canManage)await loadTournamentMembers()
+}
+async function loadTournamentMembers(){
+ let list=document.getElementById('accessMembers');if(!list)return;
+ let {data,error}=await cloud.rpc('bowls_list_tournament_members',{p_id:remoteTournamentId});
+ if(error){list.innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
+ let rows=Array.isArray(data)?data:[];
+ if(!rows.length){list.innerHTML='<p class="muted">No scorer requests yet.</p>';return}
+ list.innerHTML=rows.map(m=>{let who=m.email||m.display_name||m.user_email||m.user_id||'User',r=m.role||'pending';return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>${esc(who)}</b><div class="meta">Access: ${esc(r)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px"><button class="btn primary" data-member="${esc(m.user_id)}" data-mrole="scorer">Approve Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Admin</button>${r!=='pending'?`<button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="pending">Remove Access</button>`:''}</div></div>`}).join('');
+ list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}await loadTournamentMembers()})
+}
+
 async function showMyTournaments(){
  if(!currentUser){showAuthModal('admin');return}
  if(!cloud)return alert('Online tournament storage is not connected yet.');
@@ -1108,6 +1150,7 @@ document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authM
 document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer','signin')};
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
+document.getElementById('accessBtn').onclick=showTournamentAccess;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
