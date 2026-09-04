@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.46';
+const APP_VERSION='2026.09.04.47';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1231,10 +1231,10 @@ function openManualScheduleEditor(){
 }
 function openQuickTeamSchedule(){
  let c=comp(),fs=c.fixtures||[];if(!fs.length){alert('Generate the round-robin fixtures first.');return}
- let old=document.getElementById('quickTeamSchedule');if(old){old.remove();startRemoteRefresh();return}
+ let old=document.getElementById('quickTeamScheduleEditor');if(old){old.remove();startRemoteRefresh();return}
  if(remoteRefreshTimer){clearInterval(remoteRefreshTimer);remoteRefreshTimer=null}
  let venues=scheduleVenueNames(c),sessions=[...new Set(fs.map(f=>+f.session||1))].sort((a,b)=>a-b),max=Math.max(4,...sessions);
- let box=document.createElement('div');box.id='quickTeamSchedule';box.className='card';
+ let box=document.createElement('div');box.id='quickTeamScheduleEditor';box.className='card';
  box.innerHTML=`<h2>Quick Team Schedule</h2><p class="muted">Tap a team/player below, then set all of their games in one place. Their opponents come from the round-robin draw, so you only need to choose the green, session/time and rink.</p><div class="field"><label>Team / Player</label><div id="qtsTeamButtons" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${c.teams.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button type="button" class="btn secondary qts-team-btn" data-team-id="${t.id}" style="text-align:left;white-space:normal">${esc(t.name)}${t.group?`<span class="meta" style="display:block">Group ${esc(t.group)}</span>`:''}</button>`).join('')}</div><input type="hidden" id="qtsTeam" value=""></div><div id="qtsGames" style="margin-top:12px"><div class="notice">Tap a team to show their games.</div></div><div id="qtsWarn" class="hidden warn notice" style="margin-top:10px"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn success" id="qtsSave" disabled>Save Team Schedule</button><button class="btn secondary" id="qtsCancel">Cancel</button></div>`;
  let screen=document.getElementById('screen');screen.insertBefore(box,screen.children[1]||null);
  const venueOpts=v=>venues.map(x=>`<option value="${esc(x)}" ${x===v?'selected':''}>${esc(x)}</option>`).join('');
