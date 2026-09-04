@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.48';
+const APP_VERSION='2026.09.04.49';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1236,7 +1236,7 @@ function openQuickTeamSchedule(){
  let work=fs.map(f=>({...f}));
  let venues=scheduleVenueNames(c),sessions=[...new Set(fs.map(f=>+f.session||1))].sort((a,b)=>a-b),max=Math.max(4,...sessions);
  let box=document.createElement('div');box.id='quickTeamScheduleEditor';box.className='card';
- box.innerHTML=`<h2>Quick Team Schedule</h2><p class="muted">Tap a team/player below, then set all of their games in one place. You can also change the opponent. If you change an opponent, the matching game for the other two teams is updated automatically so you do not have to enter both sides.</p><div class="field"><label>Team / Player</label><div id="qtsTeamButtons" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${c.teams.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button type="button" class="btn secondary qts-team-btn" data-team-id="${t.id}" style="text-align:left;white-space:normal">${esc(t.name)}${t.group?`<span class="meta" style="display:block">Group ${esc(t.group)}</span>`:''}</button>`).join('')}</div><input type="hidden" id="qtsTeam" value=""></div><div id="qtsGames" style="margin-top:12px"><div class="notice">Tap a team to show their games.</div></div><div id="qtsWarn" class="hidden warn notice" style="margin-top:10px"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn success" id="qtsSave" disabled>Save Team Schedule</button><button class="btn secondary" id="qtsCancel">Cancel</button></div>`;
+ box.innerHTML=`<h2>Quick Team Schedule</h2><p class="muted">Tap a team/player below, then set all of their games in one place. You can also choose which opponent is in each slot. Because every round-robin pairing already exists, changing the opponent swaps the existing fixture into that slot so both teams update together automatically.</p><div class="field"><label>Team / Player</label><div id="qtsTeamButtons" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${c.teams.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<button type="button" class="btn secondary qts-team-btn" data-team-id="${t.id}" style="text-align:left;white-space:normal">${esc(t.name)}${t.group?`<span class="meta" style="display:block">Group ${esc(t.group)}</span>`:''}</button>`).join('')}</div><input type="hidden" id="qtsTeam" value=""></div><div id="qtsGames" style="margin-top:12px"><div class="notice">Tap a team to show their games.</div></div><div id="qtsWarn" class="hidden warn notice" style="margin-top:10px"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn success" id="qtsSave" disabled>Save Team Schedule</button><button class="btn secondary" id="qtsCancel">Cancel</button></div>`;
  let screen=document.getElementById('screen');screen.insertBefore(box,screen.children[1]||null);
  const venueOpts=v=>venues.map(x=>`<option value="${esc(x)}" ${x===v?'selected':''}>${esc(x)}</option>`).join('');
  function getOpponent(f,id){return String(f.a)===String(id)?f.b:f.a}
@@ -1246,18 +1246,28 @@ function openQuickTeamSchedule(){
    [...box.querySelectorAll('[data-qts]')].forEach(el=>{let f=work.find(x=>String(x.id)===String(el.dataset.qts));if(!f)return;let v=el.querySelector('[data-qv]'),ss=el.querySelector('[data-qs]'),r=el.querySelector('[data-qr]');if(v)f.venue=v.value;if(ss){f.session=+ss.value;f.start=sessionStartTime(c,f.session)}if(r)f.rink=+r.value});
  }
  function changeOpponent(fid,id,newOpp){
-   syncVisibleRows();let f=work.find(x=>String(x.id)===String(fid));if(!f)return true;let oldOpp=getOpponent(f,id);if(String(newOpp)===String(oldOpp))return true;if(String(newOpp)===String(id)){alert('A team cannot play itself.');return false}
-   if(completed(f)){alert('This game already has a completed score, so the opponent cannot be changed.');return false}
-   let candidates=work.filter(x=>String(x.id)!==String(f.id)&&String(x.group)===String(f.group)&&(String(x.a)===String(newOpp)||String(x.b)===String(newOpp))&&String(x.a)!==String(id)&&String(x.b)!==String(id));
-   let partner=candidates.find(x=>(+x.session||1)===(+f.session||1))||candidates[0];
-   if(!partner){alert('I could not find the matching game to update automatically. Use Edit Playing Schedule for this unusual change.');return false}
-   if(completed(partner)){alert('The matching game already has a completed score, so this opponent change cannot be made.');return false}
-   if(String(partner.a)===String(newOpp))partner.a=oldOpp;else partner.b=oldOpp;partner.nameA=teamName(partner.a,c);partner.nameB=teamName(partner.b,c);
-   setOpponent(f,id,newOpp);return true
+   // In a round robin every pairing already exists once. Choosing a different
+   // opponent here should therefore move that existing fixture into this slot,
+   // not rewrite the teams and accidentally create duplicate match-ups.
+   syncVisibleRows();
+   let f=work.find(x=>String(x.id)===String(fid));if(!f)return true;
+   let oldOpp=getOpponent(f,id);if(String(newOpp)===String(oldOpp))return true;
+   if(String(newOpp)===String(id)){alert('A team cannot play itself.');return false}
+   if(completed(f)){alert('This game already has a completed score, so it cannot be moved.');return false}
+   let target=work.find(x=>String(x.id)!==String(f.id)&&String(x.group)===String(f.group)&&((String(x.a)===String(id)&&String(x.b)===String(newOpp))||(String(x.b)===String(id)&&String(x.a)===String(newOpp))));
+   if(!target){alert('I could not find the existing round-robin game between those two teams.');return false}
+   if(completed(target)){alert('That matching game already has a completed score, so it cannot be moved.');return false}
+   // Swap the two fixture slots. This keeps all round-robin pairings intact and
+   // means the change is immediately reflected for BOTH teams involved.
+   let slotA={venue:fixtureVenue(f,c),session:+f.session||1,rink:fixtureLocalRink(f,c),start:f.start};
+   let slotB={venue:fixtureVenue(target,c),session:+target.session||1,rink:fixtureLocalRink(target,c),start:target.start};
+   f.venue=slotB.venue;f.session=slotB.session;f.rink=slotB.rink;f.start=sessionStartTime(c,f.session);
+   target.venue=slotA.venue;target.session=slotA.session;target.rink=slotA.rink;target.start=sessionStartTime(c,target.session);
+   return true
  }
  function drawTeam(){
    let id=currentTeamId(),games=work.filter(f=>String(f.a)===String(id)||String(f.b)===String(id)).sort((a,b)=>(+a.session||1)-(+b.session||1));let area=document.getElementById('qtsGames'),save=document.getElementById('qtsSave');if(!id||!games.length){area.innerHTML='<div class="notice">No games found for that team.</div>';save.disabled=true;return}save.disabled=false;
-   area.innerHTML=games.map((f,i)=>{let opp=getOpponent(f,id),groupTeams=c.teams.filter(t=>String(t.group)===String(f.group)&&String(t.id)!==String(id));return `<div class="card" style="box-shadow:none;padding:12px" data-qts="${f.id}"><div style="font-size:17px;font-weight:900;margin-bottom:8px">Game ${i+1}: ${esc(teamName(id,c))}</div><div class="formgrid"><div class="field"><label>Opponent</label><select data-qo>${groupTeams.map(t=>`<option value="${t.id}" ${String(t.id)===String(opp)?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div><div class="field"><label>Green / Venue</label><select data-qv>${venueOpts(fixtureVenue(f,c))}</select></div><div class="field"><label>Session / Time</label><select data-qs>${Array.from({length:max+2},(_,j)=>j+1).map(n=>`<option value="${n}" ${n==f.session?'selected':''}>Session ${n} • ${sessionStartTime(c,n)}</option>`).join('')}</select></div><div class="field"><label>Rink</label><select data-qr>${Array.from({length:+c.settings.rinks||1},(_,j)=>j+1).map(n=>`<option value="${n}" ${n==fixtureLocalRink(f,c)?'selected':''}>Rink ${n}</option>`).join('')}</select></div></div><div class="meta" style="margin-top:6px">Changing the opponent automatically updates the matching fixture for the other teams.</div></div>`}).join('');
+   area.innerHTML=games.map((f,i)=>{let opp=getOpponent(f,id),groupTeams=c.teams.filter(t=>String(t.group)===String(f.group)&&String(t.id)!==String(id));return `<div class="card" style="box-shadow:none;padding:12px" data-qts="${f.id}"><div style="font-size:17px;font-weight:900;margin-bottom:8px">Game ${i+1}: ${esc(teamName(id,c))}</div><div class="formgrid"><div class="field"><label>Opponent</label><select data-qo>${groupTeams.map(t=>`<option value="${t.id}" ${String(t.id)===String(opp)?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div><div class="field"><label>Green / Venue</label><select data-qv>${venueOpts(fixtureVenue(f,c))}</select></div><div class="field"><label>Session / Time</label><select data-qs>${Array.from({length:max+2},(_,j)=>j+1).map(n=>`<option value="${n}" ${n==f.session?'selected':''}>Session ${n} • ${sessionStartTime(c,n)}</option>`).join('')}</select></div><div class="field"><label>Rink</label><select data-qr>${Array.from({length:+c.settings.rinks||1},(_,j)=>j+1).map(n=>`<option value="${n}" ${n==fixtureLocalRink(f,c)?'selected':''}>Rink ${n}</option>`).join('')}</select></div></div><div class="meta" style="margin-top:6px">Choosing a different opponent moves that existing round-robin fixture into this slot and updates both teams together.</div></div>`}).join('');
    area.querySelectorAll('[data-qts]').forEach(el=>{let qo=el.querySelector('[data-qo]');if(qo)qo.onchange=()=>{let ok=changeOpponent(el.dataset.qts,id,qo.value);drawTeam();if(!ok)return};['[data-qv]','[data-qs]','[data-qr]'].forEach(sel=>{let x=el.querySelector(sel);if(x)x.onchange=syncVisibleRows})})
  }
  [...box.querySelectorAll('.qts-team-btn')].forEach(btn=>btn.onclick=()=>{syncVisibleRows();document.getElementById('qtsTeam').value=btn.dataset.teamId;box.querySelectorAll('.qts-team-btn').forEach(b=>{b.classList.remove('primary');b.classList.add('secondary')});btn.classList.remove('secondary');btn.classList.add('primary');drawTeam()});
