@@ -132,7 +132,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.25';
+const APP_VERSION='2026.09.04.26';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -198,6 +198,9 @@ async function openTournamentByCode(code=null){
  }
  cloudApplying=true;db=row.state?.competitions?.length?row.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
  setRemoteTournament(row.id,row.code,access);
+ if(new URLSearchParams(location.search).get('join')==='scorer'&&!currentUser){
+  setTimeout(()=>{if(confirm('This is a scorer invite. Sign in or create an account to request scoring access?'))showAuthModal('scorer')},300)
+ }
  let inviteJoin=new URLSearchParams(location.search).get('join');
  if(inviteJoin==='scorer'&&currentUser&&access==='public'){
   let req=await cloud.rpc('bowls_request_join',{p_code:row.code});
@@ -206,8 +209,36 @@ async function openTournamentByCode(code=null){
  if(access==='pending')alert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
  return true;
 }
+
+async function refreshRemoteAccess(){
+ if(!cloud||!currentUser||!remoteTournamentCode)return remoteAccessRole;
+ let {data,error}=await cloud.rpc('bowls_request_join',{p_code:remoteTournamentCode});
+ if(error)return remoteAccessRole;
+ let row=Array.isArray(data)?data[0]:data,got=row?.role;
+ if(got){
+  let next=got==='admin'?'owner':got;
+  if(next!==remoteAccessRole){
+   remoteAccessRole=next;localStorage.setItem('bowlsRemoteAccessRole',remoteAccessRole);
+   if(next==='scorer'&&role!=='admin')role='scorer';
+   setTournamentNotice()
+  }
+ }
+ return remoteAccessRole
+}
+async function requestScorerAccess(){
+ if(!remoteTournamentCode)return alert('Open the tournament first.');
+ if(!currentUser){authRequestedRole='scorer';showAuthModal('scorer');return}
+ let {data,error}=await cloud.rpc('bowls_request_join',{p_code:remoteTournamentCode});
+ if(error)return alert('Could not request scorer access: '+error.message);
+ let row=Array.isArray(data)?data[0]:data,got=row?.role||'pending';
+ remoteAccessRole=got==='admin'?'owner':got;localStorage.setItem('bowlsRemoteAccessRole',remoteAccessRole);
+ setTournamentNotice();render();
+ if(remoteAccessRole==='pending')alert('Scorer access requested. The organiser needs to approve you under Invite / Access.');
+}
+
 async function refreshRemoteTournament(){
  if(!remoteTournamentCode||!cloud)return;
+ if(currentUser)await refreshRemoteAccess();
  if(remoteSaveBusy||Date.now()-remoteLastPushAt<2000)return;
  // Do not redraw the scoring form while someone is typing into an input.
  // The previous polling refresh could replace the DOM mid-name and make text appear to delete itself.
@@ -289,19 +320,19 @@ async function showTournamentAccess(){
   return alert('This tournament is not currently linked online. Open it from My Tournaments or create/share it online first, then Invite / Access will work.');
  }
  document.getElementById('accessModal')?.remove();
- let c=comp(),canManage=['owner','admin'].includes(remoteAccessRole||currentAccess||currentAppRole||'');
+ let c=comp(),canManage=['owner','admin'].includes(remoteTournamentAccess||currentAccess||currentAppRole||'');
  let box=document.createElement('div');box.className='modal';box.id='accessModal';
  box.innerHTML=`<div class="modalbox" style="width:min(820px,100%);max-height:92vh;overflow:auto">
  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Invite / Access</h2><p class="muted" style="margin:5px 0 0">${esc(c.title||'Tournament')} • Code <b>${esc(remoteTournamentCode)}</b></p></div><button class="btn secondary" id="closeAccess">Close</button></div>
  <div class="card" style="box-shadow:none;margin-top:14px"><h3>Public View</h3><p class="muted">Share a read-only live view. Public viewers cannot change scores.</p><button class="btn primary" id="sharePublicInvite" style="width:100%">Share Public View</button></div>
  <div class="card" style="box-shadow:none"><h3>Scorer Invite</h3><p class="muted">The scorer signs in and requests access. You approve them before they can enter scores.</p><button class="btn primary" id="shareScorerInvite" style="width:100%">Share Scorer Invite</button></div>
- ${canManage?`<div class="card" style="box-shadow:none"><h3>People & Permissions</h3><div id="accessMembers"><p class="muted">Loading…</p></div></div>`:`<div class="notice">Only the organiser or an admin can approve scorers.</div>`}
+ ${canManage?`<div class="card" style="box-shadow:none"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h3 style="margin:0">People & Permissions</h3><button class="btn secondary" id="refreshAccessMembers">Refresh</button></div><div id="accessMembers" style="margin-top:10px"><p class="muted">Loading…</p></div></div>`:`<div class="notice">Only the organiser or an admin can approve scorers.</div>`}
  </div>`;
  document.body.appendChild(box);
  document.getElementById('closeAccess').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
  document.getElementById('sharePublicInvite').onclick=()=>shareTournamentInvite('public');
  document.getElementById('shareScorerInvite').onclick=()=>shareTournamentInvite('scorer');
- if(canManage)await loadTournamentMembers()
+ if(canManage){document.getElementById('refreshAccessMembers').onclick=loadTournamentMembers;await loadTournamentMembers()}
 }
 async function loadTournamentMembers(){
  let list=document.getElementById('accessMembers');if(!list)return;
@@ -433,7 +464,10 @@ async function requestRole(target){
 async function signInAccount(){
  let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,err=document.getElementById('authError');err.textContent='';
  if(!email||!password){err.textContent='Enter your email and password.';return}
- let {data,error}=await cloud.auth.signInWithPassword({email,password});if(error){err.textContent=error.message;return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');await requestRole(authRequestedRole||'scorer')
+ let {data,error}=await cloud.auth.signInWithPassword({email,password});if(error){err.textContent=error.message;return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');
+ let q=new URLSearchParams(location.search),inviteCode=q.get('code'),join=q.get('join');
+ if(inviteCode&&join==='scorer'){await openTournamentByCode(inviteCode);return}
+ await requestRole(authRequestedRole||'scorer')
 }
 async function createAccount(){
  let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,password2=document.getElementById('authPassword2').value,name=document.getElementById('authName').value.trim(),err=document.getElementById('authError');err.textContent='';
@@ -1014,6 +1048,15 @@ function renderFixtures(s){
 }
 function renderQuick(s){
  let c=comp(),x=c.settings,live=(x.scoringMode||'final')==='live_optional';
+ if(remoteTournamentId&&remoteTournamentCode&&!['owner','admin','scorer'].includes(remoteAccessRole||'')){
+  let signed=!!currentUser,pending=remoteAccessRole==='pending';
+  s.innerHTML=`<div class="card"><h2>Scoring Access</h2>
+   <p class="muted">${pending?'Your scorer request is waiting for the organiser to approve it.':'You currently have Public View access only.'}</p>
+   ${pending?'<div class="notice">Once approved, this screen will unlock automatically.</div>':`<button class="btn primary" id="requestScorerBtn" style="width:100%">${signed?'Request Scorer Access':'Sign In to Request Scorer Access'}</button>`}
+  </div>`;
+  let b=document.getElementById('requestScorerBtn');if(b)b.onclick=requestScorerAccess;
+  return
+ }
  if(isAggregate(c)){
   let rows=ensureAggregate(c),t=aggregateTotals(c);
   const rinkKey='bowlsAssignedRink:'+c.id;
@@ -1152,10 +1195,7 @@ document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authM
 document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer','signin')};
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
-document.getElementById('accessBtn').onclick=async()=>{
- try{await showTournamentAccess()}
- catch(e){console.error('Invite / Access error',e);alert('Invite / Access could not open: '+(e?.message||e))}
-};
+document.getElementById('accessBtn').onclick=showTournamentAccess;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
