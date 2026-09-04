@@ -130,7 +130,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.13';
+const APP_VERSION='2026.09.04.15';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -195,7 +195,7 @@ async function refreshRemoteTournament(){
  if(!remoteTournamentCode||!cloud)return;
  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
  if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
- if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render()}
+ if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
 }
 
 function isArchived(c=comp()){return !!c.archivedAt}
@@ -557,9 +557,9 @@ function renderBuilder(s){
 function renderDashboard(s){
  let c=comp();
  if(isAggregate(c)){
-  let x=c.settings,t=aggregateTotals(c),rows=ensureAggregate(c),winner=t.complete===t.total?(t.a>t.b?x.aggregateSideA:t.b>t.a?x.aggregateSideB:'Match Drawn'):'In progress';
-  s.innerHTML=`<div class="grid"><div class="kpi"><b>${t.complete}/${t.total}</b><span>Rinks complete</span></div><div class="kpi"><b>${t.a}</b><span>${esc(x.aggregateSideA||'Side A')}</span></div><div class="kpi"><b>${t.b}</b><span>${esc(x.aggregateSideB||'Side B')}</span></div><div class="kpi"><b>${t.complete===t.total?'Final':'Live'}</b><span>Match status</span></div></div>
-  <div class="card"><h2>${esc(c.title)}</h2><p class="muted">Team / District Match • ${t.total} rinks • aggregate score</p><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;text-align:center;padding:20px 0"><div><h3>${esc(x.aggregateSideA||'Side A')}</h3><div style="font-size:46px;font-weight:900">${t.a}</div></div><div style="font-size:24px;font-weight:800">–</div><div><h3>${esc(x.aggregateSideB||'Side B')}</h3><div style="font-size:46px;font-weight:900">${t.b}</div></div></div><p style="text-align:center"><b>${esc(winner)}</b>${t.complete===t.total&&winner!=='Match Drawn'?' win overall':''}</p></div>
+  let x=c.settings,t=aggregateTotals(c),rows=ensureAggregate(c),ep=aggregateEndsProgress(c),winner=t.complete===t.total?(t.a>t.b?x.aggregateSideA:t.b>t.a?x.aggregateSideB:'Match Drawn'):'In progress';
+  s.innerHTML=`<div class="grid"><div class="kpi"><b>${t.complete}/${t.total}</b><span>Rinks complete</span></div><div class="kpi"><b>${t.a}</b><span>${esc(x.aggregateSideA||'Side A')}</span></div><div class="kpi"><b>${t.b}</b><span>${esc(x.aggregateSideB||'Side B')}</span></div><div class="kpi"><b>${ep.remaining}</b><span>Ends remaining</span></div></div>
+  <div class="card"><h2>${esc(c.title)}</h2><p class="muted">Team / District Match • ${t.total} rinks • aggregate score</p><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;text-align:center;padding:20px 0"><div><h3>${esc(x.aggregateSideA||'Side A')}</h3><div style="font-size:46px;font-weight:900">${t.a}</div></div><div style="font-size:24px;font-weight:800">–</div><div><h3>${esc(x.aggregateSideB||'Side B')}</h3><div style="font-size:46px;font-weight:900">${t.b}</div></div></div><p style="text-align:center"><b>${esc(winner)}</b>${t.complete===t.total&&winner!=='Match Drawn'?' win overall':''}</p></div><div class="card"><h3>Ends Progress</h3><div class="grid"><div class="kpi"><b>${ep.total}</b><span>Total ends (${ep.perRink} × ${ep.rinks} rinks)</span></div><div class="kpi"><b>${ep.played}</b><span>Ends played</span></div><div class="kpi"><b>${ep.remaining}</b><span>Ends remaining</span></div><div class="kpi"><b>${ep.total?Math.round(ep.played/ep.total*100):0}%</b><span>Match progress</span></div></div></div>
   <div class="card"><h3>Live Rink Scores</h3>${rows.map(r=>{let cs=currentScore(r);let score=completed(r)?`${r.scoreA} – ${r.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'—';let status=completed(r)?'Final':cs.live?(cs.ends?`Live • after ${cs.ends} ends`:'Live'):'Waiting';return `<div style="display:grid;grid-template-columns:70px minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center"><b>Rink ${r.rink}</b><span>${esc(x.aggregateSideA||'Side A')}${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:''}</span><span style="text-align:center"><b style="font-size:18px">${score}</b><div class="meta">${status}</div></span><span style="text-align:right">${esc(x.aggregateSideB||'Side B')}${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:''}</span></div>`}).join('')}</div>
   <div class="card"><h3>TV / Display Mode</h3><p class="muted">Open a separate public display for a TV, projector or cast screen.</p><button class="btn primary" id="openTv">Open TV Display</button></div>`;
   let tv=document.getElementById('openTv');if(tv)tv.onclick=()=>window.open(location.pathname+'?tv=1','bowls-tv');return
@@ -913,14 +913,107 @@ document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
-function tvCurrentGames(c){let fs=c.fixtures||[],pending=fs.filter(f=>!completed(f));if(!fs.length)return[];let currentSession=pending.length?Math.min(...pending.map(f=>f.session)):Math.max(...fs.map(f=>f.session));return fs.filter(f=>f.session===currentSession)}
-function tvUpcoming(c){let fs=(c.fixtures||[]).filter(f=>!completed(f));if(!fs.length)return[];let sessions=[...new Set(fs.map(f=>f.session))].sort((a,b)=>a-b);let n=sessions[0];return fs.filter(f=>f.session===n).slice(0,12)}
-function tvTableHTML(c){let st=standings(c),keys=Object.keys(st).sort();if(!keys.length)return '<div class="tv-empty">Group tables will appear after the draw.</div>';return `<div class="tv-grid">${keys.map(g=>`<div class="tv-card"><h2>Group ${g}</h2><table class="tv-table"><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>SD</th><th>Pts</th></tr></thead><tbody>${st[g].map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${r.p}</td><td>${r.sd>0?'+':''}${r.sd}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div>`).join('')}</div>`}
-function tvMatchesHTML(rows,title,empty){if(!rows.length)return `<div class="tv-empty">${empty}</div>`;return `<div class="tv-card"><h2>${title}</h2><div class="tv-big-list">${rows.map(f=>`<div class="tv-match"><div><b>${esc(fixtureTeamName(f,'a'))}</b><div class="tv-muted" style="font-size:16px">Group ${esc(f.group)} • Rink ${f.rink}</div></div><div class="score">${completed(f)?`${f.scoreA} – ${f.scoreB}`:'vs'}</div><div class="right"><b>${esc(fixtureTeamName(f,'b'))}</b><div class="tv-muted" style="font-size:16px">${f.start} • Game ${f.game}</div></div></div>`).join('')}</div></div>`}
-function tvFinalsHTML(c){if(!c.knockout?.length)return '<div class="tv-empty">Knockout / finals will appear here when generated.</div>';return `<div class="tv-grid">${c.knockout.map((round,ri)=>`<div class="tv-card"><h2>${ri===c.knockout.length-1&&round.length===1?'Final':ri===0?'First Round':'Round '+(ri+1)}</h2>${round.map(m=>`<div class="tv-match" style="grid-template-columns:1fr auto 1fr;margin-bottom:12px"><div><b>${esc(m.a?teamName(m.a,c):'BYE')}</b></div><div class="score">vs</div><div class="right"><b>${esc(m.b?teamName(m.b,c):'BYE')}</b></div></div>`).join('')}</div>`).join('')}</div>`}
+function tvCurrentGames(c){
+ let fs=c.fixtures||[];
+ if(!fs.length)return[];
+ let live=fs.filter(f=>!completed(f)&&currentScore(f).live);
+ if(live.length)return live;
+ let pending=fs.filter(f=>!completed(f));
+ let currentSession=pending.length?Math.min(...pending.map(f=>f.session)):Math.max(...fs.map(f=>f.session));
+ return fs.filter(f=>f.session===currentSession)
+}
+function tvUpcoming(c){
+ let fs=c.fixtures||[],pending=fs.filter(f=>!completed(f));
+ if(!pending.length)return[];
+ let sessions=[...new Set(pending.map(f=>f.session))].sort((a,b)=>a-b);
+ let current=sessions[0],next=sessions.find(s=>s>current);
+ let target=next??current;
+ return pending.filter(f=>f.session===target).slice(0,16)
+}
+function tvTableHTML(c){
+ let st=standings(c),keys=Object.keys(st).sort();
+ if(!keys.length)return '<div class="tv-empty">Group tables will appear after the draw.</div>';
+ return `<div class="tv-grid">${keys.map(g=>`<div class="tv-card"><h2>Group ${g}</h2><table class="tv-table"><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>${st[g].map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${r.p}</td><td>${r.sf}</td><td>${r.sa}</td><td>${r.sd>0?'+':''}${r.sd}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div>`).join('')}</div>`
+}
+function tvMatchesHTML(rows,title,empty,c=comp()){
+ if(!rows.length)return `<div class="tv-empty">${empty}</div>`;
+ return `<div class="tv-card"><h2>${title}</h2><div class="tv-big-list">${rows.map(f=>{let cs=currentScore(f),score=completed(f)?`${f.scoreA} – ${f.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'vs',status=completed(f)?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):`${f.start||''}`;return `<div class="tv-match"><div><b>${esc(fixtureTeamName(f,'a',c))}</b><div class="tv-muted" style="font-size:16px">Group ${esc(f.group||'')} • Rink ${f.rink||'—'}</div></div><div class="score">${score}<div class="tv-muted" style="font-size:14px;text-align:center">${status}</div></div><div class="right"><b>${esc(fixtureTeamName(f,'b',c))}</b><div class="tv-muted" style="font-size:16px">${f.start||''}${f.game?` • Game ${f.game}`:''}</div></div></div>`}).join('')}</div></div>`
+}
+function aggregateEndsProgress(c){
+ let x=c.settings,rows=ensureAggregate(c),perRink=Math.max(0,+x.ends||0),total=perRink*rows.length,played=0;
+ rows.forEach(r=>{
+  if(completed(r)){played+=perRink;return}
+  let cs=currentScore(r);
+  if(cs.live){
+   let e=Math.max(0,Math.min(perRink,+cs.ends||0));
+   played+=e
+  }
+ });
+ played=Math.min(total,played);
+ return {total,played,remaining:Math.max(0,total-played),perRink,rinks:rows.length}
+}
+function tvAggregateOverallHTML(c){
+ let x=c.settings,rows=ensureAggregate(c),liveA=0,liveB=0,complete=0,ep=aggregateEndsProgress(c);
+ rows.forEach(r=>{let cs=currentScore(r);if(completed(r)){liveA+=+r.scoreA||0;liveB+=+r.scoreB||0;complete++}else if(cs.live){liveA+=cs.a;liveB+=cs.b}});
+ return `<div class="tv-card"><h2>Overall Match Score</h2><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:30px;align-items:center;text-align:center;padding:25px 10px"><div><div style="font-size:30px;font-weight:800">${esc(x.aggregateSideA||'Side A')}</div><div style="font-size:72px;font-weight:900">${liveA}</div></div><div style="font-size:44px;font-weight:900">–</div><div><div style="font-size:30px;font-weight:800">${esc(x.aggregateSideB||'Side B')}</div><div style="font-size:72px;font-weight:900">${liveB}</div></div></div>
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:10px">
+   <div style="background:#111827;border:1px solid #334155;border-radius:14px;padding:18px;text-align:center"><div class="tv-muted" style="font-size:16px">Total Ends</div><div style="font-size:38px;font-weight:900">${ep.total}</div><div class="tv-muted" style="font-size:14px">${ep.perRink} ends × ${ep.rinks} rinks</div></div>
+   <div style="background:#111827;border:1px solid #334155;border-radius:14px;padding:18px;text-align:center"><div class="tv-muted" style="font-size:16px">Ends Played</div><div style="font-size:38px;font-weight:900">${ep.played}</div></div>
+   <div style="background:#111827;border:1px solid #334155;border-radius:14px;padding:18px;text-align:center"><div class="tv-muted" style="font-size:16px">Ends Remaining</div><div style="font-size:46px;font-weight:900">${ep.remaining}</div></div>
+ </div>
+ <div class="tv-muted" style="text-align:center;font-size:18px;margin-top:16px">${complete}/${rows.length} rinks final • live rink totals included</div></div>`
+}
+function tvAggregateRinksHTML(c){
+ let x=c.settings,rows=ensureAggregate(c);
+ return `<div class="tv-card"><h2>Rink-by-Rink Scores</h2><table class="tv-table"><thead><tr><th>Rink</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>Score</th><th>${esc(x.aggregateSideB||'Side B')}</th><th>Status</th></tr></thead><tbody>${rows.map(r=>{let cs=currentScore(r),score=completed(r)?`${r.scoreA} – ${r.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'—',status=completed(r)?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):'WAITING';return `<tr><td><b>${r.rink}</b></td><td><b>${esc(r.skipA||x.aggregateSideA||'Side A')}</b></td><td class="tv-score">${score}</td><td><b>${esc(r.skipB||x.aggregateSideB||'Side B')}</b></td><td>${status}</td></tr>`}).join('')}</tbody></table></div>`
+}
+function tvKnockoutLiveHTML(c){
+ let all=(c.knockout||[]).flat(),rows=all.filter(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&(!completed(m)||currentScore(m).live));
+ if(!rows.length)return '<div class="tv-empty">No knockout games are currently live.</div>';
+ return `<div class="tv-card"><h2>Live Knockout Games</h2><div class="tv-big-list">${rows.map(m=>{let cs=currentScore(m),score=completed(m)?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'vs';return `<div class="tv-match"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="tv-muted" style="font-size:16px">${esc(m.roundName||m.label||'')} • Rink ${m.rink||'—'}</div></div><div class="score">${score}<div class="tv-muted" style="font-size:14px;text-align:center">${completed(m)?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):(m.start||'')}</div></div><div class="right"><b>${esc(knockoutRefName(m.b,c))}</b><div class="tv-muted" style="font-size:16px">${m.start||''}</div></div></div>`}).join('')}</div></div>`
+}
+function tvKnockoutDrawHTML(c){
+ let rounds=c.knockout||[];
+ if(!rounds.length)return '<div class="tv-empty">The knockout draw has not been generated yet.</div>';
+ return `<div class="tv-grid">${rounds.map((round,ri)=>`<div class="tv-card"><h2>${esc(round[0]?.roundName||(ri===rounds.length-1?'Final':'Round '+(ri+1)))}</h2>${round.map(m=>{let cs=currentScore(m),score=completed(m)?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'v';return `<div style="border-bottom:1px solid #334155;padding:12px 0"><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;font-size:20px"><b>${esc(knockoutRefName(m.a,c))}</b><span class="tv-score" style="font-size:24px">${score}</span><b style="text-align:right">${esc(knockoutRefName(m.b,c))}</b></div><div class="tv-muted" style="font-size:14px;text-align:center">${m.rink?`Rink ${m.rink} • `:''}${m.start||''}${cs.live&&!completed(m)?` • LIVE${cs.ends?` after ${cs.ends} ends`:''}`:''}</div></div>`}).join('')}</div>`).join('')}</div>`
+}
+function tvFinalsHTML(c){return tvKnockoutDrawHTML(c)}
 let tvPage=0,tvTimer=null,tvPaused=false;
-function renderTv(){let c=comp(),pages=['Live / Current Games','Group Tables','Upcoming Fixtures','Finals'],title=pages[tvPage%pages.length],body='';if(tvPage%4===0)body=tvMatchesHTML(tvCurrentGames(c),'Current Session','No games have been scheduled yet.');if(tvPage%4===1)body=tvTableHTML(c);if(tvPage%4===2)body=tvMatchesHTML(tvUpcoming(c),'Upcoming Fixtures','No upcoming fixtures.');if(tvPage%4===3)body=tvFinalsHTML(c);document.body.className='tv-mode';document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${title}</div></div><div class="tv-controls"><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>Updates automatically • Screen ${tvPage%4+1}/4</span></div></div>`;document.getElementById('tvPrev').onclick=()=>{tvPage=(tvPage+3)%4;renderTv()};document.getElementById('tvNext').onclick=()=>{tvPage=(tvPage+1)%4;renderTv()};document.getElementById('tvPause').onclick=()=>{tvPaused=!tvPaused;renderTv()};document.getElementById('tvFull').onclick=()=>document.documentElement.requestFullscreen?.();}
-function startTv(){renderTv();tvTimer=setInterval(()=>{try{db=loadDB()}catch(e){}if(!tvPaused){tvPage=(tvPage+1)%4;renderTv()}else renderTv()},10000);window.addEventListener('storage',()=>{db=loadDB();renderTv()});}
+function tvPagesFor(c){
+ if(isAggregate(c))return [
+  {title:'Overall Score',body:()=>tvAggregateOverallHTML(c)},
+  {title:'Rink-by-Rink Scores',body:()=>tvAggregateRinksHTML(c)}
+ ];
+ if((c.settings.tournamentType||'standard')==='knockout')return [
+  {title:'Live Games',body:()=>tvKnockoutLiveHTML(c)},
+  {title:'Full Draw',body:()=>tvKnockoutDrawHTML(c)}
+ ];
+ return [
+  {title:'Live Rink Scores',body:()=>tvMatchesHTML(tvCurrentGames(c),'Live / Current Games','No games are currently live.',c)},
+  {title:'Current Standings',body:()=>tvTableHTML(c)},
+  {title:'Up Next',body:()=>tvMatchesHTML(tvUpcoming(c),'Up Next','No upcoming fixtures.',c)},
+  {title:'Knockout / Finals',body:()=>tvKnockoutDrawHTML(c)}
+ ]
+}
+function renderTv(){
+ let c=comp(),pages=tvPagesFor(c),idx=tvPage%pages.length,p=pages[idx],body=p.body();
+ document.body.className='tv-mode';
+ document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${p.title}</div></div><div class="tv-controls"><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>Live data • Screen ${idx+1}/${pages.length}</span></div></div>`;
+ document.getElementById('tvPrev').onclick=()=>{tvPage=(tvPage+pages.length-1)%pages.length;renderTv()};
+ document.getElementById('tvNext').onclick=()=>{tvPage=(tvPage+1)%pages.length;renderTv()};
+ document.getElementById('tvPause').onclick=()=>{tvPaused=!tvPaused;renderTv()};
+ document.getElementById('tvFull').onclick=()=>document.documentElement.requestFullscreen?.()
+}
+function startTv(){
+ renderTv();
+ tvTimer=setInterval(async()=>{
+  if(remoteTournamentCode&&cloud)await refreshRemoteTournament();
+  else {try{db=loadDB()}catch(e){}}
+  if(!tvPaused){let pages=tvPagesFor(comp());tvPage=(tvPage+1)%pages.length}
+  renderTv()
+ },10000);
+ window.addEventListener('storage',()=>{db=loadDB();renderTv()})
+}
 let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){startTv();initCloudSync()}else{let initial=params.get('view');render();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial)});}
 </script>
 </body></html>
