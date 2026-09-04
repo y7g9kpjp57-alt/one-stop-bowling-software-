@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#082f49">
+<title>Install One Stop Bowling Software</title>
+<style>
+:root{--nav:#082f49;--blue:#0369a1;--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+header{background:linear-gradient(135deg,#082f49,#075985);color:#fff;padding:28px 18px}.wrap{max-width:720px;margin:0 auto;padding:18px}.brand{font-size:28px;font-weight:800;margin:0}.sub{color:#bae6fd;margin-top:8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 3px 12px #0f172a08}.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px 16px;font-weight:800;text-align:center;text-decoration:none;cursor:pointer;margin-top:10px}.primary{background:var(--blue);color:#fff}.secondary{background:#e2e8f0;color:#0f172a}
+.step{display:flex;gap:12px;margin:14px 0}.num{flex:0 0 34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#e0f2fe;color:#075985;font-weight:900}.step b{display:block;margin-bottom:3px}.muted{color:var(--muted)}.platform{font-size:21px;margin:0 0 8px}.linkbox{word-break:break-all;background:#f1f5f9;border:1px solid var(--line);padding:11px;border-radius:10px;font-size:14px}small{color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="wrap" style="padding:0"><h1 class="brand">One Stop Bowling Software</h1><div class="sub">Open the software or add it to your Home Screen like an app.</div></div></header>
+<main class="wrap">
+<div class="card">
+<h2 style="margin-top:0">Open the bowling software</h2>
+<a class="btn primary" href="https://one-stop-bowling-software-bsee.vercel.app/">Open One Stop Bowling Software</a>
+<button class="btn secondary" id="shareBtn">Share this installation guide</button>
+<div class="linkbox" id="appLink">https://one-stop-bowling-software-bsee.vercel.app/</div>
+<button class="btn secondary" id="copyBtn">Copy app link</button>
+</div>
+
+<div class="card">
+<h2 class="platform">🍎 iPhone / iPad</h2><p class="muted">Use Safari for the easiest Home Screen setup.</p>
+<div class="step"><div class="num">1</div><div><b>Open the software in Safari</b>Tap the blue button above.</div></div>
+<div class="step"><div class="num">2</div><div><b>Tap the Share button</b>In Safari, tap the square with the upward arrow.</div></div>
+<div class="step"><div class="num">3</div><div><b>Choose “Add to Home Screen”</b>You may need to scroll down the Share menu.</div></div>
+<div class="step"><div class="num">4</div><div><b>Tap “Add”</b>The One Stop Bowling Software icon will appear on your Home Screen.</div></div>
+</div>
+
+<div class="card">
+<h2 class="platform">🤖 Android</h2><p class="muted">Google Chrome is recommended.</p>
+<div class="step"><div class="num">1</div><div><b>Open the software in Chrome</b>Tap the blue button above.</div></div>
+<div class="step"><div class="num">2</div><div><b>Open the Chrome menu</b>Tap the three dots in the top-right corner.</div></div>
+<div class="step"><div class="num">3</div><div><b>Choose “Add to Home screen” or “Install app”</b>The wording can vary slightly by Android version.</div></div>
+<div class="step"><div class="num">4</div><div><b>Tap “Add” / “Install”</b>The software will appear on the Home Screen.</div></div>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">Joining a tournament</h2>
+<p>If an organiser gives you a tournament code, open the software and tap <b>Open Code</b>. Enter the code to view the tournament. Signed-in scorers can request scoring access from the organiser.</p>
+<small>Public users can view tournament details without scoring permissions.</small>
+</div>
+</main>
+<script>
+const guideUrl=location.href;
+document.getElementById('copyBtn').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('appLink').textContent);alert('App link copied')};
+document.getElementById('shareBtn').onclick=async()=>{try{if(navigator.share)await navigator.share({title:'One Stop Bowling Software',text:'Install One Stop Bowling Software on your phone',url:guideUrl});else{await navigator.clipboard.writeText(guideUrl);alert('Guide link copied')}}catch(e){if(e.name!=='AbortError')console.error(e)}};
+</script>
+</body>
+</html>
