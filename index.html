@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.51';
+const APP_VERSION='2026.09.04.52';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -909,7 +909,7 @@ function renderDashboard(s){
   <div class="card"><h2>${esc(c.title)}</h2><p class="muted">Team / District Match • ${t.total} rinks • aggregate score</p><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:15px;align-items:center;text-align:center;padding:20px 0"><div><h3>${esc(x.aggregateSideA||'Side A')}</h3><div style="font-size:46px;font-weight:900">${t.a}</div></div><div style="font-size:24px;font-weight:800">–</div><div><h3>${esc(x.aggregateSideB||'Side B')}</h3><div style="font-size:46px;font-weight:900">${t.b}</div></div></div><p style="text-align:center"><b>${esc(winner)}</b>${t.complete===t.total&&winner!=='Match Drawn'?' win overall':''}</p></div><div class="card"><h3>Ends Progress</h3><div class="grid"><div class="kpi"><b>${ep.total}</b><span>Total ends (${ep.perRink} × ${ep.rinks} rinks)</span></div><div class="kpi"><b>${ep.played}</b><span>Ends played</span></div><div class="kpi"><b>${ep.remaining}</b><span>Ends remaining</span></div><div class="kpi"><b>${ep.total?Math.round(ep.played/ep.total*100):0}%</b><span>Match progress</span></div></div></div>
   <div class="card"><h3>Live Rink Scores</h3>${rows.map(r=>{let cs=currentScore(r);let score=completed(r)?`${r.scoreA} – ${r.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'—';let status=completed(r)?'Final':cs.live?(cs.ends?`Live • after ${cs.ends} ends`:'Live'):'Waiting';return `<div style="display:grid;grid-template-columns:70px minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center"><b>Rink ${r.rink}</b><span>${esc(x.aggregateSideA||'Side A')}${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:''}</span><span style="text-align:center"><b style="font-size:18px">${score}</b><div class="meta">${status}</div></span><span style="text-align:right">${esc(x.aggregateSideB||'Side B')}${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:''}</span></div>`}).join('')}</div>
   <div class="card"><h3>TV / Display Mode</h3><p class="muted">Open a separate public display for a TV, projector or cast screen.</p><button class="btn primary" id="openTv">Open TV Display</button></div>`;
-  let tv=document.getElementById('openTv');if(tv)tv.onclick=()=>window.open(location.pathname+'?tv=1','bowls-tv');return
+  let tv=document.getElementById('openTv');if(tv)tv.onclick=()=>{let q=new URLSearchParams({tv:'1'});if(remoteTournamentCode)q.set('code',remoteTournamentCode);if(remoteTournamentId)q.set('tid',remoteTournamentId);q.set('comp',comp().id||'');window.open(location.pathname+'?'+q.toString(),'_blank')};return
  }
  if((c.settings.tournamentType||'standard')==='knockout'){
   let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,knockoutInterval(c),c.settings.start),
@@ -928,7 +928,7 @@ function renderDashboard(s){
  <div class="card"><h3>🔴 Live Scores</h3>${liveGames.length?liveGames.map(f=>{let cs=currentScore(f);return `<div style="padding:12px 0;border-bottom:1px solid var(--line)"><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center"><div><b>${esc(fixtureTeamName(f,'a',c))}</b><div class="meta">${esc(fixtureVenue(f,c))} • Group ${esc(f.group||'')} • Rink ${fixtureLocalRink(f,c)}</div></div><span style="font-size:24px;font-weight:900">${cs.a} – ${cs.b}</span><div style="text-align:right"><b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">${cs.ends?`after ${cs.ends} ends • `:''}<b>LIVE</b></div></div></div></div>`}).join(''):'<p class="muted">No games are currently showing a live score.</p>'}</div>
  <div class="card"><h3>Group Leaders</h3>${leaders.length?leaders.map(x=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)">${esc(x)}</div>`).join(''):'<p class="muted">Standings will appear once the draw is generated.</p>'}</div>
  <div class="card"><h3>TV / Display Mode</h3><p class="muted">Open a separate public display for a TV, projector or cast screen. Admin and scoring screens stay private.</p><button class="btn primary" id="openTv">Open TV Display</button></div>`;
- let tv=document.getElementById('openTv');if(tv)tv.onclick=()=>window.open(location.pathname+'?tv=1','bowls-tv')
+ let tv=document.getElementById('openTv');if(tv)tv.onclick=()=>{let q=new URLSearchParams({tv:'1'});if(remoteTournamentCode)q.set('code',remoteTournamentCode);if(remoteTournamentId)q.set('tid',remoteTournamentId);q.set('comp',comp().id||'');window.open(location.pathname+'?'+q.toString(),'_blank')}
 }
 
 function pickFullestSession(pending,rinks,prevTeams=new Set()){
@@ -1677,14 +1677,21 @@ function renderTv(){
  document.getElementById('tvFull').onclick=()=>document.documentElement.requestFullscreen?.()
 }
 function startTv(){
+ const tvParams=new URLSearchParams(location.search),boundCode=(tvParams.get('code')||'').trim().toUpperCase(),boundComp=tvParams.get('comp')||'';
+ // A TV opened for an online tournament is locked to that tournament code.
+ // This prevents an older tab/localStorage selection (for example a previous NCBA event) replacing the display.
+ if(boundComp&&db?.competitions?.length){let hit=db.competitions.find(x=>x.id===boundComp);if(hit)db.active=hit.id}
  renderTv();
  tvTimer=setInterval(async()=>{
-  if(remoteTournamentCode&&cloud)await refreshRemoteTournament();
-  else {try{db=loadDB()}catch(e){}}
+  if(boundCode&&cloud){
+   if(remoteTournamentCode!==boundCode)await openTournamentByCode(boundCode);
+   else await refreshRemoteTournament();
+  }else if(remoteTournamentCode&&cloud)await refreshRemoteTournament();
+  else {try{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp}catch(e){}}
   if(!tvPaused){let pages=tvPagesFor(comp());tvPage=(tvPage+1)%pages.length}
   renderTv()
  },20000);
- window.addEventListener('storage',()=>{db=loadDB();renderTv()})
+ if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
 let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial)});}
 </script>
