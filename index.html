@@ -131,7 +131,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.19';
+const APP_VERSION='2026.09.04.20';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -856,20 +856,35 @@ function renderTeams(s){
  let c=comp(),x=c.settings;
  if(isAggregate(c)){
   let rows=ensureAggregate(c);
-  s.innerHTML=`<div class="card"><h2>Team Match Rink Line-up</h2>
-   <p class="muted">Set the skips for every rink before scoring starts. These names are saved with the tournament and automatically appear on the scorer and display screens.</p>
-   <div class="oknotice" style="margin-bottom:12px"><b>${esc(x.aggregateSideA||'Side A')}</b> v <b>${esc(x.aggregateSideB||'Side B')}</b> • ${rows.length} rinks • ${x.ends||21} ends</div>
+  s.innerHTML=`<div class="card"><h2>Team Match Teams & Rink Line-up</h2>
+   <p class="muted">Set the team/district names and the skips for every rink before scoring starts. These details are saved with the tournament and appear automatically on the scorer and display screens.</p>
+   <div class="formgrid" style="margin-bottom:14px">
+    <div class="field"><label>Team / District A</label><input id="aggregateSideAEdit" value="${esc(x.aggregateSideA||'')}" placeholder="e.g. Alness"></div>
+    <div class="field"><label>Team / District B</label><input id="aggregateSideBEdit" value="${esc(x.aggregateSideB||'')}" placeholder="e.g. Dingwall"></div>
+   </div>
+   <div class="oknotice" style="margin-bottom:12px"><span id="aggregateMatchLabel"><b>${esc(x.aggregateSideA||'Side A')}</b> v <b>${esc(x.aggregateSideB||'Side B')}</b></span> • ${rows.length} rinks • ${x.ends||21} ends</div>
    <div id="aggregateLineupList">${rows.map(r=>`<div class="teamcard">
     <div style="font-size:22px;font-weight:900;margin-bottom:10px">Rink ${r.rink}</div>
     <div class="formgrid">
-     <div class="field"><label>${esc(x.aggregateSideA||'Side A')} skip</label><input data-lineup-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Enter skip name"></div>
-     <div class="field"><label>${esc(x.aggregateSideB||'Side B')} skip</label><input data-lineup-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Enter skip name"></div>
+     <div class="field"><label data-side-a-label="${r.rink}">${esc(x.aggregateSideA||'Side A')} skip</label><input data-lineup-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Enter skip name"></div>
+     <div class="field"><label data-side-b-label="${r.rink}">${esc(x.aggregateSideB||'Side B')} skip</label><input data-lineup-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Enter skip name"></div>
     </div>
    </div>`).join('')}</div>
-   <button class="btn primary" id="saveAggregateLineup" style="width:100%">Save Rink Line-up</button>
-   <div id="lineupSaveMessage" class="oknotice hidden" style="margin-top:12px">Rink line-up saved online.</div>
+   <button class="btn primary" id="saveAggregateLineup" style="width:100%">Save Teams & Rink Line-up</button>
+   <div id="lineupSaveMessage" class="oknotice hidden" style="margin-top:12px">Teams and rink line-up saved online.</div>
   </div>`;
+  const refreshAggregateLabels=()=>{
+   let a=document.getElementById('aggregateSideAEdit')?.value.trim()||'Side A';
+   let b=document.getElementById('aggregateSideBEdit')?.value.trim()||'Side B';
+   let lab=document.getElementById('aggregateMatchLabel');if(lab)lab.innerHTML=`<b>${esc(a)}</b> v <b>${esc(b)}</b>`;
+   document.querySelectorAll('[data-side-a-label]').forEach(el=>el.textContent=a+' skip');
+   document.querySelectorAll('[data-side-b-label]').forEach(el=>el.textContent=b+' skip');
+  };
+  document.getElementById('aggregateSideAEdit').addEventListener('input',refreshAggregateLabels);
+  document.getElementById('aggregateSideBEdit').addEventListener('input',refreshAggregateLabels);
   document.getElementById('saveAggregateLineup').onclick=async()=>{
+   x.aggregateSideA=document.getElementById('aggregateSideAEdit')?.value.trim()||'Side A';
+   x.aggregateSideB=document.getElementById('aggregateSideBEdit')?.value.trim()||'Side B';
    rows.forEach(r=>{
     let a=document.querySelector(`[data-lineup-a="${r.rink}"]`),b=document.querySelector(`[data-lineup-b="${r.rink}"]`);
     r.skipA=a?.value.trim()||'';r.skipB=b?.value.trim()||''
