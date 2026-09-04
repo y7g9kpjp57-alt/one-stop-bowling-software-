@@ -69,6 +69,23 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 }
 
 .tv-mode{background:#020617;color:#f8fafc;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.tv-wrap{min-height:100vh;padding:32px 42px}.tv-head{display:flex;justify-content:space-between;align-items:end;border-bottom:3px solid #38bdf8;padding-bottom:16px;margin-bottom:24px}.tv-head h1{font-size:42px;margin:0}.tv-head .sub{font-size:20px;color:#bae6fd}.tv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.tv-card{background:#0f172a;border:1px solid #334155;border-radius:18px;padding:22px}.tv-card h2{font-size:30px;margin:0 0 14px}.tv-table{width:100%;border-collapse:collapse;min-width:0;background:transparent}.tv-table th,.tv-table td{border-bottom:1px solid #334155;padding:11px 10px;font-size:22px;color:#f8fafc}.tv-table th{background:#1e293b;font-size:16px;color:#bae6fd}.tv-score{font-size:34px;font-weight:900}.tv-muted{color:#94a3b8}.tv-footer{position:fixed;left:42px;right:42px;bottom:18px;display:flex;justify-content:space-between;color:#94a3b8;font-size:15px}.tv-big-list{display:grid;gap:12px}.tv-match{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:16px;padding:18px 20px;font-size:28px}.tv-match .right{text-align:right}.tv-match .score{font-size:36px;font-weight:900;color:#7dd3fc}.tv-empty{text-align:center;font-size:30px;color:#94a3b8;padding:70px 20px}.tv-controls{display:flex;gap:10px;align-items:center}.tv-controls button{border:1px solid #475569;background:#0f172a;color:#fff;padding:9px 13px;border-radius:10px;font-size:14px}@media(max-width:900px){.tv-wrap{padding:22px}.tv-head h1{font-size:30px}.tv-grid{grid-template-columns:1fr}.tv-table th,.tv-table td{font-size:18px}.tv-match{font-size:22px}.tv-footer{left:22px;right:22px}}
+
+.draw-share-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+@media print{
+ body.printing-draw header,
+ body.printing-draw .toolbar,
+ body.printing-draw .tabs,
+ body.printing-draw .bottom,
+ body.printing-draw #syncNotice,
+ body.printing-draw .draw-share-actions{display:none!important}
+ body.printing-draw .wrap{max-width:none;padding:0}
+ body.printing-draw #screen{display:block!important}
+ body.printing-draw #screen .card{box-shadow:none}
+ body.printing-draw .bracket{overflow:visible!important}
+ body.printing-draw .groupgrid{grid-template-columns:repeat(2,1fr)!important}
+ @page{size:A4 landscape;margin:10mm}
+}
+
 </style>
 </head>
 <body>
@@ -89,11 +106,12 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 <nav class="bottom" id="bottomNav"></nav>
 <div class="modal hidden" id="authModal"><div class="modalbox"><h3 id="authTitle">Sign in</h3><p class="muted" id="authText">Admin and scorers use their own account.</p><input id="authName" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" placeholder="Your name (new accounts)"><input id="authEmail" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="email" autocomplete="email" placeholder="Email address"><input id="authPassword" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="password" autocomplete="current-password" placeholder="Password"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" style="flex:1" id="authCancel">Cancel</button><button class="btn secondary" style="flex:1" id="authSignup">Create account</button><button class="btn primary" style="flex:1" id="authSignin">Sign in</button></div><p id="authError" style="color:#b91c1c"></p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.4';
+const APP_VERSION='2026.09.04.5';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',authRequestedRole=null;
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -211,10 +229,44 @@ async function initCloudSync(){
 
 function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competitions.find(c=>c.id===db.active)||db.competitions[0]}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+function appendDrawActions(){
+ if(tab!=='draw'||role==='public')return;
+ let s=document.getElementById('screen');if(!s||document.getElementById('drawShareActions'))return;
+ let a=document.createElement('div');a.id='drawShareActions';a.className='draw-share-actions noPrint';
+ a.innerHTML='<button class="btn primary" id="printDrawBtn">Print Draw</button><button class="btn secondary" id="shareDrawBtn">Share / Download Draw</button>';
+ s.prepend(a);
+ document.getElementById('printDrawBtn').onclick=printCurrentDraw;
+ document.getElementById('shareDrawBtn').onclick=shareCurrentDraw;
+}
+function printCurrentDraw(){
+ document.body.classList.add('printing-draw');
+ setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('printing-draw'),300)},50);
+}
+async function shareCurrentDraw(){
+ let s=document.getElementById('screen');if(!s)return;
+ let actions=document.getElementById('drawShareActions');if(actions)actions.style.display='none';
+ try{
+   if(typeof html2canvas!=='function'){alert('Image export is unavailable right now. Please use Print Draw.');return}
+   let canvas=await html2canvas(s,{backgroundColor:'#ffffff',scale:2,useCORS:true,logging:false,windowWidth:Math.max(document.documentElement.scrollWidth,1100)});
+   let blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));
+   if(!blob)throw new Error('Image creation failed');
+   let title=((comp().title||'').trim()||'Bowls Competition')+' Draw';
+   let name=(title.replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'')||'bowls-draw')+'.png';
+   let file=new File([blob],name,{type:'image/png'});
+   if(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]})){
+     await navigator.share({title,text:'Tournament draw',files:[file]});
+   }else{
+     let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+   }
+ }catch(e){
+   if(e?.name!=='AbortError'){console.error(e);alert('Could not create the draw image. Please use Print Draw instead.')}
+ }finally{if(actions)actions.style.display='flex'}
+}
 function tabsFor(){if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];if(role==='scorer')return [['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤']];return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]}
 function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${x[1]}</button>`).join('');document.getElementById('bottomNav').innerHTML=tabs.slice(0,5).map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()})}
 function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc((c.title||'').trim()||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
-function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();if(c.archivedAt&&role!=='public'&&['builder','teams','draw','schedule','quick','knockout'].includes(tab)){s.innerHTML=`<div class="oknotice notice"><b>Archived competition.</b> Completed ${new Date(c.archivedAt).toLocaleString()} and locked against further changes.</div><div class="card"><h2>${esc((c.title||'').trim()||'Untitled competition')}</h2><p>You can still view Dashboard, Fixtures, Tables, Scorecards and the Admin archive tools.</p></div>`;return}({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s)}
+function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();if(c.archivedAt&&role!=='public'&&['builder','teams','draw','schedule','quick','knockout'].includes(tab)){s.innerHTML=`<div class="oknotice notice"><b>Archived competition.</b> Completed ${new Date(c.archivedAt).toLocaleString()} and locked against further changes.</div><div class="card"><h2>${esc((c.title||'').trim()||'Untitled competition')}</h2><p>You can still view Dashboard, Fixtures, Tables, Scorecards and the Admin archive tools.</p></div>`;return}({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions()}
 function completed(f){return Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!==''}
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
 function ensureAggregate(c=comp()){let x=c.settings,n=Math.max(1,+x.aggregateRinks||6);c.aggregateScores=c.aggregateScores||[];while(c.aggregateScores.length<n)c.aggregateScores.push({rink:c.aggregateScores.length+1,scoreA:'',scoreB:'',skipA:'',skipB:''});c.aggregateScores=c.aggregateScores.slice(0,n);c.aggregateScores.forEach((r,i)=>{r.rink=i+1;r.skipA=r.skipA||'';r.skipB=r.skipB||''});return c.aggregateScores}
