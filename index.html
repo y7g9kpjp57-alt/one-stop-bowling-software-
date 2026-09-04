@@ -43,6 +43,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:10;backgroun
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
+const APP_VERSION='2026.09.04.1';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',authRequestedRole=null;
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -54,10 +55,43 @@ let db=loadDB();let role='public', tab='dashboard';
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
 function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&!cloudApplying&&canWriteCloud())pushCloudState();}
+function isArchived(c=comp()){return !!c.archivedAt}
+function safeFileName(v){return String(v||'competition').trim().replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'')||'competition'}
+function downloadBlobFile(content,type,name){let blob=new Blob([content],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+function downloadCompetitionBackup(c=comp()){
+ let pack={competitions:[JSON.parse(JSON.stringify(c))],active:c.id,archiveExport:{app:'One Stop Bowling Software',exportedAt:new Date().toISOString()}};
+ downloadBlobFile(JSON.stringify(pack,null,2),'application/json',safeFileName(c.title||'competition')+'-archive-backup.json');
+}
+function competitionSummaryHTML(c=comp()){
+ let title=esc((c.title||'').trim()||'Untitled competition'),type=c.settings?.tournamentType||'standard',body='';
+ if(type==='aggregate'){
+  let t=aggregateTotals(c),rows=ensureAggregate(c);
+  body=`<h2>${esc(c.settings.aggregateSideA||'Side A')} ${t.a} – ${t.b} ${esc(c.settings.aggregateSideB||'Side B')}</h2><table><tr><th>Rink</th><th>Side A / Skip</th><th>Score</th><th>Side B / Skip</th></tr>${rows.map(r=>{let s=currentScore(r);return `<tr><td>${r.rink}</td><td>${esc(r.skipA||'')}</td><td>${s.a} – ${s.b}</td><td>${esc(r.skipB||'')}</td></tr>`}).join('')}</table>`;
+ }else if(type==='knockout'){
+  body=(c.knockout||[]).map(round=>`<h2>${esc(round[0]?.roundName||'Knockout')}</h2><table><tr><th>Team A</th><th>Score</th><th>Team B</th></tr>${round.map(m=>`<tr><td>${esc(knockoutRefName(m.a,c))}</td><td>${completed(m)?`${m.scoreA} – ${m.scoreB}`:'—'}</td><td>${esc(knockoutRefName(m.b,c))}</td></tr>`).join('')}</table>`).join('');
+ }else{
+  let st=standings(c);
+  body=Object.keys(st).sort().map(g=>`<h2>Group ${esc(g)}</h2><table><tr><th>Pos</th><th>Team</th><th>P</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr>${st[g].map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.name)}</td><td>${r.p}</td><td>${r.sf}</td><td>${r.sa}</td><td>${r.sd}</td><td>${r.pts}</td></tr>`).join('')}</table>`).join('');
+  body+=`<h2>Results</h2><table><tr><th>Game</th><th>Team A</th><th>Score</th><th>Team B</th></tr>${(c.fixtures||[]).map(f=>`<tr><td>${f.game||''}</td><td>${esc(fixtureTeamName(f,'a',c))}</td><td>${completed(f)?`${f.scoreA} – ${f.scoreB}`:'—'}</td><td>${esc(fixtureTeamName(f,'b',c))}</td></tr>`).join('')}</table>`;
+ }
+ return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:28px;color:#111}h1{margin-bottom:4px}.muted{color:#666}table{width:100%;border-collapse:collapse;margin:10px 0 24px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#eee}@media print{@page{size:A4;margin:12mm}}</style></head><body><h1>${title}</h1><p class="muted">Archived ${c.archivedAt?new Date(c.archivedAt).toLocaleString():''} • One Stop Bowling Software</p>${body}</body></html>`;
+}
+function downloadResultsSummary(c=comp()){downloadBlobFile(competitionSummaryHTML(c),'text/html',safeFileName(c.title||'competition')+'-results-summary.html')}
+async function completeAndArchive(){
+ let c=comp();if(isArchived(c)){alert('This competition is already archived.');return}
+ if(!confirm('Complete and archive this competition? It will be locked against further scoring changes.'))return;
+ c.archivedAt=new Date().toISOString();c.status='archived';saveDB();
+ await auditEvent('competition_archived',(c.title||'Untitled competition'),null,{archivedAt:c.archivedAt});
+ downloadCompetitionBackup(c);
+ if(confirm('Competition archived and a full backup has been downloaded. Start a new competition now?')){
+  let n=defaultComp();n.title='';db.competitions.push(n);db.active=n.id;saveDB();tab='builder';render()
+ }else render()
+}
+
 async function pushCloudState(){
  try{
   let {error}=await cloud.from('bowls_live_state').upsert({id:LIVE_STATE_ID,state:db,updated_at:new Date().toISOString()},{onConflict:'id'});
-  if(error)throw error;setSyncNotice('Live sync connected • changes shared with all devices',true);
+  if(error)throw error;setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true);
  }catch(e){console.error('Cloud save failed',e);setSyncNotice('Live sync temporarily unavailable • changes are still saved on this device',false)}
 }
 function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!el)return;el.textContent=msg;el.classList.toggle('oknotice',!!ok)}
@@ -115,13 +149,13 @@ async function initCloudSync(){
   if(error)throw error;
   if(data?.state?.competitions?.length){cloudApplying=true;db=data.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render()}
   else {cloudReady=true;await pushCloudState()}
-  cloudReady=true;setSyncNotice('Live sync connected • changes shared with all devices',true);
+  cloudReady=true;setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true);
   cloudChannel=cloud.channel('bowls-live-demo').on('postgres_changes',{event:'UPDATE',schema:'public',table:'bowls_live_state',filter:`id=eq.${LIVE_STATE_ID}`},payload=>{
    let next=payload.new?.state;if(!next?.competitions?.length)return;
    // Ignore our own echoed update so the scoring form does not jump/re-render while typing.
-   if(JSON.stringify(next)===JSON.stringify(db)){setSyncNotice('Live sync connected • changes shared with all devices',true);return}
+   if(JSON.stringify(next)===JSON.stringify(db)){setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true);return}
    cloudApplying=true;db=next;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render();setSyncNotice('Live sync connected • latest changes received',true);
-  }).subscribe(status=>{if(status==='SUBSCRIBED')setSyncNotice('Live sync connected • changes shared with all devices',true)});
+  }).subscribe(status=>{if(status==='SUBSCRIBED')setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true)});
  }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • live sync could not connect, but this device will keep saving locally',false)}
 }
 
@@ -129,8 +163,8 @@ function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competit
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function tabsFor(){if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];if(role==='scorer')return [['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤']];return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]}
 function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${x[1]}</button>`).join('');document.getElementById('bottomNav').innerHTML=tabs.slice(0,5).map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()})}
-function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc(c.title)}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
-function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));document.getElementById('subtitle').textContent=comp().title+' • '+role[0].toUpperCase()+role.slice(1);let s=document.getElementById('screen');({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s)}
+function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc((c.title||'').trim()||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
+function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();if(c.archivedAt&&role!=='public'&&['builder','teams','draw','schedule','quick','knockout'].includes(tab)){s.innerHTML=`<div class="oknotice notice"><b>Archived competition.</b> Completed ${new Date(c.archivedAt).toLocaleString()} and locked against further changes.</div><div class="card"><h2>${esc((c.title||'').trim()||'Untitled competition')}</h2><p>You can still view Dashboard, Fixtures, Tables, Scorecards and the Admin archive tools.</p></div>`;return}({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s)}
 function completed(f){return Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!==''}
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
 function ensureAggregate(c=comp()){let x=c.settings,n=Math.max(1,+x.aggregateRinks||6);c.aggregateScores=c.aggregateScores||[];while(c.aggregateScores.length<n)c.aggregateScores.push({rink:c.aggregateScores.length+1,scoreA:'',scoreB:'',skipA:'',skipB:''});c.aggregateScores=c.aggregateScores.slice(0,n);c.aggregateScores.forEach((r,i)=>{r.rink=i+1;r.skipA=r.skipA||'';r.skipB=r.skipB||''});return c.aggregateScores}
@@ -156,7 +190,7 @@ function renderBuilder(s){
  <div class="formgrid">
   <div class="field"><label>Competition name</label><input id="bTitle" value="${esc(c.title)}"></div>
   <div class="field"><label>Club / organiser</label><input id="bClub" value="${esc(x.clubName||'')}"></div>
-  <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly)?'selected':''}>Standard group + knockout</option><option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
+  <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly)?'selected':''}>Round Robin + Knockout</option><option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
   <div class="field"><label>Scoring mode</label><select id="bScoring"><option value="final" ${x.scoringMode==='final'?'selected':''}>Final Score Only</option><option value="live_optional" ${x.scoringMode==='live_optional'?'selected':''}>Live End-by-End + Final Score</option></select></div>
   <div class="field"><label>Game format</label><select id="bGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select></div>
   <div class="field"><label>Ends</label><input id="bEnds" type="number" min="1" max="40" value="${x.ends||12}"></div>
@@ -166,21 +200,21 @@ function renderBuilder(s){
   <div class="field"><label>Side B</label><input id="bSideB" value="${esc(x.aggregateSideB||'District B')}"></div>
   <div class="field"><label>Number of rinks</label><input id="bAggRinks" type="number" min="1" max="30" value="${x.aggregateRinks||6}"></div>
  </div></div>
- <div id="stdSetup" class="${agg?'hidden':''}" style="margin-top:12px"><div class="formgrid">
+ <div id="stdSetup" class="${agg?'hidden':''}" style="margin-top:12px"><div id="koOnlyNote" class="${koOnly?'oknotice notice':'hidden'}"><b>Knockout Only:</b> enter teams, available rinks, start time and knockout game length. The app will calculate preliminary games, byes and the full bracket automatically.</div><div class="formgrid">
   <div class="field"><label>Teams / entries</label><input id="bTeams" type="number" min="2" max="200" value="${x.teamCount||16}"></div>
-  <div class="field"><label>Preferred group size</label><input id="bGroup" type="number" min="3" max="12" value="${x.groupSize||4}"></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Preferred group size</label><input id="bGroup" type="number" min="3" max="12" value="${x.groupSize||4}"></div>
   <div class="field"><label>Available rinks</label><input id="bRinks" type="number" min="1" max="30" value="${x.rinks||4}"></div>
   <div class="field"><label>Start time</label><input id="bStart" type="time" value="${x.start||'09:00'}"></div>
-  <div class="field"><label>Minutes per game</label><input id="bMinutes" type="number" min="10" max="240" value="${x.minutes||80}"></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Minutes per game</label><input id="bMinutes" type="number" min="10" max="240" value="${x.minutes||80}"></div>
   <div class="field"><label>Knockout minutes</label><input id="bKoMinutes" type="number" min="10" max="240" value="${x.knockoutMinutes||80}"></div>
-  <div class="field"><label>Draw method</label><select id="bDraw"><option value="auto" ${x.drawMethod!=='manual'?'selected':''}>Automatic</option><option value="manual" ${x.drawMethod==='manual'?'selected':''}>Manual live draw</option></select></div>
-  <div class="field"><label>Qualification</label><select id="bQualify"><option value="winners" ${x.qualify==='winners'?'selected':''}>Group winners only</option><option value="top2" ${x.qualify==='top2'?'selected':''}>Top 2 from each group</option><option value="winner_best_runner" ${x.qualify==='winner_best_runner'?'selected':''}>Winners + best runners-up</option></select></div>
-  <div class="field"><label>Best runners-up</label><input id="bBestRunners" type="number" min="0" max="32" value="${x.bestRunners||0}"></div>
-  <div class="field"><label>Tournament days</label><select id="bEvent"><option value="same_day" ${x.eventFormat!=='two_day'?'selected':''}>Groups & knockouts same day</option><option value="two_day" ${x.eventFormat==='two_day'?'selected':''}>Groups Day 1 / Knockouts Day 2</option></select></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Draw method</label><select id="bDraw"><option value="auto" ${x.drawMethod!=='manual'?'selected':''}>Automatic</option><option value="manual" ${x.drawMethod==='manual'?'selected':''}>Manual live draw</option></select></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Qualification</label><select id="bQualify"><option value="winners" ${x.qualify==='winners'?'selected':''}>Group winners only</option><option value="top2" ${x.qualify==='top2'?'selected':''}>Top 2 from each group</option><option value="winner_best_runner" ${x.qualify==='winner_best_runner'?'selected':''}>Winners + best runners-up</option></select></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Best runners-up</label><input id="bBestRunners" type="number" min="0" max="32" value="${x.bestRunners||0}"></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Tournament days</label><select id="bEvent"><option value="same_day" ${x.eventFormat!=='two_day'?'selected':''}>Groups & knockouts same day</option><option value="two_day" ${x.eventFormat==='two_day'?'selected':''}>Groups Day 1 / Knockouts Day 2</option></select></div>
   <div class="field"><label>Target final finish</label><input id="bTarget" type="time" value="${x.targetFinish||'21:00'}"></div>
-  <div class="field"><label>Planner priority</label><select id="bOptimise"><option value="balanced" ${x.optimise==='balanced'?'selected':''}>Balanced</option><option value="shortest" ${x.optimise==='shortest'?'selected':''}>Shortest Day</option><option value="games" ${x.optimise==='games'?'selected':''}>Most Games</option></select></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Planner priority</label><select id="bOptimise"><option value="balanced" ${x.optimise==='balanced'?'selected':''}>Balanced</option><option value="shortest" ${x.optimise==='shortest'?'selected':''}>Shortest Day</option><option value="games" ${x.optimise==='games'?'selected':''}>Most Games</option></select></div>
  </div>
- <div id="twoDaySetup" class="${x.eventFormat==='two_day'?'':'hidden'}" style="margin-top:10px"><div class="formgrid">
+ <div id="twoDaySetup" class="${(!koOnly&&x.eventFormat==='two_day')?'':'hidden'}" style="margin-top:10px"><div class="formgrid">
    <div class="field"><label>Day 1 target finish</label><input id="bDay1Target" type="time" value="${x.day1TargetFinish}"></div>
    <div class="field"><label>Day 2 knockout start</label><input id="bDay2Start" type="time" value="${x.day2Start}"></div>
  </div></div>
@@ -193,8 +227,8 @@ function renderBuilder(s){
  <div class="notice" style="margin-top:12px"><b>Connection-friendly:</b> even when live scoring is enabled, no end-by-end entry is mandatory. Final scores can always be entered directly.</div>
  <button class="btn primary" id="saveBuilder">Save Setup</button></div>`;
  let type=document.getElementById('bType'),eventSel=document.getElementById('bEvent');
- type.onchange=()=>{document.getElementById('aggSetup').classList.toggle('hidden',type.value!=='aggregate');document.getElementById('stdSetup').classList.toggle('hidden',type.value==='aggregate');updatePlanner()};
- eventSel.onchange=()=>{document.getElementById('twoDaySetup').classList.toggle('hidden',eventSel.value!=='two_day');updatePlanner()};
+ type.onchange=()=>{let isAgg=type.value==='aggregate',isKo=type.value==='knockout';document.getElementById('aggSetup').classList.toggle('hidden',!isAgg);document.getElementById('stdSetup').classList.toggle('hidden',isAgg);let note=document.getElementById('koOnlyNote');if(note)note.classList.toggle('hidden',!isKo);document.querySelectorAll('.groupOnly').forEach(el=>el.classList.toggle('hidden',isKo));let td=document.getElementById('twoDaySetup');if(td)td.classList.toggle('hidden',isKo||eventSel.value!=='two_day');updatePlanner()};
+ eventSel.onchange=()=>{document.getElementById('twoDaySetup').classList.toggle('hidden',type.value==='knockout'||eventSel.value!=='two_day');updatePlanner()};
  const plannerValues=()=>({
   n:Math.max(2,+document.getElementById('bTeams').value||16),r:Math.max(1,+document.getElementById('bRinks').value||4),m:Math.max(10,+document.getElementById('bMinutes').value||80),km:Math.max(10,+document.getElementById('bKoMinutes').value||80),start:document.getElementById('bStart').value||'09:00',target:document.getElementById('bTarget').value||'21:00',qualify:document.getElementById('bQualify').value,best:Math.max(0,+document.getElementById('bBestRunners').value||0),mode:document.getElementById('bOptimise').value,event:eventSel.value,day1:document.getElementById('bDay1Target').value||'21:00',day2:document.getElementById('bDay2Start').value||'09:00'
  });
@@ -212,7 +246,7 @@ function renderBuilder(s){
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
  document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;updatePlanner()};
  document.getElementById('saveBuilder').onclick=()=>{
-  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim()||c.title;x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode=document.getElementById('bScoring').value;x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
+  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode=document.getElementById('bScoring').value;x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
   if(type.value==='aggregate'){x.aggregateSideA=document.getElementById('bSideA').value.trim()||'Side A';x.aggregateSideB=document.getElementById('bSideB').value.trim()||'Side B';x.aggregateRinks=Math.max(1,+document.getElementById('bAggRinks').value||6);ensureAggregate(c)}
   else {let v=plannerValues(),oldCount=c.teams.length,oldGroup=+x.groupSize||4,oldDraw=x.drawMethod;x.teamCount=v.n;x.groupSize=Math.max(3,+document.getElementById('bGroup').value||4);x.rinks=v.r;x.start=v.start;x.minutes=v.m;x.knockoutMinutes=v.km;x.drawMethod=document.getElementById('bDraw').value;x.eventFormat=v.event;x.targetFinish=v.target;x.optimise=v.mode;x.qualify=v.qualify;x.bestRunners=v.best;x.day1TargetFinish=v.day1;x.day2Start=v.day2;
    if(oldCount<x.teamCount){for(let i=oldCount;i<x.teamCount;i++)c.teams.push({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})}else if(oldCount>x.teamCount)c.teams=c.teams.slice(0,x.teamCount);
@@ -493,7 +527,16 @@ function buildKnockoutFirstRound(q){
 }
 function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('Not enough qualifiers yet.');return}let matches=buildKnockoutFirstRound(q);c.knockout=[matches];saveDB();render()}
 function renderKnockout(s){let c=comp();if((c.settings.tournamentType||'standard')==='knockout'){let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,c.settings.knockoutMinutes||c.settings.minutes,c.settings.start);s.innerHTML=`<div class="card"><h2>Knockout Format</h2><div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Prelim games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Est. final</span></div></div>${!c.knockout?.length&&role==='admin'?'<button class="btn primary" id="genKoOnly2" style="margin-top:12px">Generate Knockout Draw</button>':''}</div>${c.knockout?.length?`<div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${esc(round[0]?.roundName||('Round '+(ri+1)))}</h3>${round.map(m=>`<div class="match"><div>${esc(knockoutRefName(m.a,c))}</div><div>${esc(knockoutRefName(m.b,c))}</div></div>`).join('')}</div>`).join('')}</div>`:''}`;let b=document.getElementById('genKoOnly2');if(b)b.onclick=()=>{generateKnockoutOnlyDraw();render()};return}let q=qualifiers(),first=c.knockout[0]||[],rematches=first.filter(m=>m.a&&m.b&&m.sameGroupRematch).length;s.innerHTML=`<div class="card"><h2>Knockout</h2><p class="muted">Qualifiers are ranked by points, shot difference and shots for. The first knockout round keeps group winners apart from qualifiers from the same group wherever possible.</p><div>${q.map((x,i)=>`<span class="pill wait" style="margin:3px">${i+1}. ${esc(x.name)} <span class="qual">(${x.group}${x.pos})</span></span>`).join('')||'No qualifiers yet.'}</div>${role==='admin'?`<button class="btn primary" id="genKO" style="margin-top:12px">Generate Knockout</button>`:''}${c.knockout.length?`<div class="${rematches?'notice':'oknotice notice'}" style="margin-top:12px"><b>First-round group protection:</b> ${rematches?`${rematches} same-group rematch${rematches===1?'':'es'} could not be avoided with this qualifier combination.`:'No same-group rematches in the first knockout round.'}</div>`:''}</div>${c.knockout.length?`<div class="card"><div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${ri===c.knockout.length-1&&round.length===1?'Final':ri===0?'First Round':'Round '+(ri+1)}</h3>${round.map((m,mi)=>`<div class="match"><div>${esc(m.a?teamName(m.a):'BYE')}</div><div>${esc(m.b?teamName(m.b):'BYE')}</div>${ri===0&&m.sameGroupRematch?'<div class="qual" style="color:#b45309;font-weight:700">⚠ Same-group rematch unavoidable</div>':''}</div>`).join('')}</div>`).join('')}</div></div>`:''}`;if(role==='admin'&&document.getElementById('genKO'))document.getElementById('genKO').onclick=generateKnockout}
-function renderAdmin(s){let c=comp();if(!['owner','admin'].includes(currentAppRole)){s.innerHTML='<div class="card"><h2>Admin</h2><p>This account does not have Admin permission.</p></div>';return}s.innerHTML=`<div class="card"><h2>Accounts & Permissions</h2><p class="muted">Each scorer uses their own account. New accounts remain Pending until approved.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div><div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button><button class="btn danger" id="resetComp">Reset Current Competition</button><button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;document.getElementById('newComp').onclick=()=>{let n=defaultComp();n.title='New Competition';db.competitions.push(n);db.active=n.id;saveDB();tab='builder';render()};document.getElementById('resetComp').onclick=()=>{if(confirm('Reset this competition? Scores, draw and fixtures will be cleared.')){c.fixtures=[];c.knockout=[];c.teams.forEach((t,i)=>{t.group='';t.name='Team '+(i+1);t.players={}});saveDB();render()}};document.getElementById('signOutAdmin').onclick=signOutAccount;loadAdminExtras()}
+function renderAdmin(s){let c=comp();if(!['owner','admin'].includes(currentAppRole)){s.innerHTML='<div class="card"><h2>Admin</h2><p>This account does not have Admin permission.</p></div>';return}
+ let archiveCard=c.archivedAt?`<div class="card"><h2>Archived Competition</h2><div class="oknotice notice"><b>Completed:</b> ${new Date(c.archivedAt).toLocaleString()}</div><p class="muted">This event is locked against further scoring changes. It remains available from the competition list.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="downloadArchive">Download Full Backup</button><button class="btn secondary" id="downloadSummary">Download Results Summary</button><button class="btn success" id="newAfterArchive">Start New Competition</button></div></div>`:`<div class="card"><h2>Finish Competition</h2><p class="muted">When the event is finished, archive it before starting the next one. A full restore backup will download to your device and the competition will stay listed as Archived.</p><button class="btn success" id="completeArchive">Complete & Archive Competition</button></div>`;
+ s.innerHTML=`${archiveCard}<div class="card"><h2>Accounts & Permissions</h2><p class="muted">Each scorer uses their own account. New accounts remain Pending until approved.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div><div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
+ let ca=document.getElementById('completeArchive');if(ca)ca.onclick=completeAndArchive;
+ let da=document.getElementById('downloadArchive');if(da)da.onclick=()=>downloadCompetitionBackup(c);
+ let ds=document.getElementById('downloadSummary');if(ds)ds.onclick=()=>downloadResultsSummary(c);
+ let na=document.getElementById('newAfterArchive');if(na)na.onclick=()=>{let n=defaultComp();n.title='';db.competitions.push(n);db.active=n.id;saveDB();tab='builder';render()};
+ document.getElementById('newComp').onclick=()=>{if(!c.archivedAt&&!confirm('Start a new competition without archiving the current one first?'))return;let n=defaultComp();n.title='';db.competitions.push(n);db.active=n.id;saveDB();tab='builder';render()};
+ let reset=document.getElementById('resetComp');if(reset)reset.onclick=()=>{if(confirm('Reset this competition? Scores, draw and fixtures will be cleared.')){c.fixtures=[];c.knockout=[];c.teams.forEach((t,i)=>{t.group='';t.name='Team '+(i+1);t.players={}});saveDB();render()}};
+ document.getElementById('signOutAdmin').onclick=signOutAccount;loadAdminExtras()}
 async function loadAdminExtras(){
  if(!cloud||!['owner','admin'].includes(currentAppRole))return;
  let usersBox=document.getElementById('userAdminList'),auditBox=document.getElementById('auditList');
