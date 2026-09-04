@@ -131,7 +131,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.17';
+const APP_VERSION='2026.09.04.18';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -194,6 +194,11 @@ async function openTournamentByCode(code=null){
 }
 async function refreshRemoteTournament(){
  if(!remoteTournamentCode||!cloud)return;
+ // Do not redraw the scoring form while someone is typing into an input.
+ // The previous polling refresh could replace the DOM mid-name and make text appear to delete itself.
+ let active=document.activeElement;
+ let editing=!!active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
+ if(editing)return;
  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
  if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
  if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
@@ -944,7 +949,14 @@ function renderQuick(s){
   };
   const aggregateAutoSave=()=>{refreshAggregatePreview();queueLiveAutoSave(persistAggregateForm)};
   attachBowlsEndRules(document,aggregateAutoSave);
-  document.querySelectorAll('[data-agg-a],[data-agg-b],[data-agg-skip-a],[data-agg-skip-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',aggregateAutoSave));wireLiveTotalButtons(()=>saveScoresNow(persistAggregateForm,()=>render()));
+  document.querySelectorAll('[data-agg-skip-a],[data-agg-skip-b]').forEach(inp=>inp.addEventListener('input',()=>{
+   let rink=+((inp.getAttribute('data-agg-skip-a')||inp.getAttribute('data-agg-skip-b'))||0);
+   let r=rows.find(x=>+x.rink===rink);
+   if(r){if(inp.hasAttribute('data-agg-skip-a'))r.skipA=inp.value;else r.skipB=inp.value}
+   aggregateAutoSave()
+  }));
+  document.querySelectorAll('[data-agg-a],[data-agg-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',aggregateAutoSave));
+  wireLiveTotalButtons(()=>saveScoresNow(persistAggregateForm,()=>render()));
   document.getElementById('saveAggregate').onclick=()=>saveScoresNow(persistAggregateForm,()=>render());refreshAggregatePreview();return
  }
  if((x.tournamentType||'standard')==='knockout'){
