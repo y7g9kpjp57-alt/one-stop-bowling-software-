@@ -132,8 +132,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.29';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
+const APP_VERSION='2026.09.04.30';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
@@ -160,15 +160,18 @@ async function pushRemoteTournament(){
   return false
  }finally{remoteSaveBusy=false}
 }
-function setRemoteTournament(id,code,accessRole){
+function setRemoteTournament(id,code,accessRole,clubId='',clubName=''){
  remoteTournamentId=id||'';remoteTournamentCode=(code||'').toUpperCase();remoteAccessRole=accessRole||'public';
+ remoteClubId=clubId||'';remoteClubName=clubName||'';
  localStorage.setItem('bowlsRemoteTournamentId',remoteTournamentId);
  localStorage.setItem('bowlsRemoteTournamentCode',remoteTournamentCode);
  localStorage.setItem('bowlsRemoteAccessRole',remoteAccessRole);
+ localStorage.setItem('bowlsRemoteClubId',remoteClubId);
+ localStorage.setItem('bowlsRemoteClubName',remoteClubName);
 }
 function setTournamentNotice(){
  let a=accessState(),parts=['Live tournament'];
- if(remoteTournamentCode)parts.push('Code '+remoteTournamentCode);
+ if(remoteTournamentCode)parts.push('Code '+remoteTournamentCode);if(remoteClubName)parts.push(remoteClubName);
  if(remoteAccessRole)parts.push(remoteAccessRole==='owner'?'Organiser':remoteAccessRole[0].toUpperCase()+remoteAccessRole.slice(1));
  if(currentUser&&a.label)parts.push(a.label);
  parts.push('Build '+APP_VERSION);
@@ -197,7 +200,7 @@ async function openTournamentByCode(code=null){
    if(!je){let jr=Array.isArray(j)?j[0]:j;if(jr?.role)access=jr.role==='admin'?'owner':jr.role}
  }
  cloudApplying=true;db=row.state?.competitions?.length?row.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
- setRemoteTournament(row.id,row.code,access);
+ setRemoteTournament(row.id,row.code,access,row.club_id||'',row.club_name||'');
  if(new URLSearchParams(location.search).get('join')==='scorer'&&!currentUser){
   setTimeout(()=>{if(confirm('This is a scorer invite. Sign in or create an account to request scoring access?'))showAuthModal('scorer')},300)
  }
@@ -288,7 +291,7 @@ async function duplicateSavedTournament(row){
  copy.fixtures=[];copy.knockout=[];copy.aggregateScores=[];copy.groups=[];
  copy.teams=(copy.teams||[]).map((t,i)=>({...t,id:'t'+(i+1),group:'',name:t.name||('Team '+(i+1))}));
  let state={competitions:[copy],active:copy.id};
- let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:copy.title,p_state:state});
+ let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:copy.title,p_state:state,p_club_id:row.club_id||null});
  if(error)return alert('Could not duplicate tournament: '+error.message);
  let made=Array.isArray(data)?data[0]:data;
  if(!made)return alert('Could not create the duplicate tournament.');
@@ -395,7 +398,7 @@ async function showMyTournaments(){
    return `<div class="card" style="box-shadow:none" data-my-row="${i}">
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
       <div style="min-width:220px;flex:1"><h3 style="margin-bottom:5px">${esc((c?.title||r.title||'Untitled tournament').trim())}</h3>
-       <div class="meta">Code <b>${esc(r.code||'—')}</b> • Created ${esc(tournamentCreatedLabel(r))}</div>
+       <div class="meta">Code <b>${esc(r.code||'—')}</b>${r.club_name?' • Club <b>'+esc(r.club_name)+'</b>':''} • Created ${esc(tournamentCreatedLabel(r))}</div>
        <div style="margin-top:8px"><span class="pill ${status==='Archived'?'wait':'done'}">${status}</span> <span class="pill wait">${esc(roleLabel)}</span></div>
       </div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
@@ -585,16 +588,19 @@ async function initCloudSync(){
 }
 
 
-function showNewTournamentWizard(){
+async function showNewTournamentWizard(){
  if(!currentUser){showAuthModal('admin');return}
  let a=accessState();if(!a.active){alert('Your trial has expired.');return}
+ let clubs=[];
+ if(cloud){let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)clubs=Array.isArray(cr.data)?cr.data:[]}
  let box=document.createElement('div');box.className='modal';box.id='newTournamentModal';
  box.innerHTML=`<div class="modalbox" style="width:min(620px,100%);max-height:90vh;overflow:auto">
   <h2 style="margin-top:0">New Tournament</h2>
   <p class="muted">Your current tournament will stay unchanged.</p>
   <div class="formgrid">
    <div class="field"><label>Tournament name</label><input id="ntName" placeholder="e.g. Alness Open 2026"></div>
-   <div class="field"><label>Organiser / club</label><input id="ntClub" value="${esc(comp().settings.clubName||'')}"></div>
+   ${clubs.length?`<div class="field"><label>Club account</label><select id="ntClubAccount">${currentAppRole==='owner'?'<option value="">Personal / no club</option>':''}${clubs.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</select></div>`:''}
+   <div class="field"><label>Organiser / club name on event</label><input id="ntClub" value="${esc(comp().settings.clubName||clubs[0]?.name||'')}"></div>
    <div class="field"><label>Format</label><select id="ntType"><option value="standard">Round Robin + Knockout</option><option value="knockout">Knockout Only</option><option value="aggregate">Team / District Match – Aggregate</option></select></div>
    <div class="field nt-normal"><label>Entries / teams</label><input id="ntTeams" inputmode="numeric" min="2" value="16"></div>
    <div class="field nt-normal"><label>Rinks available</label><input id="ntRinks" inputmode="numeric" min="1" value="4"></div>
@@ -619,9 +625,10 @@ function showNewTournamentWizard(){
   if(t==='aggregate'){c.settings.aggregateRinks=Math.max(1,+document.getElementById('ntAggRinks').value||6);c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
   else{c.settings.teamCount=n;c.settings.rinks=r;c.settings.ends=ends;c.settings.start=document.getElementById('ntStart').value||'09:00';c.settings.minutes=mins;c.settings.knockoutMinutes=mins;c.settings.groupSize=Math.max(3,+document.getElementById('ntGroup').value||4);c.teams=Array.from({length:n},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:[]}))}
   db.competitions.push(c);db.active=c.id;localStorage.setItem(APPKEY,JSON.stringify(db));box.remove();role='admin';tab='builder';render();
-  let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:name,p_state:{competitions:[c],active:c.id}});
+  let selectedClub=document.getElementById('ntClubAccount')?.value||null;
+  let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:name,p_state:{competitions:[c],active:c.id},p_club_id:selectedClub});
   if(error){alert('Tournament created on this device, but its share code could not be created: '+error.message);return}
-  let row=Array.isArray(data)?data[0]:data;if(row){setRemoteTournament(row.id,row.code,'owner');setTournamentNotice();alert('Tournament created.\\n\\nTournament code: '+row.code)}
+  let row=Array.isArray(data)?data[0]:data;if(row){let club=clubs.find(x=>x.id===row.club_id);setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'');setTournamentNotice();alert('Tournament created.\\n\\nTournament code: '+row.code)}
  };
 }
 async function duplicateCurrentTournament(){
@@ -1251,22 +1258,60 @@ function buildKnockoutFirstRound(q){
 }
 function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('Not enough qualifiers yet.');return}let matches=buildKnockoutFirstRound(q);c.knockout=[matches];saveDB();render()}
 function renderKnockout(s){let c=comp();if((c.settings.tournamentType||'standard')==='knockout'){let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,c.settings.knockoutMinutes||c.settings.minutes,c.settings.start);s.innerHTML=`<div class="card"><h2>Knockout Format</h2><div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Prelim games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Est. final</span></div></div>${!c.knockout?.length&&role==='admin'?'<button class="btn primary" id="genKoOnly2" style="margin-top:12px">Generate Knockout Draw</button>':''}</div>${c.knockout?.length?`<div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${esc(round[0]?.roundName||('Round '+(ri+1)))}</h3>${round.map(m=>`<div class="match"><div>${esc(knockoutRefName(m.a,c))}</div><div>${esc(knockoutRefName(m.b,c))}</div></div>`).join('')}</div>`).join('')}</div>`:''}`;let b=document.getElementById('genKoOnly2');if(b)b.onclick=()=>{generateKnockoutOnlyDraw();render()};return}let q=qualifiers(),first=c.knockout[0]||[],rematches=first.filter(m=>m.a&&m.b&&m.sameGroupRematch).length;s.innerHTML=`<div class="card"><h2>Knockout</h2><p class="muted">Qualifiers are ranked by points, shot difference and shots for. The first knockout round keeps group winners apart from qualifiers from the same group wherever possible.</p><div>${q.map((x,i)=>`<span class="pill wait" style="margin:3px">${i+1}. ${esc(x.name)} <span class="qual">(${x.group}${x.pos})</span></span>`).join('')||'No qualifiers yet.'}</div>${role==='admin'?`<button class="btn primary" id="genKO" style="margin-top:12px">Generate Knockout</button>`:''}${c.knockout.length?`<div class="${rematches?'notice':'oknotice notice'}" style="margin-top:12px"><b>First-round group protection:</b> ${rematches?`${rematches} same-group rematch${rematches===1?'':'es'} could not be avoided with this qualifier combination.`:'No same-group rematches in the first knockout round.'}</div>`:''}</div>${c.knockout.length?`<div class="card"><div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${ri===c.knockout.length-1&&round.length===1?'Final':ri===0?'First Round':'Round '+(ri+1)}</h3>${round.map((m,mi)=>`<div class="match"><div>${esc(m.a?teamName(m.a):'BYE')}</div><div>${esc(m.b?teamName(m.b):'BYE')}</div>${ri===0&&m.sameGroupRematch?'<div class="qual" style="color:#b45309;font-weight:700">⚠ Same-group rematch unavoidable</div>':''}</div>`).join('')}</div>`).join('')}</div></div>`:''}`;if(role==='admin'&&document.getElementById('genKO'))document.getElementById('genKO').onclick=generateKnockout}
-function renderAdmin(s){let c=comp();if(!['owner','admin'].includes(currentAppRole)){s.innerHTML='<div class="card"><h2>Admin</h2><p>This account does not have Admin permission.</p></div>';return}
- let archiveCard=c.archivedAt?`<div class="card"><h2>Archived Competition</h2><div class="oknotice notice"><b>Completed:</b> ${new Date(c.archivedAt).toLocaleString()}</div><p class="muted">This event is locked against further scoring changes. It remains available from the competition list.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="downloadArchive">Download Full Backup</button><button class="btn secondary" id="downloadSummary">Download Results Summary</button><button class="btn success" id="newAfterArchive">Start New Competition</button></div></div>`:`<div class="card"><h2>Finish Competition</h2><p class="muted">When the event is finished, archive it before starting the next one. A full restore backup will download to your device and the competition will stay listed as Archived.</p><button class="btn success" id="completeArchive">Complete & Archive Competition</button></div>`;
- s.innerHTML=`${archiveCard}${remoteTournamentId&&['owner','admin'].includes(remoteAccessRole)?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>. Approve scorers who have entered this code.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}<div class="card"><h2>Accounts & Permissions</h2><p class="muted">Each scorer uses their own account. New accounts remain Pending until approved.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div><div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
+function renderAdmin(s){
+ let c=comp(),globalAdmin=['owner','admin'].includes(currentAppRole),tournamentAdmin=['owner','admin'].includes(remoteAccessRole);
+ if(!globalAdmin&&!tournamentAdmin){s.innerHTML='<div class="card"><h2>Admin</h2><p>This account does not have Admin permission for this tournament.</p></div>';return}
+ let archiveCard=c.archivedAt?`<div class="card"><h2>Archived Competition</h2><div class="oknotice notice"><b>Completed:</b> ${new Date(c.archivedAt).toLocaleString()}</div><p class="muted">This event is locked against further scoring changes.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="downloadArchive">Download Full Backup</button><button class="btn secondary" id="downloadSummary">Download Results Summary</button><button class="btn success" id="newAfterArchive">Start New Competition</button></div></div>`:`<div class="card"><h2>Finish Competition</h2><p class="muted">When the event is finished, archive it before starting the next one.</p><button class="btn success" id="completeArchive">Complete & Archive Competition</button></div>`;
+ let clubOwnerCard=currentAppRole==='owner'?`<div class="card"><h2>Club Management</h2><p class="muted">Create a club and grant Club Admin access. Club Admins can create and manage their own club tournaments. You keep owner access to every club and tournament.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newClubName" placeholder="Club name" style="max-width:320px"><button class="btn primary" id="createClubBtn">Create Club</button></div><div id="clubAdminList" style="margin-top:14px"><p class="muted">Loading clubs…</p></div></div>`:'';
+ let globalAccounts=globalAdmin?`<div class="card"><h2>Accounts & Permissions</h2><p class="muted">Global software roles. Club Admin rights are managed separately above.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div>`:'';
+ s.innerHTML=`${archiveCard}${clubOwnerCard}${remoteTournamentId&&tournamentAdmin?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>'+(remoteClubName?' • Club: <b>'+esc(remoteClubName)+'</b>':'')+'. Approve scorers for this tournament.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}${globalAccounts}<div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
  let ca=document.getElementById('completeArchive');if(ca)ca.onclick=completeAndArchive;
  let da=document.getElementById('downloadArchive');if(da)da.onclick=()=>downloadCompetitionBackup(c);
  let ds=document.getElementById('downloadSummary');if(ds)ds.onclick=()=>downloadResultsSummary(c);
  let na=document.getElementById('newAfterArchive');if(na)na.onclick=()=>{let n=defaultComp();n.title='';db.competitions.push(n);db.active=n.id;saveDB();tab='builder';render()};
  document.getElementById('newComp').onclick=()=>{if(!c.archivedAt&&!confirm('Start a new competition without archiving the current one first?'))return;let n=defaultComp();n.title='';db.competitions.push(n);db.active=n.id;saveDB();tab='builder';render()};
  let reset=document.getElementById('resetComp');if(reset)reset.onclick=()=>{if(confirm('Reset this competition? Scores, draw and fixtures will be cleared.')){c.fixtures=[];c.knockout=[];c.teams.forEach((t,i)=>{t.group='';t.name='Team '+(i+1);t.players={}});saveDB();render()}};
- document.getElementById('signOutAdmin').onclick=signOutAccount;loadAdminExtras()}
+ document.getElementById('signOutAdmin').onclick=signOutAccount;
+ let cb=document.getElementById('createClubBtn');if(cb)cb.onclick=createClubFromAdmin;
+ loadAdminExtras()
+}
+async function createClubFromAdmin(){
+ let input=document.getElementById('newClubName'),name=input?.value.trim();if(!name)return alert('Enter the club name.');
+ let {error}=await cloud.rpc('bowls_create_club',{p_name:name});
+ if(error)return alert(error.message);
+ input.value='';await loadClubAdminPanel()
+}
+async function loadClubAdminPanel(){
+ let box=document.getElementById('clubAdminList');if(!box||!cloud||currentAppRole!=='owner')return;
+ let {data:clubs,error}=await cloud.rpc('bowls_list_clubs');
+ if(error){box.innerHTML='<p>Could not load clubs: '+esc(error.message)+'</p>';return}
+ if(!clubs?.length){box.innerHTML='<p class="muted">No clubs created yet.</p>';return}
+ let adminSets={};
+ for(let club of clubs){let r=await cloud.rpc('bowls_list_club_admins',{p_club:club.id});adminSets[club.id]=r.error?[]:(r.data||[])}
+ box.innerHTML=clubs.map(club=>`<div style="padding:12px 0;border-bottom:1px solid var(--line)">
+   <h3 style="margin:0 0 6px">${esc(club.name)}</h3>
+   <div class="meta">${(adminSets[club.id]||[]).length?`Club Admins: ${(adminSets[club.id]||[]).map(a=>esc(a.display_name||a.email)).join(', ')}`:'No Club Admin yet'}</div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
+    <input data-club-email="${esc(club.id)}" placeholder="Admin account email" style="max-width:320px">
+    <button class="btn primary" data-add-club-admin="${esc(club.id)}">Grant Club Admin</button>
+   </div>
+   ${(adminSets[club.id]||[]).map(a=>`<div style="margin-top:7px"><span class="pill done">${esc(a.email)}</span> <button class="btn secondary" data-remove-club-admin="${esc(club.id)}" data-email="${esc(a.email)}">Remove</button></div>`).join('')}
+ </div>`).join('');
+ box.querySelectorAll('[data-add-club-admin]').forEach(b=>b.onclick=async()=>{let id=b.dataset.addClubAdmin,email=box.querySelector(`[data-club-email="${id}"]`)?.value.trim();if(!email)return alert('Enter the account email.');let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:id,p_email:email,p_enabled:true});if(error)return alert(error.message);await loadClubAdminPanel()});
+ box.querySelectorAll('[data-remove-club-admin]').forEach(b=>b.onclick=async()=>{if(!confirm('Remove Club Admin access for '+b.dataset.email+'?'))return;let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:b.dataset.removeClubAdmin,p_email:b.dataset.email,p_enabled:false});if(error)return alert(error.message);await loadClubAdminPanel()})
+}
 async function loadAdminExtras(){
- if(!cloud||!['owner','admin'].includes(currentAppRole))return;
+ if(!cloud)return;
+ let globalAdmin=['owner','admin'].includes(currentAppRole),tournamentAdmin=['owner','admin'].includes(remoteAccessRole);
+ if(currentAppRole==='owner')await loadClubAdminPanel();
  let usersBox=document.getElementById('userAdminList'),auditBox=document.getElementById('auditList');
- let {data:users,error:uerr}=await cloud.from('bowls_users').select('user_id,email,display_name,role,created_at').order('created_at',{ascending:true});
- if(usersBox){if(uerr)usersBox.innerHTML='<p>Could not load accounts.</p>';else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead><tbody>${(users||[]).map(u=>`<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td></tr>`).join('')}</tbody></table></div>`;usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){alert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras()}})}
- if(remoteTournamentId&&['owner','admin'].includes(remoteAccessRole)){
+ if(globalAdmin&&usersBox){
+  let {data:users,error:uerr}=await cloud.from('bowls_users').select('user_id,email,display_name,role,created_at').order('created_at',{ascending:true});
+  if(uerr)usersBox.innerHTML='<p>Could not load accounts.</p>';
+  else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead><tbody>${(users||[]).map(u=>`<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td></tr>`).join('')}</tbody></table></div>`;
+  usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){alert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras()}})
+ }
+ if(remoteTournamentId&&tournamentAdmin){
   let mb=document.getElementById('tournamentMemberList');
   let {data:members,error:merr}=await cloud.rpc('bowls_list_tournament_members',{p_id:remoteTournamentId});
   if(mb){
@@ -1275,8 +1320,12 @@ async function loadAdminExtras(){
    mb.querySelectorAll('[data-tournament-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:sel.dataset.tournamentRole,p_role:sel.value});if(error)alert(error.message);else loadAdminExtras()})
   }
  }
- let {data:logs,error:lerr}=await cloud.from('bowls_audit_log').select('id,user_email,user_role,action,target,old_value,new_value,created_at').eq('competition_id',comp().id).order('created_at',{ascending:false}).limit(100);
- if(auditBox){if(lerr)auditBox.innerHTML='<p>Could not load audit history.</p>';else if(!logs?.length)auditBox.innerHTML='<p class="muted">No score changes have been logged yet.</p>';else auditBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th></tr></thead><tbody>${logs.map(l=>`<tr><td>${new Date(l.created_at).toLocaleString()}</td><td>${esc(l.user_email||'Unknown')}<div class="meta">${esc(l.user_role||'')}</div></td><td>${esc((l.action||'').replaceAll('_',' '))}</td><td>${esc(l.target||'')}</td></tr>`).join('')}</tbody></table></div>`}
+ if(globalAdmin&&auditBox){
+  let {data:logs,error:lerr}=await cloud.from('bowls_audit_log').select('id,user_email,user_role,action,target,old_value,new_value,created_at').eq('competition_id',comp().id).order('created_at',{ascending:false}).limit(100);
+  if(lerr)auditBox.innerHTML='<p>Could not load audit history.</p>';
+  else if(!logs?.length)auditBox.innerHTML='<p class="muted">No score changes have been logged yet.</p>';
+  else auditBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th></tr></thead><tbody>${logs.map(l=>`<tr><td>${new Date(l.created_at).toLocaleString()}</td><td>${esc(l.user_email||'Unknown')}<div class="meta">${esc(l.user_role||'')}</div></td><td>${esc((l.action||'').replaceAll('_',' '))}</td><td>${esc(l.target||'')}</td></tr>`).join('')}</tbody></table></div>`
+ }
 }
 
 function setQueryRole(r){try{let u=new URL(location.href);u.searchParams.set('view',r);history.replaceState({},'',u)}catch(e){}}
