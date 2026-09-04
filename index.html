@@ -132,7 +132,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.24';
+const APP_VERSION='2026.09.04.25';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -289,7 +289,7 @@ async function showTournamentAccess(){
   return alert('This tournament is not currently linked online. Open it from My Tournaments or create/share it online first, then Invite / Access will work.');
  }
  document.getElementById('accessModal')?.remove();
- let c=comp(),canManage=['owner','admin'].includes(remoteTournamentAccess||currentAccess||currentAppRole||'');
+ let c=comp(),canManage=['owner','admin'].includes(remoteAccessRole||currentAccess||currentAppRole||'');
  let box=document.createElement('div');box.className='modal';box.id='accessModal';
  box.innerHTML=`<div class="modalbox" style="width:min(820px,100%);max-height:92vh;overflow:auto">
  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Invite / Access</h2><p class="muted" style="margin:5px 0 0">${esc(c.title||'Tournament')} • Code <b>${esc(remoteTournamentCode)}</b></p></div><button class="btn secondary" id="closeAccess">Close</button></div>
@@ -1152,7 +1152,10 @@ document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authM
 document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer','signin')};
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
-document.getElementById('accessBtn').onclick=showTournamentAccess;
+document.getElementById('accessBtn').onclick=async()=>{
+ try{await showTournamentAccess()}
+ catch(e){console.error('Invite / Access error',e);alert('Invite / Access could not open: '+(e?.message||e))}
+};
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
