@@ -97,6 +97,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
   <div class="notice" id="syncNotice">Offline mode: tournaments and scores are saved on this device. Use Backup regularly to save a copy you can restore on another device.</div>
   <div class="toolbar">
     <select id="competitionSelect" class="grow"></select>
+    <button class="btn primary" id="newTournamentBtn">+ New Tournament</button>
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
     <button class="btn secondary" id="exportBtn">Backup</button>
@@ -113,7 +114,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.9';
+const APP_VERSION='2026.09.04.10';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -279,6 +280,51 @@ async function initCloudSync(){
   if(remoteTournamentCode){await openTournamentByCode(remoteTournamentCode);setInterval(refreshRemoteTournament,5000)}
   else setSyncNotice('Cloud ready • no tournament code selected • Build '+APP_VERSION,true);
  }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • cloud could not connect, but this device will keep saving locally',false)}
+}
+
+
+function showNewTournamentWizard(){
+ if(!currentUser){showAuthModal('admin');return}
+ let a=accessState();if(!a.active){alert('Your trial has expired.');return}
+ let box=document.createElement('div');box.className='modal';box.id='newTournamentModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(620px,100%);max-height:90vh;overflow:auto">
+  <h2 style="margin-top:0">New Tournament</h2>
+  <p class="muted">Your current tournament will stay unchanged.</p>
+  <div class="formgrid">
+   <div class="field"><label>Tournament name</label><input id="ntName" placeholder="e.g. Alness Open 2026"></div>
+   <div class="field"><label>Organiser / club</label><input id="ntClub" value="${esc(comp().settings.clubName||'')}"></div>
+   <div class="field"><label>Format</label><select id="ntType"><option value="standard">Round Robin + Knockout</option><option value="knockout">Knockout Only</option><option value="aggregate">Team / District Match – Aggregate</option></select></div>
+   <div class="field nt-normal"><label>Entries / teams</label><input id="ntTeams" inputmode="numeric" min="2" value="16"></div>
+   <div class="field nt-normal"><label>Rinks available</label><input id="ntRinks" inputmode="numeric" min="1" value="4"></div>
+   <div class="field nt-normal"><label>Ends per game</label><input id="ntEnds" inputmode="numeric" min="1" value="12"></div>
+   <div class="field nt-normal"><label>Start time</label><input id="ntStart" type="time" value="09:00"></div>
+   <div class="field nt-normal"><label>Minutes per game</label><input id="ntMinutes" inputmode="numeric" min="10" value="80"></div>
+   <div class="field nt-group"><label>Preferred group size</label><select id="ntGroup"><option>3</option><option selected>4</option><option>5</option><option>6</option></select></div>
+   <div class="field nt-aggregate hidden"><label>Number of match rinks</label><input id="ntAggRinks" inputmode="numeric" min="1" value="6"></div>
+   <div class="field"><label>Scoring</label><select id="ntScoring"><option value="final">Quick live totals + final score</option><option value="live_optional">Quick live totals + optional end-by-end</option></select></div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn secondary" id="ntCancel">Cancel</button><button class="btn primary" id="ntCreate">Create Tournament</button></div>
+ </div>`;
+ document.body.appendChild(box);
+ let type=document.getElementById('ntType');
+ let toggle=()=>{let agg=type.value==='aggregate',std=type.value==='standard';document.querySelectorAll('.nt-normal').forEach(e=>e.classList.toggle('hidden',agg));document.querySelectorAll('.nt-group').forEach(e=>e.classList.toggle('hidden',!std));document.querySelectorAll('.nt-aggregate').forEach(e=>e.classList.toggle('hidden',!agg))};type.onchange=toggle;toggle();
+ document.getElementById('ntCancel').onclick=()=>box.remove();
+ document.getElementById('ntCreate').onclick=async()=>{
+  let name=document.getElementById('ntName').value.trim();if(!name)return alert('Please enter a tournament name.');
+  let t=type.value,n=Math.max(2,+document.getElementById('ntTeams').value||16),r=Math.max(1,+document.getElementById('ntRinks').value||4),ends=Math.max(1,+document.getElementById('ntEnds').value||12),mins=Math.max(10,+document.getElementById('ntMinutes').value||80);
+  let c=defaultComp();c.id='comp-'+Date.now();c.title=name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode=document.getElementById('ntScoring').value;
+  if(t==='aggregate'){c.settings.aggregateRinks=Math.max(1,+document.getElementById('ntAggRinks').value||6);c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
+  else{c.settings.teamCount=n;c.settings.rinks=r;c.settings.ends=ends;c.settings.start=document.getElementById('ntStart').value||'09:00';c.settings.minutes=mins;c.settings.knockoutMinutes=mins;c.settings.groupSize=Math.max(3,+document.getElementById('ntGroup').value||4);c.teams=Array.from({length:n},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:[]}))}
+  db.competitions.push(c);db.active=c.id;localStorage.setItem(APPKEY,JSON.stringify(db));box.remove();role='admin';tab='builder';render();
+  let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:name,p_state:{competitions:[c],active:c.id}});
+  if(error){alert('Tournament created on this device, but its share code could not be created: '+error.message);return}
+  let row=Array.isArray(data)?data[0]:data;if(row){setRemoteTournament(row.id,row.code,'owner');setTournamentNotice();alert('Tournament created.\\n\\nTournament code: '+row.code)}
+ };
+}
+function duplicateCurrentTournament(){
+ let source=comp(),copy=JSON.parse(JSON.stringify(source));copy.id='comp-'+Date.now();copy.title=((source.title||'Untitled competition')+' Copy');copy.created=new Date().toISOString();copy.archivedAt=null;copy.archivedBy=null;
+ copy.fixtures=[];copy.knockout=[];copy.aggregateScores=[];copy.groups=[];copy.teams=(copy.teams||[]).map((t,i)=>({...t,id:'t'+(i+1),group:'',name:t.name||('Team '+(i+1))}));
+ db.competitions.push(copy);db.active=copy.id;saveDB();tab='builder';render();
 }
 
 function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competitions.find(c=>c.id===db.active)||db.competitions[0]}
@@ -784,6 +830,7 @@ document.getElementById('authCancel').onclick=()=>document.getElementById('authM
 document.getElementById('authSignin').onclick=signInAccount;document.getElementById('authSignup').onclick=createAccount;
 document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter')signInAccount()};
 document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer')};
+document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
