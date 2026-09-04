@@ -97,6 +97,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
   <div class="notice" id="syncNotice">Offline mode: tournaments and scores are saved on this device. Use Backup regularly to save a copy you can restore on another device.</div>
   <div class="toolbar">
     <select id="competitionSelect" class="grow"></select>
+    <button class="btn secondary" id="openCodeBtn">Open Code</button>
+    <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
     <button class="btn secondary" id="exportBtn">Backup</button>
     <label class="btn secondary" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
   </div>
@@ -111,8 +113,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.5';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',authRequestedRole=null;
+const APP_VERSION='2026.09.04.8';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
@@ -122,7 +124,59 @@ const defaultComp=()=>({
 let db=loadDB();let role='public', tab='dashboard';
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
-function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&!cloudApplying&&canWriteCloud())pushCloudState();}
+function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament())pushRemoteTournament();}
+function canWriteRemoteTournament(){let a=accessState();return !!currentUser&&a.active&&['owner','admin','scorer'].includes(remoteAccessRole)}
+async function pushRemoteTournament(){
+ try{
+  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||'')});
+  if(error)throw error;
+  setTournamentNotice();
+ }catch(e){console.error('Tournament cloud save failed',e);setSyncNotice('Cloud save failed • changes remain on this device',false)}
+}
+function setRemoteTournament(id,code,accessRole){
+ remoteTournamentId=id||'';remoteTournamentCode=(code||'').toUpperCase();remoteAccessRole=accessRole||'public';
+ localStorage.setItem('bowlsRemoteTournamentId',remoteTournamentId);
+ localStorage.setItem('bowlsRemoteTournamentCode',remoteTournamentCode);
+ localStorage.setItem('bowlsRemoteAccessRole',remoteAccessRole);
+}
+function setTournamentNotice(){
+ let a=accessState(),parts=['Live tournament'];
+ if(remoteTournamentCode)parts.push('Code '+remoteTournamentCode);
+ if(remoteAccessRole)parts.push(remoteAccessRole==='owner'?'Organiser':remoteAccessRole[0].toUpperCase()+remoteAccessRole.slice(1));
+ if(currentUser&&a.label)parts.push(a.label);
+ parts.push('Build '+APP_VERSION);
+ setSyncNotice(parts.join(' • '),true);
+}
+async function createShareableTournament(){
+ if(!currentUser){showAuthModal('admin');return}
+ await loadCurrentProfile();let a=accessState();if(!a.active){alert('Your trial has expired.');return}
+ let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:(comp().title||''),p_state:db});
+ if(error){alert(error.message);return}
+ let row=Array.isArray(data)?data[0]:data;if(!row){alert('Could not create tournament code.');return}
+ setRemoteTournament(row.id,row.code,'owner');setTournamentNotice();alert('Tournament code: '+row.code+'\n\nShare this code with scorers and spectators.');render();
+}
+async function openTournamentByCode(code=null){
+ code=(code||prompt('Enter tournament code')||'').trim().toUpperCase();if(!code)return false;
+ let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:code});
+ if(error){alert(error.message);return false}
+ let row=Array.isArray(data)?data[0]:data;if(!row){alert('Tournament code not found.');return false}
+ let access='public';
+ if(currentUser){
+   let {data:j,error:je}=await cloud.rpc('bowls_request_join',{p_code:code});
+   if(!je){let jr=Array.isArray(j)?j[0]:j;if(jr?.role)access=jr.role==='admin'?'owner':jr.role}
+ }
+ cloudApplying=true;db=row.state?.competitions?.length?row.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
+ setRemoteTournament(row.id,row.code,access);role='public';tab='dashboard';setTournamentNotice();render();
+ if(access==='pending')alert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
+ return true;
+}
+async function refreshRemoteTournament(){
+ if(!remoteTournamentCode||!cloud)return;
+ let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
+ if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
+ if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render()}
+}
+
 function isArchived(c=comp()){return !!c.archivedAt}
 function safeFileName(v){return String(v||'competition').trim().replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'')||'competition'}
 function downloadBlobFile(content,type,name){let blob=new Blob([content],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
@@ -166,17 +220,25 @@ function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!
 function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account'}
 async function loadCurrentProfile(){
  if(!cloud||!currentUser){currentAppRole='public';updateAccountButton();return}
- let {data,error}=await cloud.from('bowls_users').select('role,display_name,email').eq('user_id',currentUser.id).maybeSingle();
- if(error){console.error('Profile load failed',error);currentAppRole='pending'}else currentAppRole=data?.role||'pending';
+ let {data,error}=await cloud.from('bowls_users').select('role,display_name,email,trial_started_at,trial_ends_at,subscription_status,subscription_ends_at').eq('user_id',currentUser.id).maybeSingle();
+ if(error){console.error('Profile load failed',error);currentAppRole='pending';currentAccess=null}else{currentAppRole=data?.role||'pending';currentAccess=data||null}
  updateAccountButton();
 }
-function roleAllowed(target){if(target==='public')return true;if(target==='scorer')return ['owner','admin','scorer'].includes(currentAppRole);if(target==='admin')return ['owner','admin'].includes(currentAppRole);return false}
+function accessState(){
+ if(!currentUser||!currentAccess)return {active:false,label:''};
+ if(['owner','admin'].includes(currentAppRole))return {active:true,label:'Admin access'};
+ let now=Date.now(),status=currentAccess.subscription_status||'trial',subEnd=currentAccess.subscription_ends_at?new Date(currentAccess.subscription_ends_at).getTime():0,trialEnd=currentAccess.trial_ends_at?new Date(currentAccess.trial_ends_at).getTime():0;
+ if(status==='active'&&(!subEnd||subEnd>now))return {active:true,label:subEnd?'Subscription active':'Subscription active'};
+ if(status==='trial'&&trialEnd>now){let days=Math.max(1,Math.ceil((trialEnd-now)/86400000));return {active:true,label:`Trial • ${days} day${days===1?'':'s'} remaining`}}
+ return {active:false,label:'Trial expired'};
+}
+function roleAllowed(target){if(target==='public')return true;let a=accessState();if(!a.active)return false;if(target==='scorer')return ['owner','admin','scorer'].includes(remoteAccessRole)||['owner','admin','scorer'].includes(currentAppRole);if(target==='admin')return ['owner','admin'].includes(remoteAccessRole)||['owner','admin'].includes(currentAppRole);return false}
 function showAuthModal(target){authRequestedRole=target||'scorer';let m=document.getElementById('authModal');document.getElementById('authTitle').textContent=`${authRequestedRole==='admin'?'Admin':'Scorer'} sign in`;document.getElementById('authText').textContent='Use your own email and password. New accounts wait for approval unless this is the first account.';document.getElementById('authError').textContent='';m.classList.remove('hidden');setTimeout(()=>document.getElementById('authEmail').focus(),50)}
 async function requestRole(target){
  if(target==='public'){role='public';tab='dashboard';setQueryRole('public');render();return}
  if(!currentUser){showAuthModal(target);return}
  await loadCurrentProfile();
- if(!roleAllowed(target)){alert(currentAppRole==='pending'?'Your account is waiting for an Owner/Admin to approve it.':'Your account does not have permission for this area.');return}
+ if(!roleAllowed(target)){let a=accessState();alert(currentAppRole==='pending'?'Your account is waiting for an Owner/Admin to approve it.':(!a.active?'Your trial has expired. Please contact the software administrator to activate or extend your access.':'Your account does not have permission for this area.'));return}
  role=target;tab=target==='scorer'?'quick':'dashboard';setQueryRole(target);render();
 }
 async function signInAccount(){
@@ -191,7 +253,7 @@ async function createAccount(){
  if(!data.session){err.style.color='#166534';err.textContent='Account created. Check your email to confirm it, then come back and sign in.';return}
  currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');await requestRole(authRequestedRole||'scorer')
 }
-async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';role='public';tab='dashboard';updateAccountButton();render()}
+async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;role='public';tab='dashboard';updateAccountButton();render()}
 async function auditEvent(action,target,oldValue,newValue){
  if(!cloud||!currentUser||!canWriteCloud())return;let c=comp();
  let row={user_id:currentUser.id,user_email:currentUser.email||'',user_role:currentAppRole,competition_id:c.id,competition_title:c.title,action,target,old_value:oldValue??null,new_value:newValue??null};
@@ -199,9 +261,9 @@ async function auditEvent(action,target,oldValue,newValue){
 }
 function scoreAuditSnapshot(c=comp()){
  let out={};
- if(isAggregate(c)){ensureAggregate(c).forEach(r=>out[`agg:${r.rink}`]={target:`Rink ${r.rink}`,data:{scoreA:r.scoreA??'',scoreB:r.scoreB??'',liveEnds:JSON.parse(JSON.stringify(r.liveEnds||[]))}})}
- else if((c.settings.tournamentType||'standard')==='knockout'){(c.knockout||[]).flat().forEach(m=>out[`ko:${m.id}`]={target:`${m.roundName||'Knockout'} • ${m.label||''} • Rink ${m.rink||''}`,data:{scoreA:m.scoreA??'',scoreB:m.scoreB??'',liveEnds:JSON.parse(JSON.stringify(m.liveEnds||[]))}})}
- else (c.fixtures||[]).forEach(f=>out[`fixture:${f.id}`]={target:`Game ${f.game||''} • Rink ${f.rink||''}`,data:{scoreA:f.scoreA??'',scoreB:f.scoreB??'',liveEnds:JSON.parse(JSON.stringify(f.liveEnds||[]))}});
+ if(isAggregate(c)){ensureAggregate(c).forEach(r=>out[`agg:${r.rink}`]={target:`Rink ${r.rink}`,data:{scoreA:r.scoreA??'',scoreB:r.scoreB??'',liveTotalA:r.liveTotalA??'',liveTotalB:r.liveTotalB??'',liveEndsPlayed:r.liveEndsPlayed??'',liveEnds:JSON.parse(JSON.stringify(r.liveEnds||[]))}})}
+ else if((c.settings.tournamentType||'standard')==='knockout'){(c.knockout||[]).flat().forEach(m=>out[`ko:${m.id}`]={target:`${m.roundName||'Knockout'} • ${m.label||''} • Rink ${m.rink||''}`,data:{scoreA:m.scoreA??'',scoreB:m.scoreB??'',liveTotalA:m.liveTotalA??'',liveTotalB:m.liveTotalB??'',liveEndsPlayed:m.liveEndsPlayed??'',liveEnds:JSON.parse(JSON.stringify(m.liveEnds||[]))}})}
+ else (c.fixtures||[]).forEach(f=>out[`fixture:${f.id}`]={target:`Game ${f.game||''} • Rink ${f.rink||''}`,data:{scoreA:f.scoreA??'',scoreB:f.scoreB??'',liveTotalA:f.liveTotalA??'',liveTotalB:f.liveTotalB??'',liveEndsPlayed:f.liveEndsPlayed??'',liveEnds:JSON.parse(JSON.stringify(f.liveEnds||[]))}});
  return out
 }
 async function auditScoreDiff(before,after){for(let k of new Set([...Object.keys(before||{}),...Object.keys(after||{})])){let a=before?.[k],b=after?.[k];if(JSON.stringify(a?.data??null)!==JSON.stringify(b?.data??null))await auditEvent('score_change',b?.target||a?.target||k,a?.data??null,b?.data??null)}}
@@ -209,22 +271,14 @@ let pendingAuditBefore=null;
 async function saveScoresNow(saveForm,afterSave){let before=scoreAuditSnapshot();saveForm();let after=scoreAuditSnapshot();saveDB();await auditScoreDiff(before,after);if(afterSave)afterSave()}
 async function initCloudSync(){
  try{
-  if(!window.supabase?.createClient)throw new Error('Supabase library did not load');
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   let {data:sessionData}=await cloud.auth.getSession();currentUser=sessionData?.session?.user||null;await loadCurrentProfile();
-  setSyncNotice('Connecting live sync…',false);
-  let {data,error}=await cloud.from('bowls_live_state').select('state,updated_at').eq('id',LIVE_STATE_ID).maybeSingle();
-  if(error)throw error;
-  if(data?.state?.competitions?.length){cloudApplying=true;db=data.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render()}
-  else {cloudReady=true;await pushCloudState()}
-  cloudReady=true;setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true);
-  cloudChannel=cloud.channel('bowls-live-demo').on('postgres_changes',{event:'UPDATE',schema:'public',table:'bowls_live_state',filter:`id=eq.${LIVE_STATE_ID}`},payload=>{
-   let next=payload.new?.state;if(!next?.competitions?.length)return;
-   // Ignore our own echoed update so the scoring form does not jump/re-render while typing.
-   if(JSON.stringify(next)===JSON.stringify(db)){setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true);return}
-   cloudApplying=true;db=next;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;render();setSyncNotice('Live sync connected • latest changes received',true);
-  }).subscribe(status=>{if(status==='SUBSCRIBED')setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true)});
- }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • live sync could not connect, but this device will keep saving locally',false)}
+  cloudReady=true;
+  let params=new URLSearchParams(location.search),code=params.get('code');
+  if(code){await openTournamentByCode(code);return}
+  if(remoteTournamentCode){await openTournamentByCode(remoteTournamentCode);setInterval(refreshRemoteTournament,5000)}
+  else setSyncNotice('Cloud ready • no tournament code selected • Build '+APP_VERSION,true);
+ }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • cloud could not connect, but this device will keep saving locally',false)}
 }
 
 function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competitions.find(c=>c.id===db.active)||db.competitions[0]}
@@ -279,7 +333,34 @@ function standings(c=comp()){
 }
 
 function liveEntries(obj){obj.liveEnds=obj.liveEnds||[];return obj.liveEnds}
-function liveScore(obj){let a=0,b=0,count=0;liveEntries(obj).forEach(e=>{if(e&&(e.a!==''||e.b!=='')){a+=Math.max(0,+e.a||0);b+=Math.max(0,+e.b||0);count++}});return {a,b,count}}
+function liveScore(obj){
+ if(obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null){
+  return {a:Math.max(0,+obj.liveTotalA||0),b:Math.max(0,+obj.liveTotalB||0),count:Math.max(0,+obj.liveEndsPlayed||0),manual:true}
+ }
+ let a=0,b=0,count=0;liveEntries(obj).forEach(e=>{if(e&&(e.a!==''||e.b!=='')){a+=Math.max(0,+e.a||0);b+=Math.max(0,+e.b||0);count++}});
+ return {a,b,count,manual:false}
+}
+function liveCheckpointFields(obj,key,nameA,nameB,maxEnds){
+ let ls=liveScore(obj),ma=obj.liveTotalA??'',mb=obj.liveTotalB??'',me=obj.liveEndsPlayed??'';
+ return `<div class="notice" style="margin:10px 0;background:#eff6ff">
+   <b>Quick Current Total</b>
+   <div class="meta" style="margin:4px 0 8px">Use this if some ends were missed. Enter the rink total at any point and it becomes the current live score.</div>
+   <div class="formgrid">
+    <div class="field"><label>${esc(nameA)} total</label><input inputmode="numeric" min="0" data-live-total-a="${key}" value="${ma}"></div>
+    <div class="field"><label>${esc(nameB)} total</label><input inputmode="numeric" min="0" data-live-total-b="${key}" value="${mb}"></div>
+    <div class="field"><label>Ends played</label><input inputmode="numeric" min="0" max="${maxEnds||21}" data-live-total-ends="${key}" value="${me}" placeholder="e.g. 7"></div>
+   </div>
+   ${ls.manual?`<div class="oknotice notice" style="margin-top:8px"><b>Current live score:</b> ${ls.a}–${ls.b}${ls.count?` after ${ls.count} end${ls.count===1?'':'s'}`:''}</div>`:''}
+  </div>`;
+}
+function persistLiveCheckpoint(obj,key){
+ let a=document.querySelector(`[data-live-total-a="${key}"]`),b=document.querySelector(`[data-live-total-b="${key}"]`),e=document.querySelector(`[data-live-total-ends="${key}"]`);
+ if(!a||!b)return;
+ obj.liveTotalA=a.value===''?'':Math.max(0,+a.value||0);
+ obj.liveTotalB=b.value===''?'':Math.max(0,+b.value||0);
+ obj.liveEndsPlayed=e?.value===''?'':Math.max(0,+e.value||0);
+}
+
 function scoringLabel(c=comp()){return (c.settings.scoringMode||'final')==='live_optional'?'Live end-by-end optional':'Final score only'}
 function currentScore(obj){if(completed(obj))return {a:+obj.scoreA,b:+obj.scoreB,final:true,ends:liveScore(obj).count};let l=liveScore(obj);return {a:l.a,b:l.b,final:false,ends:l.count}}
 function attachBowlsEndRules(root=document,onChange=()=>{}){root.querySelectorAll('[data-live-a],[data-live-b]').forEach(inp=>{inp.addEventListener('input',()=>{let key=inp.getAttribute('data-live-a')||inp.getAttribute('data-live-b'),isA=inp.hasAttribute('data-live-a'),other=root.querySelector(`[${isA?'data-live-b':'data-live-a'}=\"${key}\"]`);let v=inp.value===''?null:Math.max(0,+inp.value||0);if(v!==null&&v>0&&other)other.value='0';onChange()})})}
@@ -596,7 +677,7 @@ function renderQuick(s){
   s.innerHTML=`<div class="card"><h2>Aggregate Match Scoring</h2><p class="muted">${live?'Live end-by-end scoring is available but optional. Scores auto-save as they are entered.':'Enter each final rink score.'}</p>
   <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;text-align:center;align-items:center;margin:16px 0"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div id="aggLiveTotalA" style="font-size:38px;font-weight:900">${t.a}</div></div><b style="font-size:24px">–</b><div><b>${esc(x.aggregateSideB||'Side B')}</b><div id="aggLiveTotalB" style="font-size:38px;font-weight:900">${t.b}</div></div></div>
   ${role==='scorer'?`<div class="oknotice" style="display:flex;gap:10px;align-items:center;justify-content:space-between"><div><b>YOU ARE SCORING RINK ${assigned}</b><div class="meta">Check the rink and skip names before entering a score.</div></div><button class="btn secondary" id="changeAssignedRink">Change Rink</button></div>`:''}
-  ${visibleRows.map(r=>{let ls=liveScore(r);return `<div class="card" style="box-shadow:none;border:2px solid ${role==='scorer'?'#0369a1':'var(--line)'}"><div style="text-align:center;margin-bottom:12px"><div style="font-size:30px;font-weight:900">RINK ${r.rink}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-top:8px"><div><b>${esc(x.aggregateSideA||'Side A')}</b>${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div><b>v</b><div><b>${esc(x.aggregateSideB||'Side B')}</b>${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div></div></div><div class="formgrid" style="margin-bottom:10px"><div class="field"><label>${esc(x.aggregateSideA||'Side A')} skip (optional)</label><input data-agg-skip-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Skip name"></div><div class="field"><label>${esc(x.aggregateSideB||'Side B')} skip (optional)</label><input data-agg-skip-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Skip name"></div></div>${live?`<details open><summary><b>Live ends</b> ${ls.count?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>${esc(x.aggregateSideB||'Side B')}</th></tr></thead><tbody>${Array.from({length:x.ends||21},(_,i)=>{let e=liveEntries(r)[i]||{a:'',b:''};return `<tr><td><b>${i+1}</b></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="agg-${r.rink}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="agg-${r.rink}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-agg-a="${r.rink}" value="${r.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-agg-b="${r.rink}" value="${r.scoreB}"><div class="away"><b>${esc(x.aggregateSideB||'Side B')}</b><div class="meta">Final score</div></div></div></div>`}).join('')}
+  ${visibleRows.map(r=>{let ls=liveScore(r);return `<div class="card" style="box-shadow:none;border:2px solid ${role==='scorer'?'#0369a1':'var(--line)'}"><div style="text-align:center;margin-bottom:12px"><div style="font-size:30px;font-weight:900">RINK ${r.rink}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-top:8px"><div><b>${esc(x.aggregateSideA||'Side A')}</b>${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div><b>v</b><div><b>${esc(x.aggregateSideB||'Side B')}</b>${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div></div></div><div class="formgrid" style="margin-bottom:10px"><div class="field"><label>${esc(x.aggregateSideA||'Side A')} skip (optional)</label><input data-agg-skip-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Skip name"></div><div class="field"><label>${esc(x.aggregateSideB||'Side B')} skip (optional)</label><input data-agg-skip-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Skip name"></div></div>${live?`${liveCheckpointFields(r,'agg-'+r.rink,x.aggregateSideA||'Side A',x.aggregateSideB||'Side B',x.ends||21)}<details><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>${esc(x.aggregateSideB||'Side B')}</th></tr></thead><tbody>${Array.from({length:x.ends||21},(_,i)=>{let e=liveEntries(r)[i]||{a:'',b:''};return `<tr><td><b>${i+1}</b></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="agg-${r.rink}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="agg-${r.rink}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-agg-a="${r.rink}" value="${r.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-agg-b="${r.rink}" value="${r.scoreB}"><div class="away"><b>${esc(x.aggregateSideB||'Side B')}</b><div class="meta">Final score</div></div></div></div>`}).join('')}
   <button class="btn primary" style="width:100%;margin-top:12px" id="saveAggregate">Save Scores</button></div>`;
 
   if(role==='scorer')document.getElementById('changeAssignedRink').onclick=()=>{if(confirm(`You are currently scoring Rink ${assigned}. Change to a different rink?`)){sessionStorage.removeItem(rinkKey);render()}};
@@ -608,6 +689,8 @@ function renderQuick(s){
     let fa=document.querySelector(`[data-agg-a="${r.rink}"]`),fb=document.querySelector(`[data-agg-b="${r.rink}"]`);
     if(fa&&fb){
      if(fa.value!==''&&fb.value!==''){totalA+=Math.max(0,+fa.value||0);totalB+=Math.max(0,+fb.value||0);return}
+     let qa=document.querySelector(`[data-live-total-a="agg-${r.rink}"]`),qb=document.querySelector(`[data-live-total-b="agg-${r.rink}"]`);
+     if(live&&qa?.value!==''&&qb?.value!==''){totalA+=Math.max(0,+qa.value||0);totalB+=Math.max(0,+qb.value||0);return}
      if(live){for(let i=0;i<(x.ends||21);i++){let a=document.querySelector(`[data-live-a="agg-${r.rink}-${i}"]`),b=document.querySelector(`[data-live-b="agg-${r.rink}-${i}"]`);if(a?.value!==''||b?.value!==''){totalA+=Math.max(0,+a?.value||0);totalB+=Math.max(0,+b?.value||0)}}}
     }else{
      let cs=currentScore(r);totalA+=cs.a;totalB+=cs.b;
@@ -617,30 +700,30 @@ function renderQuick(s){
   };
   const persistAggregateForm=()=>{
    visibleRows.forEach(r=>{let ia=document.querySelector(`[data-agg-a="${r.rink}"]`),ib=document.querySelector(`[data-agg-b="${r.rink}"]`),sa=document.querySelector(`[data-agg-skip-a="${r.rink}"]`),sb=document.querySelector(`[data-agg-skip-b="${r.rink}"]`);r.scoreA=ia?.value===''?'':Math.max(0,+ia?.value||0);r.scoreB=ib?.value===''?'':Math.max(0,+ib?.value||0);r.skipA=sa?.value.trim()||'';r.skipB=sb?.value.trim()||'';
-    if(live){r.liveEnds=Array.from({length:x.ends||21},(_,i)=>{let a=document.querySelector(`[data-live-a="agg-${r.rink}-${i}"]`),b=document.querySelector(`[data-live-b="agg-${r.rink}-${i}"]`);return {a:a?.value===''?'':Math.max(0,+a.value||0),b:b?.value===''?'':Math.max(0,+b.value||0)}})}
+    if(live){persistLiveCheckpoint(r,'agg-'+r.rink);r.liveEnds=Array.from({length:x.ends||21},(_,i)=>{let a=document.querySelector(`[data-live-a="agg-${r.rink}-${i}"]`),b=document.querySelector(`[data-live-b="agg-${r.rink}-${i}"]`);return {a:a?.value===''?'':Math.max(0,+a.value||0),b:b?.value===''?'':Math.max(0,+b.value||0)}})}
    })
   };
   const aggregateAutoSave=()=>{refreshAggregatePreview();queueLiveAutoSave(persistAggregateForm)};
   attachBowlsEndRules(document,aggregateAutoSave);
-  document.querySelectorAll('[data-agg-a],[data-agg-b],[data-agg-skip-a],[data-agg-skip-b]').forEach(inp=>inp.addEventListener('input',aggregateAutoSave));
+  document.querySelectorAll('[data-agg-a],[data-agg-b],[data-agg-skip-a],[data-agg-skip-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',aggregateAutoSave));
   document.getElementById('saveAggregate').onclick=()=>saveScoresNow(persistAggregateForm,()=>render());refreshAggregatePreview();return
  }
  if((x.tournamentType||'standard')==='knockout'){
   advanceKnockoutOnly(c);let rounds=c.knockout||[];if(!rounds.length){s.innerHTML='<div class="card"><h2>Knockout Scoring</h2><p>Generate the knockout draw first.</p></div>';return}
   let activeRoundIndex=rounds.findIndex(round=>round.some(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&!completed(m)));if(activeRoundIndex<0)activeRoundIndex=rounds.length-1;
   let round=rounds[activeRoundIndex],roundName=round[0]?.roundName||('Round '+(activeRoundIndex+1));
-  s.innerHTML=`<div class="card"><h2>${esc(roundName)} Scoring</h2><p class="muted">${live?'Live end-by-end scoring is optional and auto-saves. Enter a final score to advance the winner.':'Enter the final score to advance the winner.'}</p>${round.map(m=>{let ready=knockoutEntryReady(m.a)&&knockoutEntryReady(m.b),ls=liveScore(m);return `<div class="card" style="box-shadow:none"><div><b>${esc(knockoutRefName(m.a,c))}</b> v <b>${esc(knockoutRefName(m.b,c))}</b><div class="meta">${esc(m.label||'')} • ${m.start||''} • Rink ${m.rink||'—'}</div></div>${!ready?'<div class="notice" style="margin-top:10px">Waiting for earlier round result.</div>':`${live?`<details style="margin-top:10px"><summary><b>Live ends</b> ${ls.count?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(knockoutRefName(m.a,c))}</th><th>${esc(knockoutRefName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-ko-a="${m.id}" value="${m.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-ko-b="${m.id}" value="${m.scoreB}"><div class="away"><b>${esc(knockoutRefName(m.b,c))}</b><div class="meta">Final score</div></div></div>`}</div>`}).join('')}<button class="btn primary" style="width:100%;margin-top:12px" id="saveKoScores">Save Scores</button></div>`;
-  const persistKo=()=>{round.forEach(m=>{if(!knockoutEntryReady(m.a)||!knockoutEntryReady(m.b))return;let a=document.querySelector(`[data-ko-a="${m.id}"]`),b=document.querySelector(`[data-ko-b="${m.id}"]`);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(live){m.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${m.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${m.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}});advanceKnockoutOnly(c)};
-  const koAuto=()=>queueLiveAutoSave(persistKo);attachBowlsEndRules(document,koAuto);document.querySelectorAll('[data-ko-a],[data-ko-b]').forEach(inp=>inp.addEventListener('input',koAuto));document.getElementById('saveKoScores').onclick=()=>saveScoresNow(persistKo,()=>render());return
+  s.innerHTML=`<div class="card"><h2>${esc(roundName)} Scoring</h2><p class="muted">${live?'Live end-by-end scoring is optional and auto-saves. Enter a final score to advance the winner.':'Enter the final score to advance the winner.'}</p>${round.map(m=>{let ready=knockoutEntryReady(m.a)&&knockoutEntryReady(m.b),ls=liveScore(m);return `<div class="card" style="box-shadow:none"><div><b>${esc(knockoutRefName(m.a,c))}</b> v <b>${esc(knockoutRefName(m.b,c))}</b><div class="meta">${esc(m.label||'')} • ${m.start||''} • Rink ${m.rink||'—'}</div></div>${!ready?'<div class="notice" style="margin-top:10px">Waiting for earlier round result.</div>':`${live?`${liveCheckpointFields(m,m.id,knockoutRefName(m.a,c),knockoutRefName(m.b,c),x.ends||12)}<details style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(knockoutRefName(m.a,c))}</th><th>${esc(knockoutRefName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-ko-a="${m.id}" value="${m.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-ko-b="${m.id}" value="${m.scoreB}"><div class="away"><b>${esc(knockoutRefName(m.b,c))}</b><div class="meta">Final score</div></div></div>`}</div>`}).join('')}<button class="btn primary" style="width:100%;margin-top:12px" id="saveKoScores">Save Scores</button></div>`;
+  const persistKo=()=>{round.forEach(m=>{if(!knockoutEntryReady(m.a)||!knockoutEntryReady(m.b))return;let a=document.querySelector(`[data-ko-a="${m.id}"]`),b=document.querySelector(`[data-ko-b="${m.id}"]`);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(live){persistLiveCheckpoint(m,m.id);m.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${m.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${m.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}});advanceKnockoutOnly(c)};
+  const koAuto=()=>queueLiveAutoSave(persistKo);attachBowlsEndRules(document,koAuto);document.querySelectorAll('[data-ko-a],[data-ko-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',koAuto));document.getElementById('saveKoScores').onclick=()=>saveScoresNow(persistKo,()=>render());return
  }
  let fs=c.fixtures;if(!fs.length){s.innerHTML='<div class="card"><h2>Quick Score</h2><p>No fixtures generated yet.</p></div>';return}
  let session=Math.min(...fs.filter(f=>!completed(f)).map(f=>f.session).concat([Math.max(...fs.map(f=>f.session))]));
  s.innerHTML=`<div class="card"><h2>Quick Score</h2><p class="muted">${live?'Live end-by-end is optional. Update ends when convenient, or simply enter the final score.':'Enter the final result for each game.'}</p><div class="toolbar"><select id="sessionPick">${[...new Set(fs.map(f=>f.session))].map(n=>`<option ${n===session?'selected':''} value="${n}">Session ${n} • ${fs.find(f=>f.session===n).start}</option>`).join('')}</select></div><div id="scoreList"></div></div>`;
- let draw=()=>{let n=+document.getElementById('sessionPick').value;document.getElementById('scoreList').innerHTML=fs.filter(f=>f.session===n).map(f=>{let ls=liveScore(f);return `<div class="card" style="box-shadow:none"><div><b>${esc(fixtureTeamName(f,'a',c))}</b> v <b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">Group ${f.group} • Rink ${f.rink} • Game ${f.game}</div></div>${live?`<details style="margin-top:10px"><summary><b>Live ends</b> ${ls.count?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(fixtureTeamName(f,'a',c))}</th><th>${esc(fixtureTeamName(f,'b',c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(f)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${f.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${f.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(fixtureTeamName(f,'a',c))}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-sa="${f.id}" value="${f.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-sb="${f.id}" value="${f.scoreB}"><div class="away"><b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">Final score</div></div></div></div>`}).join('')+`<button class="btn primary" style="width:100%;margin-top:12px" id="saveScores">Save Scores</button>`;
-  const persistSessionForm=()=>{fs.filter(f=>f.session===n).forEach(f=>{let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);f.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);f.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(live){f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}})};
+ let draw=()=>{let n=+document.getElementById('sessionPick').value;document.getElementById('scoreList').innerHTML=fs.filter(f=>f.session===n).map(f=>{let ls=liveScore(f);return `<div class="card" style="box-shadow:none"><div><b>${esc(fixtureTeamName(f,'a',c))}</b> v <b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">Group ${f.group} • Rink ${f.rink} • Game ${f.game}</div></div>${live?`${liveCheckpointFields(f,f.id,fixtureTeamName(f,'a',c),fixtureTeamName(f,'b',c),x.ends||12)}<details style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(fixtureTeamName(f,'a',c))}</th><th>${esc(fixtureTeamName(f,'b',c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(f)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${f.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${f.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(fixtureTeamName(f,'a',c))}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-sa="${f.id}" value="${f.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-sb="${f.id}" value="${f.scoreB}"><div class="away"><b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">Final score</div></div></div></div>`}).join('')+`<button class="btn primary" style="width:100%;margin-top:12px" id="saveScores">Save Scores</button>`;
+  const persistSessionForm=()=>{fs.filter(f=>f.session===n).forEach(f=>{let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);f.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);f.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(live){persistLiveCheckpoint(f,f.id);f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}})};
   const sessionAutoSave=()=>queueLiveAutoSave(persistSessionForm);
   attachBowlsEndRules(document.getElementById('scoreList'),sessionAutoSave);
-  document.querySelectorAll('[data-sa],[data-sb]').forEach(inp=>inp.addEventListener('input',sessionAutoSave));
+  document.querySelectorAll('[data-sa],[data-sb],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',sessionAutoSave));
   document.getElementById('saveScores').onclick=()=>saveScoresNow(persistSessionForm,()=>render())
  };
  document.getElementById('sessionPick').onchange=draw;draw()
@@ -665,7 +748,7 @@ function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('No
 function renderKnockout(s){let c=comp();if((c.settings.tournamentType||'standard')==='knockout'){let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,c.settings.knockoutMinutes||c.settings.minutes,c.settings.start);s.innerHTML=`<div class="card"><h2>Knockout Format</h2><div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Prelim games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Est. final</span></div></div>${!c.knockout?.length&&role==='admin'?'<button class="btn primary" id="genKoOnly2" style="margin-top:12px">Generate Knockout Draw</button>':''}</div>${c.knockout?.length?`<div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${esc(round[0]?.roundName||('Round '+(ri+1)))}</h3>${round.map(m=>`<div class="match"><div>${esc(knockoutRefName(m.a,c))}</div><div>${esc(knockoutRefName(m.b,c))}</div></div>`).join('')}</div>`).join('')}</div>`:''}`;let b=document.getElementById('genKoOnly2');if(b)b.onclick=()=>{generateKnockoutOnlyDraw();render()};return}let q=qualifiers(),first=c.knockout[0]||[],rematches=first.filter(m=>m.a&&m.b&&m.sameGroupRematch).length;s.innerHTML=`<div class="card"><h2>Knockout</h2><p class="muted">Qualifiers are ranked by points, shot difference and shots for. The first knockout round keeps group winners apart from qualifiers from the same group wherever possible.</p><div>${q.map((x,i)=>`<span class="pill wait" style="margin:3px">${i+1}. ${esc(x.name)} <span class="qual">(${x.group}${x.pos})</span></span>`).join('')||'No qualifiers yet.'}</div>${role==='admin'?`<button class="btn primary" id="genKO" style="margin-top:12px">Generate Knockout</button>`:''}${c.knockout.length?`<div class="${rematches?'notice':'oknotice notice'}" style="margin-top:12px"><b>First-round group protection:</b> ${rematches?`${rematches} same-group rematch${rematches===1?'':'es'} could not be avoided with this qualifier combination.`:'No same-group rematches in the first knockout round.'}</div>`:''}</div>${c.knockout.length?`<div class="card"><div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${ri===c.knockout.length-1&&round.length===1?'Final':ri===0?'First Round':'Round '+(ri+1)}</h3>${round.map((m,mi)=>`<div class="match"><div>${esc(m.a?teamName(m.a):'BYE')}</div><div>${esc(m.b?teamName(m.b):'BYE')}</div>${ri===0&&m.sameGroupRematch?'<div class="qual" style="color:#b45309;font-weight:700">⚠ Same-group rematch unavoidable</div>':''}</div>`).join('')}</div>`).join('')}</div></div>`:''}`;if(role==='admin'&&document.getElementById('genKO'))document.getElementById('genKO').onclick=generateKnockout}
 function renderAdmin(s){let c=comp();if(!['owner','admin'].includes(currentAppRole)){s.innerHTML='<div class="card"><h2>Admin</h2><p>This account does not have Admin permission.</p></div>';return}
  let archiveCard=c.archivedAt?`<div class="card"><h2>Archived Competition</h2><div class="oknotice notice"><b>Completed:</b> ${new Date(c.archivedAt).toLocaleString()}</div><p class="muted">This event is locked against further scoring changes. It remains available from the competition list.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="downloadArchive">Download Full Backup</button><button class="btn secondary" id="downloadSummary">Download Results Summary</button><button class="btn success" id="newAfterArchive">Start New Competition</button></div></div>`:`<div class="card"><h2>Finish Competition</h2><p class="muted">When the event is finished, archive it before starting the next one. A full restore backup will download to your device and the competition will stay listed as Archived.</p><button class="btn success" id="completeArchive">Complete & Archive Competition</button></div>`;
- s.innerHTML=`${archiveCard}<div class="card"><h2>Accounts & Permissions</h2><p class="muted">Each scorer uses their own account. New accounts remain Pending until approved.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div><div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
+ s.innerHTML=`${archiveCard}${remoteTournamentId&&['owner','admin'].includes(remoteAccessRole)?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>. Approve scorers who have entered this code.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}<div class="card"><h2>Accounts & Permissions</h2><p class="muted">Each scorer uses their own account. New accounts remain Pending until approved.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div><div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
  let ca=document.getElementById('completeArchive');if(ca)ca.onclick=completeAndArchive;
  let da=document.getElementById('downloadArchive');if(da)da.onclick=()=>downloadCompetitionBackup(c);
  let ds=document.getElementById('downloadSummary');if(ds)ds.onclick=()=>downloadResultsSummary(c);
@@ -678,6 +761,15 @@ async function loadAdminExtras(){
  let usersBox=document.getElementById('userAdminList'),auditBox=document.getElementById('auditList');
  let {data:users,error:uerr}=await cloud.from('bowls_users').select('user_id,email,display_name,role,created_at').order('created_at',{ascending:true});
  if(usersBox){if(uerr)usersBox.innerHTML='<p>Could not load accounts.</p>';else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead><tbody>${(users||[]).map(u=>`<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td></tr>`).join('')}</tbody></table></div>`;usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){alert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras()}})}
+ if(remoteTournamentId&&['owner','admin'].includes(remoteAccessRole)){
+  let mb=document.getElementById('tournamentMemberList');
+  let {data:members,error:merr}=await cloud.rpc('bowls_list_tournament_members',{p_id:remoteTournamentId});
+  if(mb){
+   if(merr)mb.innerHTML='<p>Could not load tournament users.</p>';
+   else mb.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Tournament role</th></tr></thead><tbody>${(members||[]).map(u=>`<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-tournament-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td></tr>`).join('')}</tbody></table></div>`;
+   mb.querySelectorAll('[data-tournament-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:sel.dataset.tournamentRole,p_role:sel.value});if(error)alert(error.message);else loadAdminExtras()})
+  }
+ }
  let {data:logs,error:lerr}=await cloud.from('bowls_audit_log').select('id,user_email,user_role,action,target,old_value,new_value,created_at').eq('competition_id',comp().id).order('created_at',{ascending:false}).limit(100);
  if(auditBox){if(lerr)auditBox.innerHTML='<p>Could not load audit history.</p>';else if(!logs?.length)auditBox.innerHTML='<p class="muted">No score changes have been logged yet.</p>';else auditBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th></tr></thead><tbody>${logs.map(l=>`<tr><td>${new Date(l.created_at).toLocaleString()}</td><td>${esc(l.user_email||'Unknown')}<div class="meta">${esc(l.user_role||'')}</div></td><td>${esc((l.action||'').replaceAll('_',' '))}</td><td>${esc(l.target||'')}</td></tr>`).join('')}</tbody></table></div>`}
 }
@@ -688,6 +780,8 @@ document.getElementById('authCancel').onclick=()=>document.getElementById('authM
 document.getElementById('authSignin').onclick=signInAccount;document.getElementById('authSignup').onclick=createAccount;
 document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter')signInAccount()};
 document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer')};
+document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
+document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
 function tvCurrentGames(c){let fs=c.fixtures||[],pending=fs.filter(f=>!completed(f));if(!fs.length)return[];let currentSession=pending.length?Math.min(...pending.map(f=>f.session)):Math.max(...fs.map(f=>f.session));return fs.filter(f=>f.session===currentSession)}
 function tvUpcoming(c){let fs=(c.fixtures||[]).filter(f=>!completed(f));if(!fs.length)return[];let sessions=[...new Set(fs.map(f=>f.session))].sort((a,b)=>a-b);let n=sessions[0];return fs.filter(f=>f.session===n).slice(0,12)}
