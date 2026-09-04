@@ -86,6 +86,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
  @page{size:A4 landscape;margin:10mm}
 }
 
+
+.notify-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:5px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;font-weight:800;line-height:1;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 </style>
 </head>
 <body>
@@ -132,8 +134,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.32';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
+const APP_VERSION='2026.09.04.33';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
@@ -462,6 +464,7 @@ async function loadCurrentProfile(){
  currentClubs=[];
  try{let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)currentClubs=Array.isArray(cr.data)?cr.data:[]}catch(e){}
  updateAccountButton();
+ if(cloudReady)setTimeout(refreshAccessNotificationBadge,0);
 }
 function accessLabel(status,trialEnd,accessEnd){
  let now=Date.now(),te=trialEnd?new Date(trialEnd).getTime():0,ae=accessEnd?new Date(accessEnd).getTime():0;
@@ -529,7 +532,7 @@ async function createAccount(){
  }
  currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');await requestRole(authRequestedRole||'scorer')
 }
-async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;currentClubs=[];role='public';tab='dashboard';updateAccountButton();render()}
+async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;currentClubs=[];accessNotificationCount=0;if(notificationRefreshTimer){clearInterval(notificationRefreshTimer);notificationRefreshTimer=null}role='public';tab='dashboard';updateAccountButton();render()}
 async function auditEvent(action,target,oldValue,newValue){
  if(!cloud||!currentUser||!canWriteCloud())return;let c=comp();
  let row={user_id:currentUser.id,user_email:currentUser.email||'',user_role:currentAppRole,competition_id:c.id,competition_title:c.title,action,target,old_value:oldValue??null,new_value:newValue??null};
@@ -592,7 +595,7 @@ async function initCloudSync(){
  try{
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   let {data:sessionData}=await cloud.auth.getSession();currentUser=sessionData?.session?.user||null;await loadCurrentProfile();
-  cloudReady=true;
+  cloudReady=true;startNotificationRefresh();
   let params=new URLSearchParams(location.search),code=params.get('code');
   if(code){await openTournamentByCode(code);return}
   if(remoteTournamentCode){await openTournamentByCode(remoteTournamentCode)}
@@ -701,7 +704,32 @@ async function shareCurrentDraw(){
  }finally{if(actions)actions.style.display='flex'}
 }
 function tabsFor(){if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];if(role==='scorer')return [['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤']];return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]}
-function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${x[1]}</button>`).join('');document.getElementById('bottomNav').innerHTML=tabs.slice(0,5).map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()})}
+
+function updateAdminRoleBadge(){
+ let b=document.querySelector('[data-role="admin"]');if(!b)return;
+ b.innerHTML='Admin'+(accessNotificationCount>0?` <span class="notify-badge">${accessNotificationCount>99?'99+':accessNotificationCount}</span>`:'');
+}
+async function refreshAccessNotificationBadge(){
+ if(!cloud||!currentUser){accessNotificationCount=0;renderNav();return 0}
+ let count=0;
+ try{
+  if(['owner','admin'].includes(currentAppRole)){
+   let q=await cloud.from('bowls_users').select('user_id',{count:'exact',head:true}).eq('role','pending');
+   if(!q.error)count+=q.count||0;
+  }
+  if(remoteTournamentId&&['owner','admin'].includes(remoteAccessRole)){
+   let q=await cloud.rpc('bowls_list_tournament_members',{p_id:remoteTournamentId});
+   if(!q.error)count+=(Array.isArray(q.data)?q.data:[]).filter(x=>x.role==='pending').length;
+  }
+ }catch(e){console.error('Access notification refresh failed',e)}
+ accessNotificationCount=count;renderNav();return count;
+}
+function startNotificationRefresh(){
+ if(notificationRefreshTimer)clearInterval(notificationRefreshTimer);
+ refreshAccessNotificationBadge();
+ notificationRefreshTimer=setInterval(refreshAccessNotificationBadge,10000);
+}
+function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];let badge=accessNotificationCount>0?`<span class="notify-badge">${accessNotificationCount>99?'99+':accessNotificationCount}</span>`:'';document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');document.getElementById('bottomNav').innerHTML=tabs.slice(0,5).map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});updateAdminRoleBadge()}
 function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc((c.title||'').trim()||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
 
 function wireGlobalToolbar(){
@@ -1364,7 +1392,7 @@ async function loadAdminExtras(){
    let {error}=await cloud.rpc('bowls_set_user_access',{p_user:id,p_status:status,p_end_date:date});
    if(error)return alert(error.message);loadAdminExtras()
   });
-  usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){alert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras()}})
+  usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){alert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras();setTimeout(refreshAccessNotificationBadge,250)}})
  }
  if(remoteTournamentId&&tournamentAdmin){
   let mb=document.getElementById('tournamentMemberList');
@@ -1372,7 +1400,7 @@ async function loadAdminExtras(){
   if(mb){
    if(merr)mb.innerHTML='<p>Could not load tournament users.</p>';
    else mb.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Tournament role</th></tr></thead><tbody>${(members||[]).map(u=>`<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-tournament-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td></tr>`).join('')}</tbody></table></div>`;
-   mb.querySelectorAll('[data-tournament-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:sel.dataset.tournamentRole,p_role:sel.value});if(error)alert(error.message);else loadAdminExtras()})
+   mb.querySelectorAll('[data-tournament-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:sel.dataset.tournamentRole,p_role:sel.value});if(error)alert(error.message);else{loadAdminExtras();setTimeout(refreshAccessNotificationBadge,250)}})
   }
  }
  if(globalAdmin&&auditBox){
