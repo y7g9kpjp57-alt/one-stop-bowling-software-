@@ -16,7 +16,57 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:10;backgroun
 @media(max-width:440px){.formgrid{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.teamplayers{grid-template-columns:1fr}}
 
 .scorecards-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.scorecard{background:#fff;border:2px solid #111;padding:8px;break-inside:avoid;color:#111;font-family:Arial,Helvetica,sans-serif}.scorecard-title{text-align:center;font-size:18px;font-weight:800;border:2px solid #111;padding:4px;margin-bottom:5px;text-transform:uppercase}.scorecard-info{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:11px;margin-bottom:4px}.scorecard-info div{border-bottom:1px dotted #333;min-height:20px}.scorecard-vs{text-align:center;font-weight:700;border-bottom:2px solid #111;padding:4px 0;margin-bottom:2px}.player-lines{display:grid;grid-template-columns:1fr 44px 1fr;border-left:1px solid #111;border-right:1px solid #111}.player-lines>div{min-height:21px;border-bottom:1px solid #777;padding:3px 5px;font-size:10px}.player-lines .pos{text-align:center;font-weight:700;border-left:1px solid #111;border-right:1px solid #111}.score-table{width:100%;border-collapse:collapse;min-width:0}.score-table th,.score-table td{border:1px solid #111;padding:0;text-align:center;font-size:9px;height:18px}.score-table th{background:#fff;font-size:9px;letter-spacing:0}.score-table .endnum{width:34px;font-weight:700}.score-table .shot{width:22%}.score-table .running{width:22%}.scorecard-total{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;font-weight:800;margin-top:4px}.scorecard-total div{border-bottom:2px solid #111;padding:4px}.scorecard-foot{font-size:8px;text-align:center;margin-top:5px}.scorecard-actions{display:flex;gap:8px;flex-wrap:wrap}.noPrint{}
-@media print{header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}.wrap{max-width:none;padding:0}.scorecards-grid{display:grid!important;grid-template-columns:repeat(4,1fr);gap:4mm}.scorecard{border-radius:0;min-height:0;height:278mm;padding:3mm}.scorecard-title{font-size:12px}.scorecard-info{font-size:8px}.player-lines>div{font-size:8px;min-height:17px}.score-table th,.score-table td{font-size:7px;height:auto;min-height:0}.score-table tr{height:7.2mm}.scorecard-total{font-size:9px}.scorecard-foot{font-size:6px}@page{size:A3 landscape;margin:6mm}}
+@media print{
+header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
+.wrap{max-width:none;padding:0}
+.scorecards-grid{display:grid!important;gap:3mm}
+.scorecard{border-radius:0;min-height:0;break-inside:avoid;page-break-inside:avoid}
+.scorecard-title{font-weight:800}
+.scorecard-info{line-height:1.15}
+.score-table th,.score-table td{height:auto;min-height:0}
+.scorecard-foot{line-height:1.1}
+
+/* 8 per A3: 4 across x 2 rows */
+.scorecards-grid.print-8{grid-template-columns:repeat(4,1fr)}
+.scorecards-grid.print-8 .scorecard{height:137mm;padding:2mm}
+.scorecards-grid.print-8 .scorecard-title{font-size:9px;padding:2px;margin-bottom:2px}
+.scorecards-grid.print-8 .scorecard-info{font-size:6px;gap:2px 5px;margin-bottom:2px}
+.scorecards-grid.print-8 .scorecard-info div{min-height:12px}
+.scorecards-grid.print-8 .scorecard-vs{font-size:8px;padding:2px 0;margin-bottom:1px}
+.scorecards-grid.print-8 .player-lines>div{font-size:6px;min-height:12px;padding:1px 3px}
+.scorecards-grid.print-8 .score-table th,.scorecards-grid.print-8 .score-table td{font-size:5.5px}
+.scorecards-grid.print-8 .score-table tr{height:4.6mm}
+.scorecards-grid.print-8 .scorecard-total{font-size:7px;margin-top:2px}
+.scorecards-grid.print-8 .scorecard-total div{padding:2px}
+.scorecards-grid.print-8 .scorecard-foot{font-size:4.5px;margin-top:2px}
+
+/* 6 per A3: 3 across x 2 rows */
+.scorecards-grid.print-6{grid-template-columns:repeat(3,1fr)}
+.scorecards-grid.print-6 .scorecard{height:137mm;padding:2.4mm}
+.scorecards-grid.print-6 .scorecard-title{font-size:10px;padding:2px;margin-bottom:2px}
+.scorecards-grid.print-6 .scorecard-info{font-size:6.8px;gap:2px 6px;margin-bottom:2px}
+.scorecards-grid.print-6 .scorecard-info div{min-height:13px}
+.scorecards-grid.print-6 .scorecard-vs{font-size:9px;padding:2px 0;margin-bottom:1px}
+.scorecards-grid.print-6 .player-lines>div{font-size:6.5px;min-height:13px;padding:1px 3px}
+.scorecards-grid.print-6 .score-table th,.scorecards-grid.print-6 .score-table td{font-size:6px}
+.scorecards-grid.print-6 .score-table tr{height:5mm}
+.scorecards-grid.print-6 .scorecard-total{font-size:7.5px;margin-top:2px}
+.scorecards-grid.print-6 .scorecard-total div{padding:2px}
+.scorecards-grid.print-6 .scorecard-foot{font-size:5px;margin-top:2px}
+
+/* 4 per A3 for longer games */
+.scorecards-grid.print-4{grid-template-columns:repeat(4,1fr)}
+.scorecards-grid.print-4 .scorecard{height:278mm;padding:3mm}
+.scorecards-grid.print-4 .scorecard-title{font-size:12px}
+.scorecards-grid.print-4 .scorecard-info{font-size:8px}
+.scorecards-grid.print-4 .player-lines>div{font-size:8px;min-height:17px}
+.scorecards-grid.print-4 .score-table th,.scorecards-grid.print-4 .score-table td{font-size:7px}
+.scorecards-grid.print-4 .score-table tr{height:7.2mm}
+.scorecards-grid.print-4 .scorecard-total{font-size:9px}
+.scorecards-grid.print-4 .scorecard-foot{font-size:6px}
+
+@page{size:A3 landscape;margin:6mm}
+}
 
 .tv-mode{background:#020617;color:#f8fafc;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.tv-wrap{min-height:100vh;padding:32px 42px}.tv-head{display:flex;justify-content:space-between;align-items:end;border-bottom:3px solid #38bdf8;padding-bottom:16px;margin-bottom:24px}.tv-head h1{font-size:42px;margin:0}.tv-head .sub{font-size:20px;color:#bae6fd}.tv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.tv-card{background:#0f172a;border:1px solid #334155;border-radius:18px;padding:22px}.tv-card h2{font-size:30px;margin:0 0 14px}.tv-table{width:100%;border-collapse:collapse;min-width:0;background:transparent}.tv-table th,.tv-table td{border-bottom:1px solid #334155;padding:11px 10px;font-size:22px;color:#f8fafc}.tv-table th{background:#1e293b;font-size:16px;color:#bae6fd}.tv-score{font-size:34px;font-weight:900}.tv-muted{color:#94a3b8}.tv-footer{position:fixed;left:42px;right:42px;bottom:18px;display:flex;justify-content:space-between;color:#94a3b8;font-size:15px}.tv-big-list{display:grid;gap:12px}.tv-match{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:16px;padding:18px 20px;font-size:28px}.tv-match .right{text-align:right}.tv-match .score{font-size:36px;font-weight:900;color:#7dd3fc}.tv-empty{text-align:center;font-size:30px;color:#94a3b8;padding:70px 20px}.tv-controls{display:flex;gap:10px;align-items:center}.tv-controls button{border:1px solid #475569;background:#0f172a;color:#fff;padding:9px 13px;border-radius:10px;font-size:14px}@media(max-width:900px){.tv-wrap{padding:22px}.tv-head h1{font-size:30px}.tv-grid{grid-template-columns:1fr}.tv-table th,.tv-table td{font-size:18px}.tv-match{font-size:22px}.tv-footer{left:22px;right:22px}}
 </style>
@@ -43,7 +93,7 @@ button,input,select{font:inherit}.top{position:sticky;top:0;z-index:10;backgroun
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.3';
+const APP_VERSION='2026.09.04.4';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',authRequestedRole=null;
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -449,6 +499,14 @@ function printPlayingSchedule(){let c=comp(),fs=c.fixtures;if(!fs.length)return;
 .tv-mode{background:#020617;color:#f8fafc;min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.tv-wrap{min-height:100vh;padding:32px 42px}.tv-head{display:flex;justify-content:space-between;align-items:end;border-bottom:3px solid #38bdf8;padding-bottom:16px;margin-bottom:24px}.tv-head h1{font-size:42px;margin:0}.tv-head .sub{font-size:20px;color:#bae6fd}.tv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}.tv-card{background:#0f172a;border:1px solid #334155;border-radius:18px;padding:22px}.tv-card h2{font-size:30px;margin:0 0 14px}.tv-table{width:100%;border-collapse:collapse;min-width:0;background:transparent}.tv-table th,.tv-table td{border-bottom:1px solid #334155;padding:11px 10px;font-size:22px;color:#f8fafc}.tv-table th{background:#1e293b;font-size:16px;color:#bae6fd}.tv-score{font-size:34px;font-weight:900}.tv-muted{color:#94a3b8}.tv-footer{position:fixed;left:42px;right:42px;bottom:18px;display:flex;justify-content:space-between;color:#94a3b8;font-size:15px}.tv-big-list{display:grid;gap:12px}.tv-match{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center;background:#0f172a;border:1px solid #334155;border-radius:16px;padding:18px 20px;font-size:28px}.tv-match .right{text-align:right}.tv-match .score{font-size:36px;font-weight:900;color:#7dd3fc}.tv-empty{text-align:center;font-size:30px;color:#94a3b8;padding:70px 20px}.tv-controls{display:flex;gap:10px;align-items:center}.tv-controls button{border:1px solid #475569;background:#0f172a;color:#fff;padding:9px 13px;border-radius:10px;font-size:14px}@media(max-width:900px){.tv-wrap{padding:22px}.tv-head h1{font-size:30px}.tv-grid{grid-template-columns:1fr}.tv-table th,.tv-table td{font-size:18px}.tv-match{font-size:22px}.tv-footer{left:22px;right:22px}}
 </style></head><body><h1>${esc(c.title)} — Playing Schedule</h1><p class="meta">${c.settings.rinks} rinks • ${c.settings.minutes} minutes per session • ${c.settings.ends} ends • Start ${c.settings.start}</p>`;sessions.forEach((n,idx)=>{let rows=fs.filter(f=>f.session===n),prev=idx?new Set(fs.filter(f=>f.session===sessions[idx-1]).flatMap(f=>[f.a,f.b])):new Set();html+=`<section class="session"><h2>Session ${n} — ${rows[0].start}</h2><table><thead><tr><th>Rink</th><th>Group</th><th>Game</th><th>Team A</th><th>Team B</th></tr></thead><tbody>`;for(let i=1;i<=c.settings.rinks;i++){let f=rows.find(x=>x.rink===i);if(f){let ba=prev.has(f.a),bb=prev.has(f.b);html+=`<tr><td><b>${i}</b></td><td>${f.group}</td><td>${f.game}</td><td>${esc(fixtureTeamName(f,'a',c))}${ba?' <span class="warn">⚠ back-to-back</span>':''}</td><td>${esc(fixtureTeamName(f,'b',c))}${bb?' <span class="warn">⚠ back-to-back</span>':''}</td></tr>`}else html+=`<tr><td><b>${i}</b></td><td colspan="4">Free rink</td></tr>`}html+=`</tbody></table></section>`});html+=`<footer>Generated by One Stop Bowling Software</footer><script>window.onload=()=>window.print()<\/script></body></html>`;let w=window.open('','_blank');w.document.open();w.document.write(html);w.document.close()}
 function playerPositions(type){return type==='singles'?['Player']:type==='pairs'?['Lead','Skip']:type==='triples'?['Lead','Second','Skip']:['Lead','Second','Third','Skip']}
+function prepareScorecardPrint(){
+ let g=document.getElementById('cardsGrid');if(!g)return;
+ g.classList.remove('print-4','print-6','print-8');
+ let ends=Math.max(1,+comp().settings.ends||12);
+ g.classList.add(ends<=12?'print-8':ends<=18?'print-6':'print-4');
+ setTimeout(()=>window.print(),50);
+}
+
 function scorecardCard(f,blank=false){let c=comp(),x=c.settings,positions=playerPositions(x.gameType||'rinks'),a=blank?'____________________':fixtureTeamName(f,'a',c),b=blank?'____________________':fixtureTeamName(f,'b',c),rink=blank?'_____':(f.rink??'_____'),game=blank?'_____':(f.game??f.label??'_____'),grp=blank?'_____':(f.group??f.roundName??'_____'),start=blank?'_____':(f.start??'_____'),teamA=c.teams.find(t=>String(t.id)===String(f.a)),teamB=c.teams.find(t=>String(t.id)===String(f.b));
  let playerRows=positions.map((p,i)=>{let pa=blank?'':(teamA?.players?.[i]||''),pb=blank?'':(teamB?.players?.[i]||'');return `<div>${pa?esc(pa):'&nbsp;'}</div><div class="pos">${esc(p)}</div><div>${pb?esc(pb):'&nbsp;'}</div>`}).join('');
  let endRows=Array.from({length:x.ends},(_,i)=>`<tr><td class="shot"></td><td class="running"></td><td class="endnum">${i+1}</td><td class="shot"></td><td class="running"></td></tr>`).join('');
@@ -457,8 +515,8 @@ function renderScorecards(s){let c=comp(),tt=(c.settings.tournamentType||'standa
  let fs=tt==='knockout'?(c.knockout||[]).flat().map(m=>({...m,game:m.label||'',group:m.roundName||'Knockout'})):c.fixtures;
  if(!fs.length){s.innerHTML=`<div class="card"><h2>Scorecards</h2><p>${tt==='knockout'?'Generate the knockout draw first.':'Generate the draw and rink schedule first.'}</p></div>`;return}
  let desc=tt==='knockout'?'One portrait scorecard per knockout match. Later rounds show the winning-source labels until the teams are known.':'One portrait scorecard per scheduled game, pre-filled with competition, teams and rink.';
- s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} A3 landscape prints 4 cards per sheet.</p><div class="scorecard-actions"><button class="btn primary" id="printCards">Print ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${fs.map(f=>scorecardCard(f)).join('')}</div>`;
- document.getElementById('printCards').onclick=()=>window.print();
+ s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} A3 landscape automatically fits 8, 6 or 4 cards per sheet depending on the number of ends.</p><div class="scorecard-actions"><button class="btn primary" id="printCards">Print ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${fs.map(f=>scorecardCard(f)).join('')}</div>`;
+ document.getElementById('printCards').onclick=prepareScorecardPrint;
  document.getElementById('showBlanks').onclick=()=>{document.getElementById('cardsGrid').innerHTML=Array.from({length:4},()=>scorecardCard({game:'',group:'',start:'',rink:'',a:'',b:''},true)).join('');document.getElementById('printCards').textContent='Print Blank Scorecards'}
 }
 function renderFixtures(s){
