@@ -131,8 +131,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.18';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
+const APP_VERSION='2026.09.04.19';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
@@ -145,11 +145,19 @@ function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includ
 function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament())pushRemoteTournament();}
 function canWriteRemoteTournament(){let a=accessState();return !!currentUser&&a.active&&['owner','admin','scorer'].includes(remoteAccessRole)}
 async function pushRemoteTournament(){
+ if(remoteSaveBusy)return false;
+ remoteSaveBusy=true;
  try{
   let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||'')});
   if(error)throw error;
+  remoteLastPushAt=Date.now();
   setTournamentNotice();
- }catch(e){console.error('Tournament cloud save failed',e);setSyncNotice('Cloud save failed • changes remain on this device',false)}
+  return true
+ }catch(e){
+  console.error('Tournament cloud save failed',e);
+  setSyncNotice('Cloud save failed • changes remain on this device',false);
+  return false
+ }finally{remoteSaveBusy=false}
 }
 function setRemoteTournament(id,code,accessRole){
  remoteTournamentId=id||'';remoteTournamentCode=(code||'').toUpperCase();remoteAccessRole=accessRole||'public';
@@ -194,6 +202,7 @@ async function openTournamentByCode(code=null){
 }
 async function refreshRemoteTournament(){
  if(!remoteTournamentCode||!cloud)return;
+ if(remoteSaveBusy||Date.now()-remoteLastPushAt<2000)return;
  // Do not redraw the scoring form while someone is typing into an input.
  // The previous polling refresh could replace the DOM mid-name and make text appear to delete itself.
  let active=document.activeElement;
@@ -843,7 +852,42 @@ function roundRobin(teams){let list=[...teams];if(list.length%2)list.push(null);
 function addMinutes(t,m){let [h,mi]=t.split(':').map(Number),tot=h*60+mi+m;return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0')}
 function teamName(id,c=comp()){if(id&&typeof id==='object')return id.name||teamName(id.id,c);let v=String(id??'');let t=c.teams.find(t=>String(t.id)===v)||c.teams.find(t=>String(t.name)===v);if(t)return t.name;if(/^t\d+$/i.test(v)){let n=parseInt(v.replace(/\D/g,''),10);return c.teams[n-1]?.name||v}if(/^\d+$/.test(v)){let n=parseInt(v,10);return c.teams[n-1]?.name||v}return v||'TBC'}
 function fixtureTeamName(f,side,c=comp()){let id=side==='a'?f.a:f.b,stored=side==='a'?f.nameA:f.nameB,v=String(id??''),found=c.teams.find(t=>String(t.id)===v)||c.teams.find(t=>String(t.name)===v);if(found)return found.name;if(stored)return stored;return teamName(id,c)||'TBC'}
-function renderTeams(s){let c=comp(),positions=playerPositions(c.settings.gameType||'rinks');c.teams.forEach(t=>t.players=t.players||{});s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;document.getElementById('saveTeams').onclick=()=>{document.querySelectorAll('[data-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.team);if(t)t.name=i.value.trim()||t.name});document.querySelectorAll('[data-player-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.playerTeam);if(t){t.players=t.players||{};t.players[i.dataset.playerPos]=i.value.trim()}});saveDB();render()}}
+function renderTeams(s){
+ let c=comp(),x=c.settings;
+ if(isAggregate(c)){
+  let rows=ensureAggregate(c);
+  s.innerHTML=`<div class="card"><h2>Team Match Rink Line-up</h2>
+   <p class="muted">Set the skips for every rink before scoring starts. These names are saved with the tournament and automatically appear on the scorer and display screens.</p>
+   <div class="oknotice" style="margin-bottom:12px"><b>${esc(x.aggregateSideA||'Side A')}</b> v <b>${esc(x.aggregateSideB||'Side B')}</b> • ${rows.length} rinks • ${x.ends||21} ends</div>
+   <div id="aggregateLineupList">${rows.map(r=>`<div class="teamcard">
+    <div style="font-size:22px;font-weight:900;margin-bottom:10px">Rink ${r.rink}</div>
+    <div class="formgrid">
+     <div class="field"><label>${esc(x.aggregateSideA||'Side A')} skip</label><input data-lineup-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Enter skip name"></div>
+     <div class="field"><label>${esc(x.aggregateSideB||'Side B')} skip</label><input data-lineup-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Enter skip name"></div>
+    </div>
+   </div>`).join('')}</div>
+   <button class="btn primary" id="saveAggregateLineup" style="width:100%">Save Rink Line-up</button>
+   <div id="lineupSaveMessage" class="oknotice hidden" style="margin-top:12px">Rink line-up saved online.</div>
+  </div>`;
+  document.getElementById('saveAggregateLineup').onclick=async()=>{
+   rows.forEach(r=>{
+    let a=document.querySelector(`[data-lineup-a="${r.rink}"]`),b=document.querySelector(`[data-lineup-b="${r.rink}"]`);
+    r.skipA=a?.value.trim()||'';r.skipB=b?.value.trim()||''
+   });
+   localStorage.setItem(APPKEY,JSON.stringify(db));
+   let btn=document.getElementById('saveAggregateLineup');btn.disabled=true;btn.textContent='Saving…';
+   let ok=true;
+   if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament())ok=await pushRemoteTournament();
+   btn.disabled=false;btn.textContent='Save Rink Line-up';
+   if(ok){let m=document.getElementById('lineupSaveMessage');m.classList.remove('hidden');setTimeout(()=>m.classList.add('hidden'),2500)}
+   else alert('The line-up is saved on this device, but the online save failed. Please check your connection and try again.')
+  };
+  return
+ }
+ let positions=playerPositions(c.settings.gameType||'rinks');c.teams.forEach(t=>t.players=t.players||{});
+ s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;
+ document.getElementById('saveTeams').onclick=()=>{document.querySelectorAll('[data-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.team);if(t)t.name=i.value.trim()||t.name});document.querySelectorAll('[data-player-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.playerTeam);if(t){t.players=t.players||{};t.players[i.dataset.playerPos]=i.value.trim()}});saveDB();render()}
+}
 
 function manualGroupLetters(c=comp()){let count=Math.max(1,Math.min(20,+c.settings.manualGroups||Math.ceil(c.teams.length/Math.max(1,c.settings.groupSize||4))));return Array.from({length:count},(_,i)=>String.fromCharCode(65+i))}
 function assignManualGroup(teamId,group){let c=comp(),t=c.teams.find(x=>x.id===teamId);if(!t)return;let from=t.group||'';if(from===group)return;c.manualHistory=c.manualHistory||[];c.manualHistory.push({teamId,from,to:group});t.group=group;c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
@@ -921,7 +965,7 @@ function renderQuick(s){
   s.innerHTML=`<div class="card"><h2>Aggregate Match Scoring</h2><p class="muted">${live?'Live end-by-end scoring is available but optional. Scores auto-save as they are entered.':'Enter each final rink score.'}</p>
   <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;text-align:center;align-items:center;margin:16px 0"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div id="aggLiveTotalA" style="font-size:38px;font-weight:900">${t.a}</div></div><b style="font-size:24px">–</b><div><b>${esc(x.aggregateSideB||'Side B')}</b><div id="aggLiveTotalB" style="font-size:38px;font-weight:900">${t.b}</div></div></div>
   ${role==='scorer'?`<div class="oknotice" style="display:flex;gap:10px;align-items:center;justify-content:space-between"><div><b>YOU ARE SCORING RINK ${assigned}</b><div class="meta">Check the rink and skip names before entering a score.</div></div><button class="btn secondary" id="changeAssignedRink">Change Rink</button></div>`:''}
-  ${visibleRows.map(r=>{let ls=liveScore(r);return `<div class="card" style="box-shadow:none;border:2px solid ${role==='scorer'?'#0369a1':'var(--line)'}"><div style="text-align:center;margin-bottom:12px"><div style="font-size:30px;font-weight:900">RINK ${r.rink}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-top:8px"><div><b>${esc(x.aggregateSideA||'Side A')}</b>${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div><b>v</b><div><b>${esc(x.aggregateSideB||'Side B')}</b>${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div></div></div><div class="formgrid" style="margin-bottom:10px"><div class="field"><label>${esc(x.aggregateSideA||'Side A')} skip (optional)</label><input data-agg-skip-a="${r.rink}" value="${esc(r.skipA||'')}" placeholder="Skip name"></div><div class="field"><label>${esc(x.aggregateSideB||'Side B')} skip (optional)</label><input data-agg-skip-b="${r.rink}" value="${esc(r.skipB||'')}" placeholder="Skip name"></div></div>${liveCheckpointFields(r,'agg-'+r.rink,x.aggregateSideA||'Side A',x.aggregateSideB||'Side B',x.ends||21)}${live?`<details><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>${esc(x.aggregateSideB||'Side B')}</th></tr></thead><tbody>${Array.from({length:x.ends||21},(_,i)=>{let e=liveEntries(r)[i]||{a:'',b:''};return `<tr><td><b>${i+1}</b></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="agg-${r.rink}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="agg-${r.rink}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-agg-a="${r.rink}" value="${r.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-agg-b="${r.rink}" value="${r.scoreB}"><div class="away"><b>${esc(x.aggregateSideB||'Side B')}</b><div class="meta">Final score</div></div></div></div>`}).join('')}
+  ${visibleRows.map(r=>{let ls=liveScore(r);return `<div class="card" style="box-shadow:none;border:2px solid ${role==='scorer'?'#0369a1':'var(--line)'}"><div style="text-align:center;margin-bottom:12px"><div style="font-size:30px;font-weight:900">RINK ${r.rink}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-top:8px"><div><b>${esc(x.aggregateSideA||'Side A')}</b>${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div><b>v</b><div><b>${esc(x.aggregateSideB||'Side B')}</b>${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div></div></div><div class="notice" style="margin-bottom:10px;background:#f8fafc"><b>Rink line-up:</b> ${esc(r.skipA||'TBC')} v ${esc(r.skipB||'TBC')}${role==='admin'?`<div class="meta">Change these names in Teams → Team Match Rink Line-up.</div>`:''}</div>${liveCheckpointFields(r,'agg-'+r.rink,x.aggregateSideA||'Side A',x.aggregateSideB||'Side B',x.ends||21)}${live?`<details><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>${esc(x.aggregateSideB||'Side B')}</th></tr></thead><tbody>${Array.from({length:x.ends||21},(_,i)=>{let e=liveEntries(r)[i]||{a:'',b:''};return `<tr><td><b>${i+1}</b></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="agg-${r.rink}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="agg-${r.rink}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-agg-a="${r.rink}" value="${r.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-agg-b="${r.rink}" value="${r.scoreB}"><div class="away"><b>${esc(x.aggregateSideB||'Side B')}</b><div class="meta">Final score</div></div></div></div>`}).join('')}
   <button class="btn primary" style="width:100%;margin-top:12px" id="saveAggregate">Save Scores</button></div>`;
 
   if(role==='scorer')document.getElementById('changeAssignedRink').onclick=()=>{if(confirm(`You are currently scoring Rink ${assigned}. Change to a different rink?`)){sessionStorage.removeItem(rinkKey);render()}};
@@ -943,18 +987,12 @@ function renderQuick(s){
    let ta=document.getElementById('aggLiveTotalA'),tb=document.getElementById('aggLiveTotalB');if(ta)ta.textContent=totalA;if(tb)tb.textContent=totalB;
   };
   const persistAggregateForm=()=>{
-   visibleRows.forEach(r=>{let ia=document.querySelector(`[data-agg-a="${r.rink}"]`),ib=document.querySelector(`[data-agg-b="${r.rink}"]`),sa=document.querySelector(`[data-agg-skip-a="${r.rink}"]`),sb=document.querySelector(`[data-agg-skip-b="${r.rink}"]`);r.scoreA=ia?.value===''?'':Math.max(0,+ia?.value||0);r.scoreB=ib?.value===''?'':Math.max(0,+ib?.value||0);r.skipA=sa?.value.trim()||'';r.skipB=sb?.value.trim()||'';
+   visibleRows.forEach(r=>{let ia=document.querySelector(`[data-agg-a="${r.rink}"]`),ib=document.querySelector(`[data-agg-b="${r.rink}"]`);r.scoreA=ia?.value===''?'':Math.max(0,+ia?.value||0);r.scoreB=ib?.value===''?'':Math.max(0,+ib?.value||0);
     persistLiveCheckpoint(r,'agg-'+r.rink);if(live){r.liveEnds=Array.from({length:x.ends||21},(_,i)=>{let a=document.querySelector(`[data-live-a="agg-${r.rink}-${i}"]`),b=document.querySelector(`[data-live-b="agg-${r.rink}-${i}"]`);return {a:a?.value===''?'':Math.max(0,+a.value||0),b:b?.value===''?'':Math.max(0,+b.value||0)}})}
    })
   };
   const aggregateAutoSave=()=>{refreshAggregatePreview();queueLiveAutoSave(persistAggregateForm)};
   attachBowlsEndRules(document,aggregateAutoSave);
-  document.querySelectorAll('[data-agg-skip-a],[data-agg-skip-b]').forEach(inp=>inp.addEventListener('input',()=>{
-   let rink=+((inp.getAttribute('data-agg-skip-a')||inp.getAttribute('data-agg-skip-b'))||0);
-   let r=rows.find(x=>+x.rink===rink);
-   if(r){if(inp.hasAttribute('data-agg-skip-a'))r.skipA=inp.value;else r.skipB=inp.value}
-   aggregateAutoSave()
-  }));
   document.querySelectorAll('[data-agg-a],[data-agg-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',aggregateAutoSave));
   wireLiveTotalButtons(()=>saveScoresNow(persistAggregateForm,()=>render()));
   document.getElementById('saveAggregate').onclick=()=>saveScoresNow(persistAggregateForm,()=>render());refreshAggregatePreview();return
