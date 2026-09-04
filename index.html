@@ -98,6 +98,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
   <div class="toolbar">
     <select id="competitionSelect" class="grow"></select>
     <button class="btn primary" id="newTournamentBtn">+ New Tournament</button>
+    <button class="btn secondary" id="myTournamentsBtn">My Tournaments</button>
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
     <button class="btn secondary" id="exportBtn">Backup</button>
@@ -130,7 +131,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.16';
+const APP_VERSION='2026.09.04.17';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -196,6 +197,101 @@ async function refreshRemoteTournament(){
  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
  if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
  if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
+}
+
+
+function tournamentStatePrimary(row){
+ let state=row?.state;
+ if(!state?.competitions?.length)return null;
+ return state.competitions.find(c=>c.id===state.active)||state.competitions[0]
+}
+function tournamentStateStatus(row){
+ let c=tournamentStatePrimary(row);
+ return c?.archivedAt||c?.status==='archived'||row?.status==='archived'?'Archived':'Active'
+}
+function tournamentCreatedLabel(row){
+ let c=tournamentStatePrimary(row),d=c?.created?new Date(c.created):null;
+ return d&&!Number.isNaN(d.getTime())?d.toLocaleDateString():'—'
+}
+async function openSavedTournament(row){
+ if(!row?.state?.competitions?.length)return alert('This tournament has no saved tournament data.');
+ cloudApplying=true;db=JSON.parse(JSON.stringify(row.state));localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
+ let access=row.access_role||'public';
+ setRemoteTournament(row.id,row.code,access);
+ startRemoteRefresh();
+ role=['owner','admin'].includes(access)?'admin':access==='scorer'?'scorer':'public';
+ tab='dashboard';
+ setTournamentNotice();
+ document.getElementById('myTournamentsModal')?.remove();
+ render()
+}
+async function duplicateSavedTournament(row){
+ if(!currentUser)return showAuthModal('admin');
+ let source=tournamentStatePrimary(row);
+ if(!source)return alert('This tournament has no saved data to duplicate.');
+ let copy=JSON.parse(JSON.stringify(source));
+ copy.id='comp-'+Date.now();
+ copy.title=((source.title||'Untitled tournament')+' Copy');
+ copy.created=new Date().toISOString();
+ copy.archivedAt=null;copy.archivedBy=null;copy.status='active';
+ copy.fixtures=[];copy.knockout=[];copy.aggregateScores=[];copy.groups=[];
+ copy.teams=(copy.teams||[]).map((t,i)=>({...t,id:'t'+(i+1),group:'',name:t.name||('Team '+(i+1))}));
+ let state={competitions:[copy],active:copy.id};
+ let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:copy.title,p_state:state});
+ if(error)return alert('Could not duplicate tournament: '+error.message);
+ let made=Array.isArray(data)?data[0]:data;
+ if(!made)return alert('Could not create the duplicate tournament.');
+ document.getElementById('myTournamentsModal')?.remove();
+ await openSavedTournament({id:made.id,code:made.code,title:copy.title,status:'active',access_role:'owner',state});
+ alert('Tournament duplicated.\n\nNew tournament code: '+made.code)
+}
+async function archiveSavedTournament(row){
+ if(!['owner','admin'].includes(row?.access_role||''))return alert('Only the tournament organiser or an admin can archive this tournament.');
+ if(!confirm('Archive this tournament? It will remain in My Tournaments and can still be viewed later.'))return;
+ let state=JSON.parse(JSON.stringify(row.state||{})),c=state.competitions?.find(x=>x.id===state.active)||state.competitions?.[0];
+ if(!c)return alert('Tournament data could not be opened.');
+ c.archivedAt=new Date().toISOString();c.status='archived';
+ let {error}=await cloud.rpc('bowls_save_tournament',{p_id:row.id,p_state:state,p_title:c.title||row.title||''});
+ if(error)return alert('Could not archive tournament: '+error.message);
+ await showMyTournaments()
+}
+async function showMyTournaments(){
+ if(!currentUser){showAuthModal('admin');return}
+ if(!cloud)return alert('Online tournament storage is not connected yet.');
+ let old=document.getElementById('myTournamentsModal');if(old)old.remove();
+ let box=document.createElement('div');box.className='modal';box.id='myTournamentsModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(780px,100%);max-height:90vh;overflow:auto">
+   <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h2 style="margin:0">My Tournaments</h2><p class="muted" style="margin:5px 0 0">Tournaments linked to your signed-in account.</p></div><button class="btn secondary" id="closeMyTournaments">Close</button></div>
+   <div id="myTournamentsList" style="margin-top:15px"><p class="muted">Loading tournaments…</p></div>
+ </div>`;
+ document.body.appendChild(box);
+ document.getElementById('closeMyTournaments').onclick=()=>box.remove();
+ box.onclick=e=>{if(e.target===box)box.remove()};
+ let {data,error}=await cloud.rpc('bowls_list_my_tournaments');
+ let list=document.getElementById('myTournamentsList');if(!list)return;
+ if(error){list.innerHTML=`<div class="notice">Could not load tournaments: ${esc(error.message)}</div>`;return}
+ let rows=Array.isArray(data)?data:[];
+ if(!rows.length){list.innerHTML='<div class="card" style="box-shadow:none"><h3>No saved tournaments yet</h3><p class="muted">Create a tournament and it will appear here automatically.</p></div>';return}
+ list.innerHTML=rows.map((r,i)=>{
+   let c=tournamentStatePrimary(r),status=tournamentStateStatus(r),roleLabel=r.access_role==='owner'?'Organiser':(r.access_role||'Public');
+   let canManage=['owner','admin'].includes(r.access_role||'');
+   return `<div class="card" style="box-shadow:none" data-my-row="${i}">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+      <div style="min-width:220px;flex:1"><h3 style="margin-bottom:5px">${esc((c?.title||r.title||'Untitled tournament').trim())}</h3>
+       <div class="meta">Code <b>${esc(r.code||'—')}</b> • Created ${esc(tournamentCreatedLabel(r))}</div>
+       <div style="margin-top:8px"><span class="pill ${status==='Archived'?'wait':'done'}">${status}</span> <span class="pill wait">${esc(roleLabel)}</span></div>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+       <button class="btn primary" data-my-open="${i}">Open Tournament</button>
+       ${canManage?`<button class="btn secondary" data-my-duplicate="${i}">Duplicate</button>`:''}
+       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button>`:''}
+      </div>
+    </div>
+   </div>`
+ }).join('');
+ list.querySelectorAll('[data-my-open]').forEach(b=>b.onclick=()=>openSavedTournament(rows[+b.dataset.myOpen]));
+ list.querySelectorAll('[data-my-duplicate]').forEach(b=>b.onclick=()=>duplicateSavedTournament(rows[+b.dataset.myDuplicate]));
+ list.querySelectorAll('[data-my-archive]').forEach(b=>b.onclick=()=>archiveSavedTournament(rows[+b.dataset.myArchive]))
 }
 
 function isArchived(c=comp()){return !!c.archivedAt}
@@ -364,9 +460,14 @@ function showNewTournamentWizard(){
   let row=Array.isArray(data)?data[0]:data;if(row){setRemoteTournament(row.id,row.code,'owner');setTournamentNotice();alert('Tournament created.\\n\\nTournament code: '+row.code)}
  };
 }
-function duplicateCurrentTournament(){
- let source=comp(),copy=JSON.parse(JSON.stringify(source));copy.id='comp-'+Date.now();copy.title=((source.title||'Untitled competition')+' Copy');copy.created=new Date().toISOString();copy.archivedAt=null;copy.archivedBy=null;
+async function duplicateCurrentTournament(){
+ let source=comp(),copy=JSON.parse(JSON.stringify(source));copy.id='comp-'+Date.now();copy.title=((source.title||'Untitled competition')+' Copy');copy.created=new Date().toISOString();copy.archivedAt=null;copy.archivedBy=null;copy.status='active';
  copy.fixtures=[];copy.knockout=[];copy.aggregateScores=[];copy.groups=[];copy.teams=(copy.teams||[]).map((t,i)=>({...t,id:'t'+(i+1),group:'',name:t.name||('Team '+(i+1))}));
+ let state={competitions:[copy],active:copy.id};
+ if(currentUser&&cloud){
+   let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:copy.title,p_state:state});
+   if(!error){let row=Array.isArray(data)?data[0]:data;if(row){db=state;localStorage.setItem(APPKEY,JSON.stringify(db));setRemoteTournament(row.id,row.code,'owner');startRemoteRefresh();tab='builder';render();alert('Tournament duplicated.\\n\\nNew tournament code: '+row.code);return}}
+ }
  db.competitions.push(copy);db.active=copy.id;saveDB();tab='builder';render();
 }
 
@@ -922,6 +1023,7 @@ document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter'&&authMo
 document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signup')createAccount()};
 document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer','signin')};
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
+document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
