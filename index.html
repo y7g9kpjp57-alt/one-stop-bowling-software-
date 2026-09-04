@@ -132,7 +132,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.26';
+const APP_VERSION='2026.09.04.27';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -498,9 +498,52 @@ function scoreAuditSnapshot(c=comp()){
  else (c.fixtures||[]).forEach(f=>out[`fixture:${f.id}`]={target:`Game ${f.game||''} • Rink ${f.rink||''}`,data:{scoreA:f.scoreA??'',scoreB:f.scoreB??'',liveTotalA:f.liveTotalA??'',liveTotalB:f.liveTotalB??'',liveEndsPlayed:f.liveEndsPlayed??'',liveEnds:JSON.parse(JSON.stringify(f.liveEnds||[]))}});
  return out
 }
+
+function scorePatchData(data){
+ return {
+  scoreA:data?.scoreA??'',
+  scoreB:data?.scoreB??'',
+  liveTotalA:data?.liveTotalA??'',
+  liveTotalB:data?.liveTotalB??'',
+  liveEndsPlayed:data?.liveEndsPlayed??'',
+  liveEnds:Array.isArray(data?.liveEnds)?data.liveEnds:[]
+ }
+}
+async function pushScoreDiff(before,after){
+ if(!(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()))return true;
+ let c=comp(),ok=true;
+ for(let k of Object.keys(after||{})){
+  let a=before?.[k]?.data,b=after?.[k]?.data;
+  if(JSON.stringify(a??null)===JSON.stringify(b??null))continue;
+  let kind='',item='';
+  if(k.startsWith('agg:')){kind='aggregate';item=k.slice(4)}
+  else if(k.startsWith('fixture:')){kind='fixture';item=k.slice(8)}
+  else if(k.startsWith('ko:')){kind='knockout';item=k.slice(3)}
+  else continue;
+  let {error}=await cloud.rpc('bowls_patch_score',{
+   p_id:remoteTournamentId,
+   p_comp_id:c.id,
+   p_kind:kind,
+   p_item:String(item),
+   p_patch:scorePatchData(b)
+  });
+  if(error){console.error('Score patch failed',error);ok=false}
+ }
+ if(ok){remoteLastPushAt=Date.now();setTournamentNotice();setTimeout(refreshRemoteTournament,700)}
+ else setSyncNotice('Score save failed online • retry before leaving this screen',false);
+ return ok
+}
+
 async function auditScoreDiff(before,after){for(let k of new Set([...Object.keys(before||{}),...Object.keys(after||{})])){let a=before?.[k],b=after?.[k];if(JSON.stringify(a?.data??null)!==JSON.stringify(b?.data??null))await auditEvent('score_change',b?.target||a?.target||k,a?.data??null,b?.data??null)}}
 let pendingAuditBefore=null;
-async function saveScoresNow(saveForm,afterSave){let before=scoreAuditSnapshot();saveForm();let after=scoreAuditSnapshot();saveDB();await auditScoreDiff(before,after);if(afterSave)afterSave()}
+async function saveScoresNow(saveForm,afterSave){
+ let before=scoreAuditSnapshot();saveForm();let after=scoreAuditSnapshot();
+ localStorage.setItem(APPKEY,JSON.stringify(db));
+ let ok=await pushScoreDiff(before,after);
+ await auditScoreDiff(before,after);
+ if(ok&&afterSave)afterSave();
+ else if(!ok)alert('The score did not save online. Please try again before leaving this screen.')
+}
 async function initCloudSync(){
  try{
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -657,7 +700,18 @@ function currentScore(obj){
 }
 function attachBowlsEndRules(root=document,onChange=()=>{}){root.querySelectorAll('[data-live-a],[data-live-b]').forEach(inp=>{inp.addEventListener('input',()=>{let key=inp.getAttribute('data-live-a')||inp.getAttribute('data-live-b'),isA=inp.hasAttribute('data-live-a'),other=root.querySelector(`[${isA?'data-live-b':'data-live-a'}=\"${key}\"]`);let v=inp.value===''?null:Math.max(0,+inp.value||0);if(v!==null&&v>0&&other)other.value='0';onChange()})})}
 let liveAutoSaveTimer=null;
-function queueLiveAutoSave(saveForm,delay=450){if(!pendingAuditBefore)pendingAuditBefore=scoreAuditSnapshot();clearTimeout(liveAutoSaveTimer);setSyncNotice('Live score changed • saving…',true);liveAutoSaveTimer=setTimeout(async()=>{let before=pendingAuditBefore||scoreAuditSnapshot();pendingAuditBefore=null;saveForm();let after=scoreAuditSnapshot();saveDB();await auditScoreDiff(before,after)},delay)}
+function queueLiveAutoSave(saveForm,delay=450){
+ if(!pendingAuditBefore)pendingAuditBefore=scoreAuditSnapshot();
+ clearTimeout(liveAutoSaveTimer);setSyncNotice('Live score changed • saving…',true);
+ liveAutoSaveTimer=setTimeout(async()=>{
+  let before=pendingAuditBefore||scoreAuditSnapshot();pendingAuditBefore=null;
+  saveForm();let after=scoreAuditSnapshot();
+  localStorage.setItem(APPKEY,JSON.stringify(db));
+  let ok=await pushScoreDiff(before,after);
+  await auditScoreDiff(before,after);
+  if(!ok)setSyncNotice('Live score not saved online • try again',false)
+ },delay)
+}
 function renderBuilder(s){
  let c=comp(),x=c.settings;x.scoringMode=x.scoringMode||'final';x.tournamentType=x.tournamentType||'standard';x.optimise=x.optimise||'balanced';x.qualify=x.qualify||'winner_best_runner';x.bestRunners=Number.isFinite(+x.bestRunners)?+x.bestRunners:4;x.day1TargetFinish=x.day1TargetFinish||'21:00';x.day2Start=x.day2Start||'09:00';
  let agg=x.tournamentType==='aggregate',koOnly=x.tournamentType==='knockout';
