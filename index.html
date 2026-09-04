@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.43';
+const APP_VERSION='2026.09.04.44';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1170,7 +1170,11 @@ function scheduleVenueNames(c=comp()){
  let v=Array.isArray(c.settings.scheduleVenues)?c.settings.scheduleVenues.filter(Boolean):[];
  return v.length?v:['Main Green']
 }
-function fixtureVenue(f,c=comp()){return f.venue||scheduleVenueNames(c)[0]}
+function fixtureVenue(f,c=comp()){
+ let venues=scheduleVenueNames(c),map=(c.settings&&c.settings.groupVenueMap)||{};
+ let mapped=f&&f.group?map[f.group]:'';
+ return (mapped&&venues.includes(mapped))?mapped:(f&&f.venue&&venues.includes(f.venue)?f.venue:venues[0])
+}
 function fixtureLocalRink(f,c=comp()){let r=Math.max(1,+f?.rink||1),n=Math.max(1,+c?.settings?.rinks||1),venues=scheduleVenueNames(c);return venues.length>1?((r-1)%n)+1:r}
 function openManualScheduleEditor(){
  let c=comp(),fs=c.fixtures;if(!fs.length){alert('Generate the round-robin fixtures first.');return}
@@ -1191,9 +1195,38 @@ function openManualScheduleEditor(){
  bindSelects();
  document.getElementById('venueCount').onchange=e=>{let n=+e.target.value,box=document.getElementById('venueNames'),old=[...box.querySelectorAll('[data-venue-name]')].map(x=>x.value);box.innerHTML=Array.from({length:n},(_,i)=>`<input data-venue-name="${i}" value="${esc(old[i]||`Green ${i+1}`)}" placeholder="Green ${i+1}" style="min-width:150px">`).join('')};
  document.getElementById('applyVenues').onclick=async()=>{let names=[...document.querySelectorAll('[data-venue-name]')].map((x,i)=>(x.value||`Green ${i+1}`).trim()).filter(Boolean);if(!names.length)names=['Main Green'];c.settings.scheduleVenues=names;venues=names;fs.forEach(f=>{if(!venues.includes(f.venue))f.venue=venues[0]});localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){alert('The green setup is saved on this device, but the online save failed. Please try Apply Venue Setup again before leaving this screen.');return}}wrap.remove();openManualScheduleEditor()};
- document.getElementById('splitGroups').onclick=()=>{if(venues.length<2)return;let gs=[...new Set(fs.map(f=>f.group).filter(Boolean))].sort(),per=Math.ceil(gs.length/venues.length),map={};gs.forEach((g,i)=>map[g]=venues[Math.min(venues.length-1,Math.floor(i/per))]);wrap.querySelectorAll('[data-ms-row]').forEach(tr=>{let f=fs.find(x=>x.id===tr.dataset.msRow),sel=tr.querySelector('[data-ms-venue]');if(f&&sel){let venue=map[f.group]||venues[0];sel.value=venue;f.venue=venue;let localRink=fixtureLocalRink(f,c);f.rink=localRink;let rs=tr.querySelector('[data-ms-rink]');if(rs)rs.value=String(localRink)}});c.settings.scheduleVenues=venues.slice();localStorage.setItem(APPKEY,JSON.stringify(db));validate(true)};
+ document.getElementById('splitGroups').onclick=async()=>{
+ if(venues.length<2)return;
+ let gs=[...new Set(fs.map(f=>f.group).filter(Boolean))].sort(),per=Math.ceil(gs.length/venues.length),map={};
+ gs.forEach((g,i)=>map[g]=venues[Math.min(venues.length-1,Math.floor(i/per))]);
+ c.settings.scheduleVenues=venues.slice();
+ c.settings.groupVenueMap=map;
+ // Apply the venue to the actual stored fixtures, not just the editor controls.
+ // Also restart rink numbering independently on each green for every session.
+ let slotCounter={};
+ fs.slice().sort((a,b)=>(+a.session||1)-(+b.session||1)||(+a.game||0)-(+b.game||0)).forEach(f=>{
+   let venue=map[f.group]||venues[0],session=Math.max(1,+f.session||1),key=venue+'|'+session;
+   f.venue=venue;
+   slotCounter[key]=(slotCounter[key]||0)+1;
+   f.rink=((slotCounter[key]-1)%Math.max(1,+c.settings.rinks||1))+1;
+   f.start=sessionStartTime(c,session);
+ });
+ wrap.querySelectorAll('[data-ms-row]').forEach(tr=>{
+   let f=fs.find(x=>x.id===tr.dataset.msRow);if(!f)return;
+   let vs=tr.querySelector('[data-ms-venue]'),rs=tr.querySelector('[data-ms-rink]');
+   if(vs)vs.value=f.venue;if(rs)rs.value=String(f.rink);
+ });
+ localStorage.setItem(APPKEY,JSON.stringify(db));
+ validate(true);
+ if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){
+   for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));
+   let ok=await pushRemoteTournament();
+   if(!ok){alert('The groups have been split on this device, but the online save failed. Please tap Split Groups Evenly Across Venues again.');return}
+ }
+ alert('Groups split across '+venues.length+' greens and saved.');
+};
  document.getElementById('cancelManualSchedule').onclick=()=>{wrap.remove();startRemoteRefresh()};
- document.getElementById('saveManualSchedule').onclick=async()=>{c.settings.scheduleVenues=venues.slice();let v=validate(true);if(!v.ok)return;v.rows.forEach(r=>{let f=c.fixtures.find(x=>x.id===r.id);if(!f)return;f.a=r.a;f.b=r.b;f.nameA=teamName(r.a,c);f.nameB=teamName(r.b,c);f.venue=r.venue;f.session=r.session;f.rink=r.rink;f.start=sessionStartTime(c,r.session);f.round='manual'});c.fixtures.sort((a,b)=>(a.session-b.session)||String(fixtureVenue(a,c)).localeCompare(String(fixtureVenue(b,c)))||(a.rink-b.rink)||(a.game-b.game));localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){alert('The green split is still on this device, but it did not save online. The editor will stay open so you can tap Save Manual Schedule again.');return}}wrap.remove();startRemoteRefresh();render()};
+ document.getElementById('saveManualSchedule').onclick=async()=>{c.settings.scheduleVenues=venues.slice();let v=validate(true);if(!v.ok)return;let gmap={...(c.settings.groupVenueMap||{})};v.rows.forEach(r=>{if(r.group)gmap[r.group]=r.venue});c.settings.groupVenueMap=gmap;v.rows.forEach(r=>{let f=c.fixtures.find(x=>x.id===r.id);if(!f)return;f.a=r.a;f.b=r.b;f.nameA=teamName(r.a,c);f.nameB=teamName(r.b,c);f.venue=r.venue;f.session=r.session;f.rink=r.rink;f.start=sessionStartTime(c,r.session);f.round='manual'});c.fixtures.sort((a,b)=>(a.session-b.session)||String(fixtureVenue(a,c)).localeCompare(String(fixtureVenue(b,c)))||(a.rink-b.rink)||(a.game-b.game));localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){alert('The green split is still on this device, but it did not save online. The editor will stay open so you can tap Save Manual Schedule again.');return}}wrap.remove();startRemoteRefresh();render()};
  wrap.scrollIntoView({behavior:'smooth',block:'start'});validate(false)
 }
 function renderSchedule(s){let c=comp();if(scheduleVenueNames(c).length>1){(c.fixtures||[]).forEach(f=>{f.rink=fixtureLocalRink(f,c)})}if((c.settings.tournamentType||'standard')==='knockout'){let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,knockoutInterval(c),c.settings.start);s.innerHTML=`<div class="card"><h2>Knockout Playing Schedule</h2><p class="muted">${c.teams.length} teams • ${kp.byes} bye${kp.byes===1?'':'s'} • estimated final ${kp.finalFinish}</p>${kp.rounds.map(r=>`<div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>${esc(r.name)}</b><div class="meta">${r.matches} game${r.matches===1?'':'s'} • ${r.sessions} session${r.sessions===1?'':'s'} • ${r.start}–${r.finish}</div></div>`).join('')}</div>${c.knockout?.length?`<div class="card"><h3>Current Draw & Rinks</h3><div class="tablewrap"><table><thead><tr><th>Round</th><th>Match</th><th>Time</th><th>Rink</th><th>${esc(matchSideInfo(c).aLong)}</th><th>${esc(matchSideInfo(c).bLong)}</th></tr></thead><tbody>${c.knockout.flat().map(m=>`<tr><td>${esc(m.roundName||'')}</td><td>${esc(m.label||'')}</td><td>${m.start||''}</td><td>${m.rink||''}</td><td>${esc(knockoutRefName(m.a,c))}</td><td>${esc(knockoutRefName(m.b,c))}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;return}let fs=c.fixtures;if(!fs.length){s.innerHTML=`<div class="card"><h2>Rink & Session Schedule</h2><p>No rink schedule yet.</p>${role==='admin'?'<button class="btn primary" id="makeSchedule">Generate Rinks & Times</button>':''}</div>`;if(role==='admin')document.getElementById('makeSchedule').onclick=()=>{generateFixtures();render()};return}
