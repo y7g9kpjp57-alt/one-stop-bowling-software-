@@ -132,7 +132,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.27';
+const APP_VERSION='2026.09.04.28';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -326,7 +326,7 @@ async function showTournamentAccess(){
  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Invite / Access</h2><p class="muted" style="margin:5px 0 0">${esc(c.title||'Tournament')} • Code <b>${esc(remoteTournamentCode)}</b></p></div><button class="btn secondary" id="closeAccess">Close</button></div>
  <div class="card" style="box-shadow:none;margin-top:14px"><h3>Public View</h3><p class="muted">Share a read-only live view. Public viewers cannot change scores.</p><button class="btn primary" id="sharePublicInvite" style="width:100%">Share Public View</button></div>
  <div class="card" style="box-shadow:none"><h3>Scorer Invite</h3><p class="muted">The scorer signs in and requests access. You approve them before they can enter scores.</p><button class="btn primary" id="shareScorerInvite" style="width:100%">Share Scorer Invite</button></div>
- ${canManage?`<div class="card" style="box-shadow:none"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h3 style="margin:0">People & Permissions</h3><button class="btn secondary" id="refreshAccessMembers">Refresh</button></div><div id="accessMembers" style="margin-top:10px"><p class="muted">Loading…</p></div></div>`:`<div class="notice">Only the organiser or an admin can approve scorers.</div>`}
+ ${canManage?`<div class="card" style="box-shadow:none"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h3 style="margin:0">People & Permissions</h3><button class="btn secondary" id="refreshAccessMembers">Refresh</button></div><div class="notice" style="margin-top:10px"><b>Scorer</b> = can change scores only. <b>Admin</b> = full tournament control.</div><div id="accessMembers" style="margin-top:10px"><p class="muted">Loading…</p></div></div>`:`<div class="notice">Only the organiser or an admin can approve scorers.</div>`}
  </div>`;
  document.body.appendChild(box);
  document.getElementById('closeAccess').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
@@ -340,7 +340,27 @@ async function loadTournamentMembers(){
  if(error){list.innerHTML=`<div class="notice">${esc(error.message)}</div>`;return}
  let rows=Array.isArray(data)?data:[];
  if(!rows.length){list.innerHTML='<p class="muted">No scorer requests yet.</p>';return}
- list.innerHTML=rows.map(m=>{let who=m.email||m.display_name||m.user_email||m.user_id||'User',r=m.role||'pending';return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><b>${esc(who)}</b><div class="meta">Access: ${esc(r)}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px"><button class="btn primary" data-member="${esc(m.user_id)}" data-mrole="scorer">Approve Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Admin</button>${r!=='pending'?`<button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="pending">Remove Access</button>`:''}</div></div>`}).join('');
+ list.innerHTML=rows.map(m=>{
+  let who=m.email||m.display_name||m.user_email||m.user_id||'User',r=m.role||'pending';
+  let accessText=r==='owner'?'Owner – Full tournament control':
+                 r==='admin'?'Admin – Full tournament control':
+                 r==='scorer'?'Scorer – Can edit live and final scores':
+                 'Pending – Waiting for approval';
+  let badgeClass=r==='scorer'?'done':r==='admin'||r==='owner'?'done':'wait';
+  return `<div style="padding:10px 0;border-bottom:1px solid var(--line)">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+      <div><b>${esc(who)}</b><div style="margin-top:5px"><span class="pill ${badgeClass}">${esc(accessText)}</span></div>
+      ${r==='scorer'?'<div class="meta" style="margin-top:5px">Can update rink scores only. No setup or admin changes.</div>':''}
+      ${r==='admin'?'<div class="meta" style="margin-top:5px">Can manage tournament setup, scoring and access.</div>':''}
+      ${r==='pending'?'<div class="meta" style="margin-top:5px">Approve as Scorer to allow score entry.</div>':''}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+       ${r==='pending'?`<button class="btn primary" data-member="${esc(m.user_id)}" data-mrole="scorer">Approve Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Make Admin</button>`:
+       r==='owner'?'':`<button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="scorer">Set Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Set Admin</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="pending">Remove Access</button>`}
+      </div>
+    </div>
+  </div>`
+ }).join('');
  list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}await loadTournamentMembers()})
 }
 
