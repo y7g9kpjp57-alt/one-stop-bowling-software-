@@ -132,8 +132,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.31';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
+const APP_VERSION='2026.09.04.32';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
@@ -456,18 +456,31 @@ async function pushCloudState(){
 function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!el)return;el.textContent=msg;el.classList.toggle('oknotice',!!ok)}
 function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account'}
 async function loadCurrentProfile(){
- if(!cloud||!currentUser){currentAppRole='public';updateAccountButton();return}
+ if(!cloud||!currentUser){currentAppRole='public';currentClubs=[];updateAccountButton();return}
  let {data,error}=await cloud.from('bowls_users').select('role,display_name,email,trial_started_at,trial_ends_at,subscription_status,subscription_ends_at').eq('user_id',currentUser.id).maybeSingle();
  if(error){console.error('Profile load failed',error);currentAppRole='pending';currentAccess=null}else{currentAppRole=data?.role||'pending';currentAccess=data||null}
+ currentClubs=[];
+ try{let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)currentClubs=Array.isArray(cr.data)?cr.data:[]}catch(e){}
  updateAccountButton();
+}
+function accessLabel(status,trialEnd,accessEnd){
+ let now=Date.now(),te=trialEnd?new Date(trialEnd).getTime():0,ae=accessEnd?new Date(accessEnd).getTime():0;
+ if(status==='unlimited')return {active:true,label:'Full access • no expiry'};
+ if(status==='active'&&(!ae||ae>now))return {active:true,label:ae?'Access until '+new Date(accessEnd).toLocaleDateString():'Access active'};
+ if(status==='trial'&&te>now){let days=Math.max(1,Math.ceil((te-now)/86400000));return {active:true,label:`Trial • ${days} day${days===1?'':'s'} remaining`}}
+ if(status==='suspended')return {active:false,label:'Access suspended'};
+ return {active:false,label:'Access expired'};
 }
 function accessState(){
  if(!currentUser||!currentAccess)return {active:false,label:''};
- if(['owner','admin'].includes(currentAppRole))return {active:true,label:'Admin access'};
- let now=Date.now(),status=currentAccess.subscription_status||'trial',subEnd=currentAccess.subscription_ends_at?new Date(currentAccess.subscription_ends_at).getTime():0,trialEnd=currentAccess.trial_ends_at?new Date(currentAccess.trial_ends_at).getTime():0;
- if(status==='active'&&(!subEnd||subEnd>now))return {active:true,label:subEnd?'Subscription active':'Subscription active'};
- if(status==='trial'&&trialEnd>now){let days=Math.max(1,Math.ceil((trialEnd-now)/86400000));return {active:true,label:`Trial • ${days} day${days===1?'':'s'} remaining`}}
- return {active:false,label:'Trial expired'};
+ if(currentAppRole==='owner')return {active:true,label:'Owner access'};
+ let club=currentClubs.find(x=>x.id===remoteClubId)||currentClubs[0];
+ if(club&&club.is_admin){
+  let a=accessLabel(club.access_status,club.trial_ends_at,club.access_ends_at);
+  if(a.active)return {active:true,label:(club.name?club.name+' • ':'')+a.label};
+  if(remoteClubId===club.id)return {active:false,label:(club.name?club.name+' • ':'')+a.label};
+ }
+ return accessLabel(currentAccess.subscription_status||'trial',currentAccess.trial_ends_at,currentAccess.subscription_ends_at);
 }
 function roleAllowed(target){if(target==='public')return true;let a=accessState();if(!a.active)return false;if(target==='scorer')return ['owner','admin','scorer'].includes(remoteAccessRole)||['owner','admin','scorer'].includes(currentAppRole);if(target==='admin')return ['owner','admin'].includes(remoteAccessRole)||['owner','admin'].includes(currentAppRole);return false}
 function setAuthMode(mode){
@@ -516,7 +529,7 @@ async function createAccount(){
  }
  currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');await requestRole(authRequestedRole||'scorer')
 }
-async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;role='public';tab='dashboard';updateAccountButton();render()}
+async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;currentClubs=[];role='public';tab='dashboard';updateAccountButton();render()}
 async function auditEvent(action,target,oldValue,newValue){
  if(!cloud||!currentUser||!canWriteCloud())return;let c=comp();
  let row={user_id:currentUser.id,user_email:currentUser.email||'',user_role:currentAppRole,competition_id:c.id,competition_title:c.title,action,target,old_value:oldValue??null,new_value:newValue??null};
@@ -600,7 +613,7 @@ async function showNewTournamentWizard(){
   ${currentAppRole!=='owner'&&clubs.length?`<div class="oknotice notice"><b>Club Admin access:</b> ${clubs.map(x=>esc(x.name)).join(', ')}</div>`:''}
   <div class="formgrid">
    <div class="field"><label>Tournament name</label><input id="ntName" placeholder="e.g. Alness Open 2026"></div>
-   ${clubs.length?`<div class="field"><label>Club account</label><select id="ntClubAccount">${currentAppRole==='owner'?'<option value="">Personal / no club</option>':''}${clubs.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</select></div>`:''}
+   ${clubs.length?`<div class="field"><label>Club account</label><select id="ntClubAccount">${currentAppRole==='owner'?'<option value="">Personal / no club</option>':''}${clubs.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${x.access_active?'':' (access expired)'}</option>`).join('')}</select></div>`:''}
    <div class="field"><label>Organiser / club name on event</label><input id="ntClub" value="${esc(comp().settings.clubName||clubs[0]?.name||'')}"></div>
    <div class="field"><label>Format</label><select id="ntType"><option value="standard">Round Robin + Knockout</option><option value="knockout">Knockout Only</option><option value="aggregate">Team / District Match – Aggregate</option></select></div>
    <div class="field nt-normal"><label>Entries / teams</label><input id="ntTeams" inputmode="numeric" min="2" value="16"></div>
@@ -1297,15 +1310,42 @@ async function loadClubAdminPanel(){
  if(!clubs?.length){box.innerHTML='<p class="muted">No clubs created yet.</p>';return}
  let adminSets={};
  for(let club of clubs){let r=await cloud.rpc('bowls_list_club_admins',{p_club:club.id});adminSets[club.id]=r.error?[]:(r.data||[])}
- box.innerHTML=clubs.map(club=>`<div style="padding:12px 0;border-bottom:1px solid var(--line)">
+ box.innerHTML=clubs.map(club=>{let ca=accessLabel(club.access_status,club.trial_ends_at,club.access_ends_at);return `<div style="padding:12px 0;border-bottom:1px solid var(--line)">
    <h3 style="margin:0 0 6px">${esc(club.name)}</h3>
+   <div style="margin-bottom:7px"><span class="pill ${ca.active?'done':'wait'}">${esc(ca.label)}</span></div>
    <div class="meta">${(adminSets[club.id]||[]).length?`Club Admins: ${(adminSets[club.id]||[]).map(a=>esc(a.display_name||a.email)).join(', ')}`:'No Club Admin yet'}</div>
-   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
+   <div class="notice" style="margin-top:10px">
+    <b>Club access</b>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:7px;align-items:center">
+      <select data-club-access="${esc(club.id)}">
+       <option value="trial" ${club.access_status==='trial'?'selected':''}>Trial</option>
+       <option value="active" ${club.access_status==='active'?'selected':''}>Access until date</option>
+       <option value="unlimited" ${club.access_status==='unlimited'?'selected':''}>Full access / no expiry</option>
+       <option value="suspended" ${club.access_status==='suspended'?'selected':''}>Suspend access</option>
+      </select>
+      <input type="date" data-club-end="${esc(club.id)}" value="${club.access_status==='trial'&&club.trial_ends_at?club.trial_ends_at.slice(0,10):club.access_status==='active'&&club.access_ends_at?club.access_ends_at.slice(0,10):''}">
+      <button class="btn secondary" data-save-club-access="${esc(club.id)}">Save Access</button>
+      <button class="btn secondary" data-club-days="${esc(club.id)}" data-days="14">+14 days</button>
+      <button class="btn secondary" data-club-days="${esc(club.id)}" data-days="30">+30 days</button>
+    </div>
+   </div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">
     <input data-club-email="${esc(club.id)}" placeholder="Admin account email" style="max-width:320px">
     <button class="btn primary" data-add-club-admin="${esc(club.id)}">Grant Club Admin</button>
    </div>
    ${(adminSets[club.id]||[]).map(a=>`<div style="margin-top:7px"><span class="pill done">${esc(a.email)}</span> <button class="btn secondary" data-remove-club-admin="${esc(club.id)}" data-email="${esc(a.email)}">Remove</button></div>`).join('')}
- </div>`).join('');
+ </div>`}).join('');
+ box.querySelectorAll('[data-save-club-access]').forEach(b=>b.onclick=async()=>{
+  let id=b.dataset.saveClubAccess,status=box.querySelector(`[data-club-access="${id}"]`)?.value||'trial',date=box.querySelector(`[data-club-end="${id}"]`)?.value||null;
+  if(['trial','active'].includes(status)&&!date)return alert('Choose an end date.');
+  let {error}=await cloud.rpc('bowls_set_club_access',{p_club:id,p_status:status,p_end_date:date});
+  if(error)return alert(error.message);await loadClubAdminPanel()
+ });
+ box.querySelectorAll('[data-club-days]').forEach(b=>b.onclick=()=>{
+  let id=b.dataset.clubDays,days=Number(b.dataset.days||14),inp=box.querySelector(`[data-club-end="${id}"]`),sel=box.querySelector(`[data-club-access="${id}"]`);
+  let base=inp?.value?new Date(inp.value+'T12:00:00'):new Date();base.setDate(base.getDate()+days);
+  if(inp)inp.value=base.toISOString().slice(0,10);if(sel)sel.value='active'
+ });
  box.querySelectorAll('[data-add-club-admin]').forEach(b=>b.onclick=async()=>{let id=b.dataset.addClubAdmin,email=box.querySelector(`[data-club-email="${id}"]`)?.value.trim();if(!email)return alert('Enter the account email.');let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:id,p_email:email,p_enabled:true});if(error)return alert(error.message);await loadClubAdminPanel()});
  box.querySelectorAll('[data-remove-club-admin]').forEach(b=>b.onclick=async()=>{if(!confirm('Remove Club Admin access for '+b.dataset.email+'?'))return;let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:b.dataset.removeClubAdmin,p_email:b.dataset.email,p_enabled:false});if(error)return alert(error.message);await loadClubAdminPanel()})
 }
@@ -1315,9 +1355,15 @@ async function loadAdminExtras(){
  if(currentAppRole==='owner')await loadClubAdminPanel();
  let usersBox=document.getElementById('userAdminList'),auditBox=document.getElementById('auditList');
  if(globalAdmin&&usersBox){
-  let {data:users,error:uerr}=await cloud.from('bowls_users').select('user_id,email,display_name,role,created_at').order('created_at',{ascending:true});
+  let {data:users,error:uerr}=await cloud.from('bowls_users').select('user_id,email,display_name,role,created_at,trial_ends_at,subscription_status,subscription_ends_at').order('created_at',{ascending:true});
   if(uerr)usersBox.innerHTML='<p>Could not load accounts.</p>';
-  else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead><tbody>${(users||[]).map(u=>`<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td></tr>`).join('')}</tbody></table></div>`;
+  else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th></tr></thead><tbody>${(users||[]).map(u=>{let ua=u.role==='owner'?{active:true,label:'Owner access'}:accessLabel(u.subscription_status,u.trial_ends_at,u.subscription_ends_at);return `<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td><td>${u.role==='owner'?'<span class="pill done">Owner access</span>':`<div><span class="pill ${ua.active?'done':'wait'}">${esc(ua.label)}</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px"><select data-user-access="${u.user_id}"><option value="trial" ${u.subscription_status==='trial'?'selected':''}>Trial</option><option value="active" ${u.subscription_status==='active'?'selected':''}>Until date</option><option value="unlimited" ${u.subscription_status==='unlimited'?'selected':''}>No expiry</option><option value="suspended" ${u.subscription_status==='suspended'?'selected':''}>Suspend</option></select><input type="date" data-user-end="${u.user_id}" value="${u.subscription_status==='trial'&&u.trial_ends_at?u.trial_ends_at.slice(0,10):u.subscription_status==='active'&&u.subscription_ends_at?u.subscription_ends_at.slice(0,10):''}"><button class="btn secondary" data-save-user-access="${u.user_id}">Save</button></div>`}</td></tr>`}).join('')}</tbody></table></div>`;
+  usersBox.querySelectorAll('[data-save-user-access]').forEach(b=>b.onclick=async()=>{
+   let id=b.dataset.saveUserAccess,status=usersBox.querySelector(`[data-user-access="${id}"]`)?.value||'trial',date=usersBox.querySelector(`[data-user-end="${id}"]`)?.value||null;
+   if(['trial','active'].includes(status)&&!date)return alert('Choose an end date.');
+   let {error}=await cloud.rpc('bowls_set_user_access',{p_user:id,p_status:status,p_end_date:date});
+   if(error)return alert(error.message);loadAdminExtras()
+  });
   usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){alert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras()}})
  }
  if(remoteTournamentId&&tournamentAdmin){
