@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.50';
+const APP_VERSION='2026.09.04.51';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1591,10 +1591,20 @@ function tvUpcoming(c){
  let target=next??current;
  return pending.filter(f=>f.session===target).slice(0,16)
 }
-function tvTableHTML(c){
- let st=standings(c),keys=Object.keys(st).sort();
+function tvTableHTML(c,onlyGroups=null){
+ let st=standings(c),keys=(onlyGroups&&onlyGroups.length?onlyGroups:Object.keys(st).sort());
  if(!keys.length)return '<div class="tv-empty">Group tables will appear after the draw.</div>';
- return `<div class="tv-grid">${keys.map(g=>`<div class="tv-card"><h2>Group ${g}</h2><table class="tv-table"><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>${st[g].map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${r.p}</td><td>${r.sf}</td><td>${r.sa}</td><td>${r.sd>0?'+':''}${r.sd}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div>`).join('')}</div>`
+ return `<div class="tv-grid">${keys.map(g=>`<div class="tv-card"><h2>Group ${g}</h2><table class="tv-table"><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>${(st[g]||[]).map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.name)}</b></td><td>${r.p}</td><td>${r.sf}</td><td>${r.sa}</td><td>${r.sd>0?'+':''}${r.sd}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div>`).join('')}</div>`
+}
+function tvStandingPages(c){
+ let keys=Object.keys(standings(c)).sort();
+ if(!keys.length)return [{title:'Current Standings',body:()=>tvTableHTML(c)}];
+ let out=[];
+ for(let i=0;i<keys.length;i+=2){
+  let chunk=keys.slice(i,i+2);
+  out.push({title:`Current Standings • Groups ${chunk.join(' & ')}`,body:()=>tvTableHTML(c,chunk)});
+ }
+ return out;
 }
 function tvMatchesHTML(rows,title,empty,c=comp()){
  if(!rows.length)return `<div class="tv-empty">${empty}</div>`;
@@ -1649,17 +1659,18 @@ function tvPagesFor(c){
   {title:'Live Games',body:()=>tvKnockoutLiveHTML(c)},
   {title:'Full Draw',body:()=>tvKnockoutDrawHTML(c)}
  ];
- return [
+ let pages=[
   {title:'Live Rink Scores',body:()=>tvMatchesHTML(tvCurrentGames(c),'Live / Current Games','No games are currently live.',c)},
-  {title:'Current Standings',body:()=>tvTableHTML(c)},
-  {title:'Up Next',body:()=>tvMatchesHTML(tvUpcoming(c),'Up Next','No upcoming fixtures.',c)},
-  {title:'Knockout / Finals',body:()=>tvKnockoutDrawHTML(c)}
- ]
+  ...tvStandingPages(c),
+  {title:'Up Next',body:()=>tvMatchesHTML(tvUpcoming(c),'Up Next','No upcoming fixtures.',c)}
+ ];
+ if((c.knockout||[]).length)pages.push({title:'Knockout / Finals',body:()=>tvKnockoutDrawHTML(c)});
+ return pages;
 }
 function renderTv(){
  let c=comp(),pages=tvPagesFor(c),idx=tvPage%pages.length,p=pages[idx],body=p.body();
  document.body.className='tv-mode';
- document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${p.title}</div></div><div class="tv-controls"><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>Live data • Screen ${idx+1}/${pages.length}</span></div></div>`;
+ document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${p.title}</div></div><div class="tv-controls"><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>Live data • 20 sec rotation • Screen ${idx+1}/${pages.length}</span></div></div>`;
  document.getElementById('tvPrev').onclick=()=>{tvPage=(tvPage+pages.length-1)%pages.length;renderTv()};
  document.getElementById('tvNext').onclick=()=>{tvPage=(tvPage+1)%pages.length;renderTv()};
  document.getElementById('tvPause').onclick=()=>{tvPaused=!tvPaused;renderTv()};
@@ -1672,9 +1683,9 @@ function startTv(){
   else {try{db=loadDB()}catch(e){}}
   if(!tvPaused){let pages=tvPagesFor(comp());tvPage=(tvPage+1)%pages.length}
   renderTv()
- },10000);
+ },20000);
  window.addEventListener('storage',()=>{db=loadDB();renderTv()})
 }
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){startTv();initCloudSync()}else{let initial=params.get('view');render();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial)});}
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial)});}
 </script>
 </body></html>
