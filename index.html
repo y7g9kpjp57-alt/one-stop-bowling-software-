@@ -107,15 +107,31 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
   <section id="screen"></section>
 </main>
 <nav class="bottom" id="bottomNav"></nav>
-<div class="modal hidden" id="authModal"><div class="modalbox"><h3 id="authTitle">Sign in</h3><p class="muted" id="authText">Admin and scorers use their own account.</p><input id="authName" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" placeholder="Your name (new accounts)"><input id="authEmail" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="email" autocomplete="email" placeholder="Email address"><input id="authPassword" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="password" autocomplete="current-password" placeholder="Password"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" style="flex:1" id="authCancel">Cancel</button><button class="btn secondary" style="flex:1" id="authSignup">Create account</button><button class="btn primary" style="flex:1" id="authSignin">Sign in</button></div><p id="authError" style="color:#b91c1c"></p></div></div>
+<div class="modal hidden" id="authModal"><div class="modalbox">
+<h3 id="authTitle">Sign in</h3>
+<p class="muted" id="authText">Sign in to manage or score tournaments.</p>
+<div id="authModeTabs" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+<button class="btn primary" id="authModeSignin">Sign in</button>
+<button class="btn secondary" id="authModeSignup">Create account</button>
+</div>
+<input id="authName" class="auth-input hidden" style="text-align:left;letter-spacing:0;font-size:16px" placeholder="Your name">
+<input id="authEmail" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="email" autocomplete="email" placeholder="Email address">
+<input id="authPassword" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="password" autocomplete="current-password" placeholder="Password">
+<input id="authPassword2" class="auth-input hidden" style="text-align:left;letter-spacing:0;font-size:16px" type="password" autocomplete="new-password" placeholder="Confirm password">
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn secondary" style="flex:1" id="authCancel">Cancel</button>
+<button class="btn primary" style="flex:2" id="authSubmit">Sign in</button>
+</div>
+<p id="authError" style="color:#b91c1c"></p>
+</div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.04.10';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
+const APP_VERSION='2026.09.04.11';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,authRequestedRole=null,authMode='signin',remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
@@ -234,7 +250,21 @@ function accessState(){
  return {active:false,label:'Trial expired'};
 }
 function roleAllowed(target){if(target==='public')return true;let a=accessState();if(!a.active)return false;if(target==='scorer')return ['owner','admin','scorer'].includes(remoteAccessRole)||['owner','admin','scorer'].includes(currentAppRole);if(target==='admin')return ['owner','admin'].includes(remoteAccessRole)||['owner','admin'].includes(currentAppRole);return false}
-function showAuthModal(target){authRequestedRole=target||'scorer';let m=document.getElementById('authModal');document.getElementById('authTitle').textContent=`${authRequestedRole==='admin'?'Admin':'Scorer'} sign in`;document.getElementById('authText').textContent='Use your own email and password. New accounts wait for approval unless this is the first account.';document.getElementById('authError').textContent='';m.classList.remove('hidden');setTimeout(()=>document.getElementById('authEmail').focus(),50)}
+function setAuthMode(mode){
+ authMode=mode==='signup'?'signup':'signin';
+ let signup=authMode==='signup',title=document.getElementById('authTitle'),text=document.getElementById('authText'),name=document.getElementById('authName'),pw=document.getElementById('authPassword'),pw2=document.getElementById('authPassword2'),submit=document.getElementById('authSubmit'),si=document.getElementById('authModeSignin'),su=document.getElementById('authModeSignup'),err=document.getElementById('authError');
+ title.textContent=signup?'Create your account':'Sign in';
+ text.textContent=signup?'Create an account to start your 14-day trial and join or organise tournaments.':'Sign in to manage or score tournaments.';
+ name.classList.toggle('hidden',!signup);pw2.classList.toggle('hidden',!signup);
+ pw.autocomplete=signup?'new-password':'current-password';
+ submit.textContent=signup?'Create account':'Sign in';
+ si.className='btn '+(signup?'secondary':'primary');su.className='btn '+(signup?'primary':'secondary');
+ err.textContent='';err.style.color='#b91c1c';
+}
+function showAuthModal(target,mode='signin'){
+ authRequestedRole=target||'scorer';let m=document.getElementById('authModal');m.classList.remove('hidden');setAuthMode(mode);
+ setTimeout(()=>document.getElementById(authMode==='signup'?'authName':'authEmail').focus(),50)
+}
 async function requestRole(target){
  if(target==='public'){role='public';tab='dashboard';setQueryRole('public');render();return}
  if(!currentUser){showAuthModal(target);return}
@@ -248,10 +278,19 @@ async function signInAccount(){
  let {data,error}=await cloud.auth.signInWithPassword({email,password});if(error){err.textContent=error.message;return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');await requestRole(authRequestedRole||'scorer')
 }
 async function createAccount(){
- let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,name=document.getElementById('authName').value.trim(),err=document.getElementById('authError');err.textContent='';
- if(!email||password.length<6){err.textContent='Enter an email and a password of at least 6 characters.';return}
+ let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,password2=document.getElementById('authPassword2').value,name=document.getElementById('authName').value.trim(),err=document.getElementById('authError');err.textContent='';
+ if(!name){err.textContent='Please enter your name.';return}
+ if(!email){err.textContent='Please enter your email address.';return}
+ if(password.length<6){err.textContent='Password must be at least 6 characters.';return}
+ if(password!==password2){err.textContent='The two passwords do not match.';return}
  let {data,error}=await cloud.auth.signUp({email,password,options:{data:{display_name:name||email.split('@')[0]}}});if(error){err.textContent=error.message;return}
- if(!data.session){err.style.color='#166534';err.textContent='Account created. Check your email to confirm it, then come back and sign in.';return}
+ if(!data.session){
+   err.style.color='#166534';
+   err.innerHTML='<b>Account created.</b><br>Check your email and tap the confirmation link. Then return here and choose <b>Sign in</b>.';
+   document.getElementById('authSubmit').disabled=true;
+   setTimeout(()=>document.getElementById('authSubmit').disabled=false,3000);
+   return
+ }
  currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');await requestRole(authRequestedRole||'scorer')
 }
 async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;role='public';tab='dashboard';updateAccountButton();render()}
@@ -827,9 +866,12 @@ async function loadAdminExtras(){
 function setQueryRole(r){try{let u=new URL(location.href);u.searchParams.set('view',r);history.replaceState({},'',u)}catch(e){}}
 document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>requestRole(b.dataset.role));
 document.getElementById('authCancel').onclick=()=>document.getElementById('authModal').classList.add('hidden');
-document.getElementById('authSignin').onclick=signInAccount;document.getElementById('authSignup').onclick=createAccount;
-document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter')signInAccount()};
-document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer')};
+document.getElementById('authModeSignin').onclick=()=>setAuthMode('signin');
+document.getElementById('authModeSignup').onclick=()=>setAuthMode('signup');
+document.getElementById('authSubmit').onclick=()=>authMode==='signup'?createAccount():signInAccount();
+document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signin')signInAccount()};
+document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signup')createAccount()};
+document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer','signin')};
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
