@@ -88,6 +88,30 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 
 
 .notify-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:5px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;font-weight:800;line-height:1;vertical-align:middle;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+
+/* Build 69: lightweight broadcast-style TV skin. CSS only: no images, video or extra libraries. */
+.tv-mode{background:linear-gradient(135deg,#020617 0%,#071b3d 52%,#020617 100%);color:#f8fafc}
+.tv-wrap{padding:24px 34px 64px;background:
+ linear-gradient(115deg,rgba(37,99,235,.10),transparent 34%),
+ linear-gradient(295deg,rgba(220,38,38,.08),transparent 30%)}
+.tv-head{position:relative;align-items:center;margin:-24px -34px 22px;padding:18px 34px 16px;border:0;border-bottom:2px solid #1d4ed8;background:linear-gradient(100deg,#061a3a 0%,#0b2f72 58%,#071b3d 100%);box-shadow:0 8px 28px #0008}
+.tv-head:after{content:'';position:absolute;left:0;bottom:-2px;width:28%;height:4px;background:#dc2626}
+.tv-head-main{display:flex;align-items:center;gap:18px;min-width:0}
+.tv-broadcast-brand{font-weight:900;letter-spacing:.08em;text-transform:uppercase;font-size:14px;color:#dbeafe;white-space:nowrap;padding-right:18px;border-right:1px solid #60a5fa88}
+.tv-titleblock{min-width:0}.tv-head h1{font-size:38px;line-height:1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tv-head .sub{font-size:16px;color:#bfdbfe;margin-top:6px}
+.tv-live-badge{display:inline-flex;align-items:center;justify-content:center;background:#dc2626;color:white;font-weight:900;letter-spacing:.08em;padding:9px 14px;clip-path:polygon(8% 0,100% 0,92% 100%,0 100%);min-width:76px}
+.tv-controls{gap:7px}.tv-controls button{border:1px solid #60a5fa66;background:#071b3dcc;color:#fff;padding:8px 11px;border-radius:6px;font-size:13px}
+.tv-grid{gap:16px}.tv-card,.tv-next-venue{position:relative;background:linear-gradient(180deg,#0b2a5a 0%,#071a36 100%);border:1px solid #2563eb80;border-radius:8px;box-shadow:0 8px 22px #0005;overflow:hidden}
+.tv-card{padding:18px}.tv-card:before,.tv-next-venue:before{content:'';position:absolute;left:0;top:0;width:100%;height:4px;background:linear-gradient(90deg,#dc2626 0 18%,#2563eb 18% 100%)}
+.tv-card h2,.tv-next-venue h2{font-size:26px;margin:0 -18px 14px;padding:8px 18px 10px;background:linear-gradient(90deg,#0d47a1,#0a2f6e);border-bottom:1px solid #60a5fa55;text-transform:uppercase;letter-spacing:.02em}
+.tv-next-venue{padding:14px 16px}.tv-next-venue h2{margin:-14px -16px 8px;padding:10px 16px;font-size:21px}
+.tv-table th{background:#081f46;color:#dbeafe;border-bottom:1px solid #3b82f6;font-size:14px}.tv-table td{border-bottom:1px solid #1e3a5f;padding:10px 9px;font-size:20px}.tv-table tbody tr:first-child{background:#0d47a155}
+.tv-match{position:relative;background:linear-gradient(100deg,#0a2550,#0b3a82 50%,#0a2550);border:1px solid #3b82f6aa;border-radius:7px;padding:16px 18px;font-size:26px;box-shadow:inset 0 1px #93c5fd22}.tv-match:before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:#dc2626}.tv-match .score{background:#f8fafc;color:#0b2f72;padding:7px 16px;min-width:110px;text-align:center;border-radius:4px;font-size:34px;box-shadow:0 3px 12px #0006}.tv-match .score .tv-muted{color:#334155!important}
+.tv-next-row{border-top:1px solid #1e497c;font-size:16px}.tv-next-row .rink{color:#fff;background:#1d4ed8;border-radius:4px;padding:3px 6px;text-align:center}.tv-muted{color:#bfdbfe}
+.tv-footer{left:0;right:0;bottom:0;padding:10px 34px;background:linear-gradient(90deg,#071b3d,#0b2f72 75%,#071b3d);border-top:1px solid #3b82f6;color:#dbeafe;font-size:13px}.tv-footer:before{content:'LIVE';font-weight:900;background:#dc2626;color:#fff;padding:10px 18px;margin:-10px 16px -10px -34px;display:inline-block}
+.tv-empty{background:linear-gradient(180deg,#0b2a5a,#071a36);border:1px solid #2563eb80;border-radius:8px;padding:60px 20px}
+@media(max-width:900px){.tv-wrap{padding:18px 18px 60px}.tv-head{margin:-18px -18px 18px;padding:15px 18px}.tv-broadcast-brand{display:none}.tv-head h1{font-size:28px}.tv-head .sub{font-size:14px}.tv-live-badge{padding:7px 10px;min-width:64px}.tv-controls{flex-wrap:wrap;justify-content:flex-end}.tv-footer{padding:9px 18px}.tv-footer:before{margin:-9px 12px -9px -18px}.tv-card h2{font-size:22px}.tv-table td{font-size:17px}.tv-match{font-size:21px}.tv-match .score{font-size:28px;min-width:90px}}
+
 </style>
 </head>
 <body>
@@ -134,7 +158,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.68';
+const APP_VERSION='2026.09.05.69';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1912,7 +1936,7 @@ function tvPagesFor(c){
 function renderTv(){
  let c=comp(),pages=tvPagesFor(c),idx=tvPage%pages.length,p=pages[idx],body=p.body(),effective=effectiveTvDisplayMode(c),modeLabel=tvDisplayMode==='auto'?`Auto: ${effective==='knockout'?'Knockout':'Groups'}`:(tvDisplayMode==='knockout'?'Knockout':'Groups');
  document.body.className='tv-mode';
- document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${p.title}</div></div><div class="tv-controls"><button id="tvMode">Mode: ${modeLabel}</button><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>Live data • 20 sec rotation • ${modeLabel} • Screen ${idx+1}/${pages.length}</span></div></div>`;
+ document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div class="tv-head-main"><div class="tv-broadcast-brand">One Stop Bowling</div><div class="tv-titleblock"><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${p.title}</div></div><span class="tv-live-badge">LIVE</span></div><div class="tv-controls"><button id="tvMode">Mode: ${modeLabel}</button><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>20 sec rotation • ${modeLabel} • Screen ${idx+1}/${pages.length}</span></div></div>`;
  document.getElementById('tvMode').onclick=()=>{let modes=['auto','groups','knockout'],i=modes.indexOf(tvDisplayMode);setTvDisplayMode(modes[(i+1)%modes.length],c)};
  document.getElementById('tvPrev').onclick=()=>{tvPage=(tvPage+pages.length-1)%pages.length;renderTv()};
  document.getElementById('tvNext').onclick=()=>{tvPage=(tvPage+1)%pages.length;renderTv()};
