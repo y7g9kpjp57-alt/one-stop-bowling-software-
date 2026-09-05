@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.63';
+const APP_VERSION='2026.09.05.64';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -394,6 +394,16 @@ async function showMyTournaments(){
  if(error){list.innerHTML=`<div class="notice">Could not load tournaments: ${esc(error.message)}</div>`;return}
  let rows=Array.isArray(data)?data:[];
  if(!rows.length){list.innerHTML='<div class="card" style="box-shadow:none"><h3>No saved tournaments yet</h3><p class="muted">Create a tournament and it will appear here automatically.</p></div>';return}
+ // Keep active tournaments at the top and archived tournaments at the bottom.
+ // Within each section, show the newest tournament first.
+ rows=rows.slice().sort((a,b)=>{
+   let aArchived=tournamentStateStatus(a)==='Archived'?1:0;
+   let bArchived=tournamentStateStatus(b)==='Archived'?1:0;
+   if(aArchived!==bArchived)return aArchived-bArchived;
+   let ad=tournamentStatePrimary(a)?.created||a?.created_at||a?.updated_at||'';
+   let bd=tournamentStatePrimary(b)?.created||b?.created_at||b?.updated_at||'';
+   return new Date(bd||0)-new Date(ad||0);
+ });
  list.innerHTML=rows.map((r,i)=>{
    let c=tournamentStatePrimary(r),status=tournamentStateStatus(r),roleLabel=r.access_role==='owner'?'Organiser':(r.access_role||'Public');
    let canManage=['owner','admin'].includes(r.access_role||'');
