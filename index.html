@@ -178,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.73';
+const APP_VERSION='2026.09.05.74';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -820,11 +820,40 @@ function completed(f){return Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scor
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
 function ensureAggregate(c=comp()){let x=c.settings,n=Math.max(1,+x.aggregateRinks||6);c.aggregateScores=c.aggregateScores||[];while(c.aggregateScores.length<n)c.aggregateScores.push({rink:c.aggregateScores.length+1,scoreA:'',scoreB:'',skipA:'',skipB:''});c.aggregateScores=c.aggregateScores.slice(0,n);c.aggregateScores.forEach((r,i)=>{r.rink=i+1;r.skipA=r.skipA||'';r.skipB=r.skipB||''});return c.aggregateScores}
 function aggregateTotals(c=comp()){let rows=ensureAggregate(c),a=0,b=0,complete=0;rows.forEach(r=>{let s=currentScore(r);if(completed(r))complete++;a+=s.a;b+=s.b});return {a,b,complete,total:rows.length}}
+function tieBreakKey(a,b){return [String(a),String(b)].sort().join('|')}
+function headToHeadWinner(c,aId,bId){
+ let f=(c.fixtures||[]).find(x=>completed(x)&&((String(x.a)===String(aId)&&String(x.b)===String(bId))||(String(x.a)===String(bId)&&String(x.b)===String(aId))));
+ if(!f)return '';
+ let sa=+f.scoreA,sb=+f.scoreB;if(sa===sb)return '';
+ return sa>sb?String(f.a):String(f.b)
+}
+function manualTieWinner(c,aId,bId){return String(c.tieBreakWinners?.[tieBreakKey(aId,bId)]||'')}
+function compareStandingRows(c,a,b){
+ let d=b.pts-a.pts||b.sd-a.sd;if(d)return d;
+ let h=headToHeadWinner(c,a.id,b.id);if(h)return h===String(a.id)?-1:1;
+ d=b.sf-a.sf;if(d)return d;
+ let m=manualTieWinner(c,a.id,b.id);if(m)return m===String(a.id)?-1:1;
+ let ai=(c.teams||[]).findIndex(t=>String(t.id)===String(a.id)),bi=(c.teams||[]).findIndex(t=>String(t.id)===String(b.id));
+ return ai-bi;
+}
+function unresolvedStandingTies(c=comp(),st=standings(c)){
+ let out=[];
+ Object.entries(st).forEach(([g,rows])=>{
+  for(let i=0;i<rows.length-1;i++){
+   let a=rows[i],b=rows[i+1];
+   if(a.pts!==b.pts||a.sd!==b.sd||a.sf!==b.sf)continue;
+   if(headToHeadWinner(c,a.id,b.id)||manualTieWinner(c,a.id,b.id))continue;
+   out.push({group:g,a,b,key:tieBreakKey(a.id,b.id)});
+  }
+ });
+ return out
+}
+function setManualTieWinner(key,winner){let c=comp();c.tieBreakWinners=c.tieBreakWinners||{};c.tieBreakWinners[key]=winner;saveDB();render()}
 function standings(c=comp()){
  let out={};c.teams.forEach(t=>out[t.group]??=[]);c.teams.forEach(t=>{if(t.group)out[t.group].push({id:t.id,name:t.name,p:0,w:0,d:0,l:0,sf:0,sa:0,sd:0,pts:0})});
  let map={};Object.values(out).flat().forEach(r=>map[r.id]=r);
  c.fixtures.filter(completed).forEach(f=>{let a=map[f.a],b=map[f.b];if(!a||!b)return;let sa=+f.scoreA,sb=+f.scoreB;a.p++;b.p++;a.sf+=sa;a.sa+=sb;b.sf+=sb;b.sa+=sa;if(sa>sb){a.w++;b.l++;a.pts+=c.settings.winPts}else if(sb>sa){b.w++;a.l++;b.pts+=c.settings.winPts}else if(sa===0&&sb===0){}else{a.d++;b.d++;a.pts+=c.settings.drawPts;b.pts+=c.settings.drawPts}});
- Object.values(out).forEach(rows=>rows.forEach(r=>r.sd=r.sf-r.sa));Object.values(out).forEach(rows=>rows.sort((a,b)=>b.pts-a.pts||b.sd-a.sd||b.sf-a.sf||a.name.localeCompare(b.name)));return out
+ Object.values(out).forEach(rows=>rows.forEach(r=>r.sd=r.sf-r.sa));Object.values(out).forEach(rows=>rows.sort((a,b)=>compareStandingRows(c,a,b)));return out
 }
 
 
@@ -837,7 +866,7 @@ function qualifiers(c=comp()){
   groups.forEach(g=>{let rows=st[g]||[];if(rows[1])out.push({...rows[1],group:g,pos:2})});
  }else if(mode==='winner_best_runner'&&best>0){
   let runners=groups.map(g=>{let r=(st[g]||[])[1];return r?{...r,group:g,pos:2}:null}).filter(Boolean);
-  runners.sort((a,b)=>b.pts-a.pts||b.sd-a.sd||b.sf-a.sf||a.name.localeCompare(b.name));
+  runners.sort((a,b)=>compareStandingRows(c,a,b));
   out.push(...runners.slice(0,best));
  }
  return out;
@@ -1567,6 +1596,7 @@ function ensureStageFlow(c=comp()){
 function allGroupGamesComplete(c=comp()){return !!(c.fixtures?.length)&&c.fixtures.every(completed)}
 function completeGroupStage(){
  let c=comp();if(!allGroupGamesComplete(c))return alert('Every group game needs a final score before the group stage can be completed.');
+ let unresolved=unresolvedStandingTies(c);if(unresolved.length)return alert('A group position is still completely tied. Resolve the tie-break in Tables first (one-bowl shoot-out / manual decision), then complete the group stage.');
  if(!confirm('Complete the group stage and move on to the knockout stage? You can re-open the groups later if a result needs corrected.'))return;
  ensureStageFlow(c).groupCompleteAt=Date.now();saveDB();tab='knockout';render()
 }
@@ -1599,10 +1629,11 @@ function renderTables(s){
  if(isAggregate()){let c=comp(),x=c.settings,t=aggregateTotals(c);s.innerHTML=`<div class="card"><h2>Overall Team Score</h2><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;text-align:center;align-items:center;padding:24px 0"><div><h3>${esc(x.aggregateSideA||'Side A')}</h3><b style="font-size:48px">${t.a}</b></div><div style="font-size:28px;font-weight:900">–</div><div><h3>${esc(x.aggregateSideB||'Side B')}</h3><b style="font-size:48px">${t.b}</b></div></div><p class="muted" style="text-align:center">${t.complete} of ${t.total} rinks complete</p></div>`;return}
  let st=standings(),keys=Object.keys(st).sort();
  if(!keys.length){s.innerHTML='<div class="card"><h2>Group Tables</h2><p>No group draw yet.</p></div>';return}
- let c=comp(),sf=ensureStageFlow(c),groupsDone=allGroupGamesComplete(c),groupMarked=!!sf.groupCompleteAt;
- let stageCard=role==='admin'?`<div class="card"><h2>Group Stage Progress</h2>${groupMarked?`<div class="oknotice notice"><b>Group stage complete ✓</b><div class="meta">The knockout stage can now be managed from the Knockout tab.</div></div><button class="btn secondary" id="reopenGroups">Re-open Group Stage</button>`:`<p class="muted">${groupsDone?'All group results are in. Confirm the section is complete when you are ready to move on.':'Complete all group games first. The button will become available when every final score is entered.'}</p><button class="btn success" id="completeGroups" ${groupsDone?'':'disabled'}>Complete Group Stage & Continue</button>`}</div>`:'';
- s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h2 style="margin-bottom:4px">Group Tables</h2><p class="muted" style="margin:0">Current standings from completed results.</p></div><button class="btn primary" id="printTablesBtn">Print / Save PDF</button></div></div>${stageCard}<div class="groupgrid">${keys.map(g=>`<div class="groupbox"><h3>Group ${g}</h3><div class="tablewrap"><table style="min-width:520px"><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>${st[g].map((r,i)=>`<tr><td><b>${i+1}</b></td><td>${esc(r.name)}</td><td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.sf}</td><td>${r.sa}</td><td>${r.sd>0?'+':''}${r.sd}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div>`;
- let b=document.getElementById('printTablesBtn');if(b)b.onclick=printGroupTables;let cg=document.getElementById('completeGroups');if(cg)cg.onclick=completeGroupStage;let rg=document.getElementById('reopenGroups');if(rg)rg.onclick=reopenGroupStage;
+ let c=comp(),sf=ensureStageFlow(c),groupsDone=allGroupGamesComplete(c),groupMarked=!!sf.groupCompleteAt,unresolved=unresolvedStandingTies(c,st);
+ let stageCard=role==='admin'?`<div class="card"><h2>Group Stage Progress</h2>${groupMarked?`<div class="oknotice notice"><b>Group stage complete ✓</b><div class="meta">The knockout stage can now be managed from the Knockout tab.</div></div><button class="btn secondary" id="reopenGroups">Re-open Group Stage</button>`:`<p class="muted">${groupsDone?(unresolved.length?'All scores are in, but a full tie still needs resolved before qualification can be confirmed.':'All group results are in. Confirm the section is complete when you are ready to move on.'):'Complete all group games first. The button will become available when every final score is entered.'}</p><button class="btn success" id="completeGroups" ${groupsDone&&!unresolved.length?'':'disabled'}>Complete Group Stage & Continue</button>`}</div>`:'';
+ let tieCard=unresolved.length?`<div class="card"><h2>Tie-break Required</h2><p class="muted">Order used: Points → Shot Difference → Head-to-Head → Shots For → one-bowl shoot-out/manual decision.</p>${unresolved.map(t=>`<div class="notice" style="margin-bottom:8px"><b>Group ${esc(t.group)}:</b> ${esc(t.a.name)} and ${esc(t.b.name)} are still completely level.<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span>Winner of tie-break:</span><select data-tie-key="${esc(t.key)}"><option value="">Select winner</option><option value="${esc(t.a.id)}">${esc(t.a.name)}</option><option value="${esc(t.b.id)}">${esc(t.b.name)}</option></select><button class="btn primary" data-save-tie="${esc(t.key)}">Save</button></div></div>`).join('')}</div>`:'';
+ s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h2 style="margin-bottom:4px">Group Tables</h2><p class="muted" style="margin:0">Current standings from completed results.</p></div><button class="btn primary" id="printTablesBtn">Print / Save PDF</button></div></div>${stageCard}${tieCard}<div class="groupgrid">${keys.map(g=>`<div class="groupbox"><h3>Group ${g}</h3><div class="tablewrap"><table style="min-width:520px"><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>${st[g].map((r,i)=>`<tr><td><b>${i+1}</b></td><td>${esc(r.name)}</td><td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.sf}</td><td>${r.sa}</td><td>${r.sd>0?'+':''}${r.sd}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div>`;
+ let b=document.getElementById('printTablesBtn');if(b)b.onclick=printGroupTables;let cg=document.getElementById('completeGroups');if(cg)cg.onclick=completeGroupStage;let rg=document.getElementById('reopenGroups');if(rg)rg.onclick=reopenGroupStage;document.querySelectorAll('[data-save-tie]').forEach(btn=>btn.onclick=()=>{let key=btn.dataset.saveTie,sel=document.querySelector(`[data-tie-key="${key}"]`),winner=sel?.value;if(!winner)return alert('Select the tie-break winner first.');setManualTieWinner(key,winner)});
 }
 
 function manualKnockoutSelectionHTML(q){
