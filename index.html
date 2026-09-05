@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.60';
+const APP_VERSION='2026.09.05.62';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -593,6 +593,16 @@ async function saveScoresNow(saveForm,afterSave){
  if(ok&&afterSave)afterSave();
  else if(!ok)alert('The score did not save online. Please try again before leaving this screen.')
 }
+async function openBestActiveTournament(){
+ if(!cloud||!currentUser)return false;
+ let {data,error}=await cloud.rpc('bowls_list_my_tournaments');if(error)return false;
+ let rows=Array.isArray(data)?data:[];
+ let active=rows.filter(r=>tournamentStateStatus(r)!=='Archived');
+ if(!active.length)return false;
+ active.sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
+ let pick=active[0];if(!pick?.code)return false;
+ return await openTournamentByCode(pick.code);
+}
 async function initCloudSync(){
  try{
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
@@ -600,8 +610,13 @@ async function initCloudSync(){
   cloudReady=true;startNotificationRefresh();
   let params=new URLSearchParams(location.search),code=params.get('code');
   if(code){await openTournamentByCode(code);return}
-  if(remoteTournamentCode){await openTournamentByCode(remoteTournamentCode)}
-  else setSyncNotice('Cloud ready • no tournament code selected • Build '+APP_VERSION,true);
+  if(remoteTournamentCode){
+   let opened=await openTournamentByCode(remoteTournamentCode);
+   if(opened&&comp()?.archivedAt&&currentUser){let switched=await openBestActiveTournament();if(switched)return}
+   if(opened)return;
+  }
+  if(currentUser){let switched=await openBestActiveTournament();if(switched)return}
+  setSyncNotice('Cloud ready • no active tournament selected • Build '+APP_VERSION,true);
  }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • cloud could not connect, but this device will keep saving locally',false)}
 }
 
@@ -744,7 +759,7 @@ function wireGlobalToolbar(){
  let oc=document.getElementById('openCodeBtn');if(oc)oc.onclick=()=>openTournamentByCode();
 }
 
-function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();if(c.archivedAt&&role!=='public'&&['builder','teams','draw','schedule','quick','knockout'].includes(tab)){s.innerHTML=`<div class="oknotice notice"><b>Archived competition.</b> Completed ${new Date(c.archivedAt).toLocaleString()} and locked against further changes.</div><div class="card"><h2>${esc((c.title||'').trim()||'Untitled competition')}</h2><p>You can still view Dashboard, Fixtures, Tables, Scorecards and the Admin archive tools.</p></div>`;return}({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions()
+function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();if(c.archivedAt&&role!=='public'&&['builder','teams','draw','schedule','quick'].includes(tab)){s.innerHTML=`<div class="oknotice notice"><b>Archived competition.</b> Completed ${new Date(c.archivedAt).toLocaleString()} and locked against further changes.</div><div class="card"><h2>${esc((c.title||'').trim()||'Untitled competition')}</h2><p>You can still view Dashboard, Fixtures, Tables, Scorecards and the Admin archive tools.</p></div>`;return}({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions()
  wireGlobalToolbar();
 }
 function completed(f){return Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!==''}
@@ -1456,18 +1471,23 @@ function printGroupTables(){
  if(!keys.length)return alert('No group tables are available yet.');
  let club=(c.settings?.clubName||'').trim(),title=(c.title||'Tournament').trim(),chunks=[];
  for(let i=0;i<keys.length;i+=2)chunks.push(keys.slice(i,i+2));
- let html='<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+' - Group Tables</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:0}h1{font-size:24px;margin:0 0 3px}.sub{font-size:12px;color:#555;margin:0 0 12px}.page{break-after:page}.page:last-child{break-after:auto}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.group{break-inside:avoid}.group h2{font-size:18px;margin:0;background:#111;color:#fff;padding:7px 9px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #777;padding:5px 6px;text-align:left}th{background:#eee;font-size:10px}.num{text-align:center}.pts{font-weight:700}.foot{font-size:9px;color:#666;margin-top:10px}</style></head><body>';
+ let old=document.getElementById('printTablesHost');if(old)old.remove();
+ let host=document.createElement('div');host.id='printTablesHost';
+ let inner='';
  chunks.forEach((chunk,idx)=>{
-  html+='<section class="page"><h1>'+esc(title)+' — Group Tables</h1><p class="sub">'+(club?esc(club)+' • ':'')+'Printed standings'+(keys.length>2?' • Page '+(idx+1)+' of '+chunks.length:'')+'</p><div class="grid">';
+  inner+='<section class="print-table-page"><h1>'+esc(title)+' — Group Tables</h1><p class="print-table-sub">'+(club?esc(club)+' • ':'')+'Printed standings'+(keys.length>2?' • Page '+(idx+1)+' of '+chunks.length:'')+'</p><div class="print-table-grid">';
   chunk.forEach(g=>{
-   html+='<section class="group"><h2>Group '+esc(g)+'</h2><table><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>'+
-    st[g].map((r,i)=>'<tr><td class="num"><b>'+(i+1)+'</b></td><td>'+esc(r.name)+'</td><td class="num">'+r.p+'</td><td class="num">'+r.w+'</td><td class="num">'+r.d+'</td><td class="num">'+r.l+'</td><td class="num">'+r.sf+'</td><td class="num">'+r.sa+'</td><td class="num">'+(r.sd>0?'+':'')+r.sd+'</td><td class="num pts">'+r.pts+'</td></tr>').join('')+
-    '</tbody></table></section>';
+   inner+='<section class="print-table-group"><h2>Group '+esc(g)+'</h2><table><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>'+st[g].map((r,i)=>'<tr><td class="num"><b>'+(i+1)+'</b></td><td>'+esc(r.name)+'</td><td class="num">'+r.p+'</td><td class="num">'+r.w+'</td><td class="num">'+r.d+'</td><td class="num">'+r.l+'</td><td class="num">'+r.sf+'</td><td class="num">'+r.sa+'</td><td class="num">'+(r.sd>0?'+':'')+r.sd+'</td><td class="num pts">'+r.pts+'</td></tr>').join('')+'</tbody></table></section>';
   });
-  html+='</div><div class="foot">Generated by One Stop Bowling Software</div></section>';
+  inner+='</div><div class="print-table-foot">Generated by One Stop Bowling Software</div></section>';
  });
- html+='<script>window.onload=()=>window.print()<\\/script></body></html>';
- let w=window.open('','_blank');if(!w)return alert('Please allow pop-ups to print or save the tables as PDF.');w.document.open();w.document.write(html);w.document.close();
+ host.innerHTML=inner;document.body.appendChild(host);
+ let style=document.getElementById('printTablesStyle');
+ if(!style){style=document.createElement('style');style.id='printTablesStyle';style.textContent='@media screen{#printTablesHost{display:none}}@media print{@page{size:A4 landscape;margin:10mm}body.printing-tables>*:not(#printTablesHost){display:none!important}body.printing-tables #printTablesHost{display:block!important;font-family:Arial,sans-serif;color:#111;margin:0}.print-table-page{break-after:page}.print-table-page:last-child{break-after:auto}.print-table-page h1{font-size:24px;margin:0 0 3px}.print-table-sub{font-size:12px;color:#555;margin:0 0 12px}.print-table-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.print-table-group{break-inside:avoid}.print-table-group h2{font-size:18px;margin:0;background:#111!important;color:#fff!important;padding:7px 9px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-table-group table{width:100%;border-collapse:collapse;font-size:11px}.print-table-group th,.print-table-group td{border:1px solid #777;padding:5px 6px;text-align:left}.print-table-group th{background:#eee!important;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-table-group .num{text-align:center}.print-table-group .pts{font-weight:700}.print-table-foot{font-size:9px;color:#666;margin-top:10px}}';document.head.appendChild(style)}
+ document.body.classList.add('printing-tables');
+ let cleaned=false;let cleanup=()=>{if(cleaned)return;cleaned=true;document.body.classList.remove('printing-tables');host.remove();window.removeEventListener('afterprint',cleanup)};
+ window.addEventListener('afterprint',cleanup,{once:true});
+ setTimeout(()=>{try{window.print()}catch(e){cleanup();alert('Could not open the print screen on this device. Please try again.')}setTimeout(cleanup,5000)},80);
 }
 function renderTables(s){
  if(isAggregate()){let c=comp(),x=c.settings,t=aggregateTotals(c);s.innerHTML=`<div class="card"><h2>Overall Team Score</h2><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:16px;text-align:center;align-items:center;padding:24px 0"><div><h3>${esc(x.aggregateSideA||'Side A')}</h3><b style="font-size:48px">${t.a}</b></div><div style="font-size:28px;font-weight:900">–</div><div><h3>${esc(x.aggregateSideB||'Side B')}</h3><b style="font-size:48px">${t.b}</b></div></div><p class="muted" style="text-align:center">${t.complete} of ${t.total} rinks complete</p></div>`;return}
@@ -1573,6 +1593,14 @@ function saveStandardKnockoutMatch(matchId){
 function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('Not enough qualifiers yet.');return}let matches=buildKnockoutFirstRound(q);matches.forEach((m,i)=>{m.id=`sko1_${i+1}`;m.label=`R1-${i+1}`;m.roundName=koRoundNameFromCount(matches.length);m.venue=knockoutVenueOptions(c)[0]||'Main Green';m.rink=i%Math.max(1,+c.settings.rinks||1)+1});c.knockout=[matches];c.knockoutLiveDrawRound='';c.knockoutLiveDrawDone={};advanceStandardKnockout(c);saveDB();render()}
 function renderKnockout(s){
  let c=comp();
+ if(c.archivedAt){
+  let rounds=normaliseStandardKnockout(c);
+  if((c.settings.tournamentType||'standard')==='knockout') rounds=c.knockout||[];
+  let title=esc((c.title||'').trim()||'Tournament');
+  if(!rounds.length){s.innerHTML=`<div class="card"><h2>Knockout Draw</h2><p class="muted">${title} is archived and no knockout draw is stored for this competition.</p></div>`;return}
+  s.innerHTML=`<div class="oknotice notice"><b>Archived knockout.</b> View only — results and draw positions are locked.</div><div class="card"><h2>${title} — Knockout Draw</h2><div class="bracket">${rounds.map((round,ri)=>`<div class="round"><h3>${esc(round[0]?.roundName||koRoundNameFromCount(round.length))}</h3>${round.map(m=>{let cs=currentScore(m),score=completed(m)?`${m.scoreA}–${m.scoreB}`:cs.live?`${cs.a}–${cs.b}`:'—';return `<div class="match"><div><b>${esc(knockoutRefName(m.a,c))}</b></div><div><b>${esc(knockoutRefName(m.b,c))}</b></div><div style="text-align:center;font-weight:900;margin-top:6px">${score}</div><div class="qual">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div></div>`}).join('')}</div>`).join('')}</div><div style="margin-top:12px"><button class="btn secondary" id="printArchivedKo">Print / Save PDF</button></div></div>`;
+  let pa=document.getElementById('printArchivedKo');if(pa)pa.onclick=printKnockoutDraw;return
+ }
  if((c.settings.tournamentType||'standard')==='knockout'){
   let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,knockoutInterval(c),c.settings.start);s.innerHTML=`<div class="card"><h2>Knockout Format</h2><div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Prelim games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Est. final</span></div></div>${!c.knockout?.length&&role==='admin'?'<button class="btn primary" id="genKoOnly2" style="margin-top:12px">Generate Knockout Draw</button>':''}${c.knockout?.length&&role==='admin'?'<button class="btn secondary" id="editKoOnlySchedule" style="margin-top:12px;margin-left:8px">Times / Greens / Rinks</button>':''}${c.knockout?.length?'<button class="btn secondary" id="printKoOnly" style="margin-top:12px;margin-left:8px">Print / Save PDF</button>':''}</div>${c.knockout?.length?`<div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${esc(round[0]?.roundName||('Round '+(ri+1)))}</h3>${round.map(m=>`<div class="match"><div>${esc(knockoutRefName(m.a,c))}</div><div>${esc(knockoutRefName(m.b,c))}</div><div class="qual">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div></div>`).join('')}</div>`).join('')}</div>`:''}`;let b=document.getElementById('genKoOnly2');if(b)b.onclick=()=>{generateKnockoutOnlyDraw();render()};let e=document.getElementById('editKoOnlySchedule');if(e)e.onclick=openKnockoutScheduleEditor;let p=document.getElementById('printKoOnly');if(p)p.onclick=printKnockoutDraw;return
  }
