@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.58';
+const APP_VERSION='2026.09.05.59';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1493,12 +1493,15 @@ function knockoutRinkOptions(c=comp(),selected=''){let max=Math.max(1,+c.setting
 function knockoutVenueSelectOptions(c=comp(),selected=''){let vals=knockoutVenueOptions(c);if(selected&&!vals.includes(selected))vals.push(selected);return vals.map(v=>`<option value="${esc(v)}" ${v===selected?'selected':''}>${esc(v)}</option>`).join('')}
 function openKnockoutScheduleEditor(){
  let c=comp(),rounds=c.knockout||[];if(!rounds.length)return alert('Generate the knockout draw first.');
+ // Keep the editor open while the organiser is choosing times/rinks.
+ // Cloud polling normally re-renders the screen every few seconds, which could close this editor.
+ if(remoteRefreshTimer){clearInterval(remoteRefreshTimer);remoteRefreshTimer=null}
  let matches=rounds.flat(),venues=knockoutVenueOptions(c),s=document.getElementById('screen');
  let roundNames=[...new Set(matches.map(m=>m.roundName||'Knockout'))];
  s.innerHTML=`<div class="card"><h2>Knockout Times, Greens & Rinks</h2><p class="muted">Set the playing location for each knockout game. The selectors below are designed to be easy to use on phones.</p><div class="notice" style="margin-bottom:12px"><b>Quick split times</b><div class="meta" style="margin:4px 0 8px">Useful when one knockout round is played in two waves, for example half at 09:00 and half at 11:00.</div><div class="formgrid"><div class="field"><label>Round</label><select id="koQuickRound">${roundNames.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('')}</select></div><div class="field"><label>First wave</label><select id="koWave1">${knockoutTimeOptions('09:00')}</select></div><div class="field"><label>Second wave</label><select id="koWave2">${knockoutTimeOptions('11:00')}</select></div><div class="field"><label>Games in first wave</label><input type="number" min="1" id="koWaveSplit" value="${Math.max(1,Math.ceil((matches.filter(m=>(m.roundName||'Knockout')===roundNames[0]).length||1)/2))}"></div></div><button type="button" class="btn secondary" id="applyKoWaves">Apply Split Times</button></div><div style="display:grid;gap:12px">${matches.map(m=>`<div class="card" style="box-shadow:none;margin:0"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><b>${esc(m.roundName||'Knockout')} • ${esc(m.label||'')}</b><span class="meta">${esc(knockoutRefName(m.a,c))} v ${esc(knockoutRefName(m.b,c))}</span></div><div class="formgrid" style="margin-top:10px"><div class="field"><label>Green / Venue</label><select data-ko-venue="${m.id}">${knockoutVenueSelectOptions(c,knockoutVenueName(m,c))}</select></div><div class="field"><label>Start time</label><select data-ko-time="${m.id}">${knockoutTimeOptions(m.start||'')}</select></div><div class="field"><label>Rink</label><select data-ko-rink="${m.id}">${knockoutRinkOptions(c,m.rink||'')}</select></div></div></div>`).join('')}</div><div class="ko-controls" style="margin-top:14px"><button class="btn success" id="saveKoSchedule">Save Knockout Schedule</button><button class="btn secondary" id="cancelKoSchedule">Cancel</button></div></div>`;
  document.getElementById('applyKoWaves').onclick=()=>{let rn=document.getElementById('koQuickRound').value,t1=document.getElementById('koWave1').value||'09:00',t2=document.getElementById('koWave2').value||'11:00',rm=matches.filter(m=>(m.roundName||'Knockout')===rn),cut=Math.max(1,Math.min(rm.length,+document.getElementById('koWaveSplit').value||Math.ceil(rm.length/2)));rm.forEach((m,i)=>{let el=document.querySelector(`[data-ko-time="${m.id}"]`);if(el)el.value=i<cut?t1:t2});};
  document.getElementById('koQuickRound').onchange=()=>{let rn=document.getElementById('koQuickRound').value,n=matches.filter(m=>(m.roundName||'Knockout')===rn).length;document.getElementById('koWaveSplit').value=Math.max(1,Math.ceil(n/2));};
- document.getElementById('cancelKoSchedule').onclick=render;
+ document.getElementById('cancelKoSchedule').onclick=()=>{startRemoteRefresh();render()};
  document.getElementById('saveKoSchedule').onclick=()=>{
   let used=new Map();
   for(let m of matches){
@@ -1509,7 +1512,7 @@ function openKnockoutScheduleEditor(){
    if(start&&rink){let key=`${venue.toLowerCase()}|${start}|${rink}`;if(used.has(key))return alert(`${venue} Rink ${rink} is already being used at ${start}.`);used.set(key,m.id)}
    m.venue=venue;m.start=start;m.rink=rink;
   }
-  saveDB();render();
+  saveDB();startRemoteRefresh();render();
  }
 }
 function koRoundNameFromCount(matchCount){let entrants=Math.max(2,matchCount*2);return entrants===2?'Final':entrants===4?'Semi-finals':entrants===8?'Quarter-finals':`Last ${entrants}`}
