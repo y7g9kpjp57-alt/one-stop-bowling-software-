@@ -158,7 +158,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.70';
+const APP_VERSION='2026.09.05.71';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1896,11 +1896,36 @@ function tvAggregateRinksHTML(c){
  let x=c.settings,rows=ensureAggregate(c);
  return `<div class="tv-card"><h2>Rink-by-Rink Scores</h2><table class="tv-table"><thead><tr><th>Rink</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>Score</th><th>${esc(x.aggregateSideB||'Side B')}</th><th>Status</th></tr></thead><tbody>${rows.map(r=>{let cs=currentScore(r),score=completed(r)?`${r.scoreA} – ${r.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'—',status=completed(r)?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):'WAITING';return `<tr><td><b>${r.rink}</b></td><td><b>${esc(r.skipA||x.aggregateSideA||'Side A')}</b></td><td class="tv-score">${score}</td><td><b>${esc(r.skipB||x.aggregateSideB||'Side B')}</b></td><td>${status}</td></tr>`}).join('')}</tbody></table></div>`
 }
-function tvKnockoutLiveHTML(c){
- let all=(c.knockout||[]).flat(),rows=all.filter(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&(!completed(m)||currentScore(m).live));
- if(!rows.length)return '<div class="tv-empty">No knockout games are currently live.</div>';
- return `<div class="tv-card"><h2>Live Knockout Games</h2><div class="tv-big-list">${rows.map(m=>{let cs=currentScore(m),score=completed(m)?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'vs';return `<div class="tv-match"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="tv-muted" style="font-size:16px">${esc(m.roundName||m.label||'')} • ${esc(knockoutVenueName(m,c))} • Rink ${m.rink||'—'}</div></div><div class="score">${score}<div class="tv-muted" style="font-size:14px;text-align:center">${completed(m)?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):(m.start||'')}</div></div><div class="right"><b>${esc(knockoutRefName(m.b,c))}</b><div class="tv-muted" style="font-size:16px">${m.start||''}</div></div></div>`}).join('')}</div></div>`
+function knockoutTvPending(c){
+ return (c.knockout||[]).flat().filter(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&!completed(m));
 }
+function knockoutTvBatch(c){
+ let pending=knockoutTvPending(c);
+ if(!pending.length)return {current:[],upcoming:[]};
+ let live=pending.filter(m=>currentScore(m).live),anchor='';
+ if(live.length){
+  anchor=(live.map(m=>m.start||'').filter(Boolean).sort()[0]||'');
+ }else{
+  anchor=(pending.map(m=>m.start||'').filter(Boolean).sort()[0]||'');
+ }
+ let current=anchor?pending.filter(m=>(m.start||'')===anchor):pending.slice(0,8);
+ let later=[...new Set(pending.map(m=>m.start||'').filter(t=>t&&(!anchor||t>anchor)))].sort();
+ let nextTime=later[0]||'';
+ let upcoming=nextTime?pending.filter(m=>(m.start||'')===nextTime):[];
+ return {current,upcoming,anchor,nextTime};
+}
+function tvKnockoutSessionHTML(c){
+ let batch=knockoutTvBatch(c),rows=batch.current;
+ if(!rows.length)return '<div class="tv-empty">No knockout games are waiting to be played.</div>';
+ let anyLive=rows.some(m=>currentScore(m).live),title=anyLive?'Current Knockout Games':'Next Knockout Games';
+ return `<div class="tv-card"><h2>${title}${batch.anchor?` • ${batch.anchor}`:''}</h2><div class="tv-big-list">${rows.map(m=>{let cs=currentScore(m),score=cs.live?`${cs.a} – ${cs.b}`:'vs',status=cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):(m.start||'');return `<div class="tv-match"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="tv-muted" style="font-size:16px">${esc(m.roundName||m.label||'')} • ${esc(knockoutVenueName(m,c))} • Rink ${m.rink||'—'}</div></div><div class="score">${score}<div class="tv-muted" style="font-size:14px;text-align:center">${status}</div></div><div class="right"><b>${esc(knockoutRefName(m.b,c))}</b><div class="tv-muted" style="font-size:16px">${m.start||''}</div></div></div>`}).join('')}</div></div>`
+}
+function tvKnockoutUpcomingHTML(c){
+ let batch=knockoutTvBatch(c),rows=batch.upcoming;
+ if(!rows.length)return '<div class="tv-empty">No later knockout session is currently scheduled.</div>';
+ return `<div class="tv-card"><h2>Up Next${batch.nextTime?` • ${batch.nextTime}`:''}</h2><div class="tv-big-list">${rows.map(m=>`<div class="tv-match"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="tv-muted" style="font-size:16px">${esc(m.roundName||m.label||'')} • ${esc(knockoutVenueName(m,c))} • Rink ${m.rink||'—'}</div></div><div class="score">vs<div class="tv-muted" style="font-size:14px;text-align:center">${m.start||''}</div></div><div class="right"><b>${esc(knockoutRefName(m.b,c))}</b></div></div>`).join('')}</div></div>`
+}
+function tvKnockoutLiveHTML(c){return tvKnockoutSessionHTML(c)}
 function tvKnockoutDrawHTML(c){
  let rounds=c.knockout||[];
  if(!rounds.length)return '<div class="tv-empty">The knockout draw has not been generated yet.</div>';
@@ -1919,12 +1944,14 @@ function tvPagesFor(c){
   {title:'Rink-by-Rink Scores',body:()=>tvAggregateRinksHTML(c)}
  ];
  if((c.settings.tournamentType||'standard')==='knockout')return [
-  {title:'Live Games',body:()=>tvKnockoutLiveHTML(c)},
+  {title:'Current Games',body:()=>tvKnockoutSessionHTML(c)},
+  {title:'Up Next',body:()=>tvKnockoutUpcomingHTML(c)},
   {title:'Full Draw',body:()=>tvKnockoutDrawHTML(c)}
  ];
  let mode=effectiveTvDisplayMode(c);
  if(mode==='knockout')return [
-  {title:'Live Knockout Games',body:()=>tvKnockoutLiveHTML(c)},
+  {title:'Current Knockout Games',body:()=>tvKnockoutSessionHTML(c)},
+  {title:'Up Next',body:()=>tvKnockoutUpcomingHTML(c)},
   {title:'Knockout Draw',body:()=>tvKnockoutDrawHTML(c)}
  ];
  return [
