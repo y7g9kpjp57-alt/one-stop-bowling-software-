@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.62';
+const APP_VERSION='2026.09.05.63';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -773,6 +773,21 @@ function standings(c=comp()){
  Object.values(out).forEach(rows=>rows.forEach(r=>r.sd=r.sf-r.sa));Object.values(out).forEach(rows=>rows.sort((a,b)=>b.pts-a.pts||b.sd-a.sd||b.sf-a.sf||a.name.localeCompare(b.name)));return out
 }
 
+
+function qualifiers(c=comp()){
+ let st=standings(c),groups=Object.keys(st).filter(g=>g).sort();
+ if(!groups.length)return [];
+ let mode=c.settings?.qualify||'winner_best_runner',best=Math.max(0,+c.settings?.bestRunners||0),out=[];
+ groups.forEach(g=>{let rows=st[g]||[];if(rows[0])out.push({...rows[0],group:g,pos:1})});
+ if(mode==='top2'){
+  groups.forEach(g=>{let rows=st[g]||[];if(rows[1])out.push({...rows[1],group:g,pos:2})});
+ }else if(mode==='winner_best_runner'&&best>0){
+  let runners=groups.map(g=>{let r=(st[g]||[])[1];return r?{...r,group:g,pos:2}:null}).filter(Boolean);
+  runners.sort((a,b)=>b.pts-a.pts||b.sd-a.sd||b.sf-a.sf||a.name.localeCompare(b.name));
+  out.push(...runners.slice(0,best));
+ }
+ return out;
+}
 function liveEntries(obj){obj.liveEnds=obj.liveEnds||[];return obj.liveEnds}
 function liveScore(obj){
  if(obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null){
