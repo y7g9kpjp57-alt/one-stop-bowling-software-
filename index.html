@@ -112,6 +112,8 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 .tv-empty{background:linear-gradient(180deg,#0b2a5a,#071a36);border:1px solid #2563eb80;border-radius:8px;padding:60px 20px}
 @media(max-width:900px){.tv-wrap{padding:18px 18px 60px}.tv-head{margin:-18px -18px 18px;padding:15px 18px;display:grid;grid-template-columns:1fr;gap:12px;align-items:start}.tv-head-main{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.tv-broadcast-brand{display:none}.tv-titleblock{min-width:0}.tv-head h1{font-size:clamp(24px,7vw,34px);line-height:1.05;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}.tv-head .sub{font-size:14px;line-height:1.25}.tv-live-badge{padding:7px 10px;min-width:64px;align-self:start}.tv-controls{width:100%;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:7px}.tv-controls button{font-size:12px;padding:7px 9px}.tv-footer{padding:9px 18px}.tv-footer:before{margin:-9px 12px -9px -18px}.tv-card h2{font-size:22px}.tv-table td{font-size:17px}.tv-match{font-size:21px}.tv-match .score{font-size:28px;min-width:90px}}
 
+
+.helpbox{background:#fff;border-radius:16px;padding:18px;width:min(760px,100%);max-height:88vh;overflow:auto}.helpbox h2{margin:0 0 6px}.help-quick{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;margin:12px 0}.help-steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.help-steps span{background:#082f49;color:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:700}.helpbox details{border:1px solid var(--line);border-radius:11px;margin:8px 0;background:#fff}.helpbox summary{cursor:pointer;font-weight:800;padding:11px 12px}.helpbox details>div{padding:0 12px 12px;color:#334155;line-height:1.5}.helpbox ol,.helpbox ul{padding-left:20px}.helpbox li{margin:5px 0}
 </style>
 </head>
 <body>
@@ -128,6 +130,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
     <button class="btn secondary" id="accessBtn">Invite / Access</button>
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
+    <button class="btn secondary" id="helpBtn">Help / User Guide</button>
     <button class="btn secondary" id="exportBtn">Backup</button>
     <label class="btn secondary" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
   </div>
@@ -135,6 +138,23 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
   <section id="screen"></section>
 </main>
 <nav class="bottom" id="bottomNav"></nav>
+<div class="modal hidden" id="helpModal"><div class="helpbox">
+<div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><h2>One Stop Bowling Software – User Guide</h2><p class="muted" style="margin:0">Quick help for setting up and running a competition.</p></div><button class="btn secondary" id="helpClose">Close</button></div>
+<div class="help-quick"><b>Competition day – quick order</b><div class="help-steps"><span>Teams</span><span>Draw</span><span>Greens</span><span>Schedule</span><span>Scorecards</span><span>Scores</span><span>Tables</span><span>Knockout</span><span>TV Display</span></div></div>
+<details open><summary>1. Sign in & create a tournament</summary><div>Sign in, then tap <b>+ New Tournament</b>. Choose the club, tournament name, format, teams, groups, rinks, ends, start time, game length, changeover and qualifying format.</div></details>
+<details><summary>2. Add teams</summary><div>Open <b>Teams</b> and enter the team/player names. Add individual player names too if you want them printed on scorecards.</div></details>
+<details><summary>3. Create the draw</summary><div>Open <b>Draw</b> and create the group draw. The software can place teams automatically, or you can adjust them manually.</div></details>
+<details><summary>4. Set up greens & rinks</summary><div>If you are using more than one green, use <b>Split / Edit Greens & Rinks</b>. Enter the venue names and assign the groups. Rink numbers restart from 1 on each green.</div></details>
+<details><summary>5. Set the playing schedule</summary><div>Open <b>Playing Schedule</b>. Check each game has the correct time, green and rink. Use <b>Quick Team Schedule</b> if you want to check one team at a time. Print or save the schedule when ready.</div></details>
+<details><summary>6. Print scorecards</summary><div>Open <b>Scorecards</b> and print the cards required for the event. These can include teams, players, rink, time, green and number of ends.</div></details>
+<details><summary>7. Give scorers access</summary><div>Open <b>Invite / Access</b>. A scorer signs in and requests access to the tournament. Approve them as <b>Scorer</b> so they can enter scores without full admin rights.</div></details>
+<details><summary>8. Enter scores</summary><div>Open <b>Scores</b> and select the correct green if required. Games are shown in rink order. Use <b>Quick Current Total</b> for a live score, optional <b>end-by-end scoring</b>, or enter the <b>Final Score</b>. Save the final result when the game is complete.</div></details>
+<details><summary>9. Tables & completing the groups</summary><div>The <b>Tables</b> update automatically as final results are saved. Once every group game is final, tap <b>Complete Group Stage & Continue</b> to confirm qualifiers and move into the knockout stage.</div></details>
+<details><summary>10. Knockout & live draws</summary><div>Open <b>Knockout</b>. You can use an automatic draw, manual selection or a live draw. Score knockout games the same way as group games. When a round is finished, use <b>Complete Round & Continue</b> to move to the next stage.</div></details>
+<details><summary>11. Fixing a mistake</summary><div>If a result is wrong, re-open the relevant stage, correct the score and complete the stage again. If later knockout rounds depend on the wrong result, the software may clear those later rounds so the correct winner can progress.</div></details>
+<details><summary>12. TV Display</summary><div>Open <b>TV Display</b> for the public screen. Use <b>Auto</b> to switch naturally from groups to knockout, or force <b>Groups</b> / <b>Knockout</b>. On iPad, use Control Centre → <b>Screen Mirroring</b> to show the display on a compatible TV.</div></details>
+<details><summary>13. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
+</div></div>
 <div class="modal hidden" id="authModal"><div class="modalbox">
 <h3 id="authTitle">Sign in</h3>
 <p class="muted" id="authText">Sign in to manage or score tournaments.</p>
@@ -158,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.72';
+const APP_VERSION='2026.09.05.73';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1826,6 +1846,9 @@ document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
 document.getElementById('accessBtn').onclick=showTournamentAccess;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
+document.getElementById('helpBtn').onclick=()=>document.getElementById('helpModal').classList.remove('hidden');
+document.getElementById('helpClose').onclick=()=>document.getElementById('helpModal').classList.add('hidden');
+document.getElementById('helpModal').onclick=e=>{if(e.target.id==='helpModal')document.getElementById('helpModal').classList.add('hidden')};
 document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
 function tvCurrentGames(c){
  let fs=c.fixtures||[];
