@@ -134,7 +134,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.05.67';
+const APP_VERSION='2026.09.05.68';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1361,6 +1361,7 @@ function matchSideInfo(c=comp()){
  if(mode==='none')return {mode,a:'A',b:'B',aLong:'Team A',bLong:'Team B',aStyle:'',bStyle:''};
  return {mode:'home_away',a:'HOME',b:'AWAY',aLong:'Home',bLong:'Away',aStyle:'',bStyle:''}
 }
+function playerPositions(type){return type==='singles'?['Player']:type==='pairs'?['Lead','Skip']:type==='triples'?['Lead','Second','Skip']:['Lead','Second','Third','Skip']}
 function sideBadge(side,c=comp()){
  let si=matchSideInfo(c),txt=side==='a'?si.a:si.b,style=side==='a'?si.aStyle:si.bStyle;
  return `<span class="pill" style="font-weight:900;${style}">${txt}</span>`
