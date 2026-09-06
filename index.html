@@ -242,7 +242,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.110';
+const APP_VERSION='2026.09.06.111';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1319,7 +1319,7 @@ function renderBuilder(s){
    <div class="field"><label>Ends</label><input id="qsEnds" type="number" min="1" max="40" value="${x.ends||12}" ${x.gameType==='singles'?'disabled':''}><div id="qsEndsHelp" class="meta">${x.gameType==='singles'?'Singles is first to 21 shots.':'Used to calculate the recommendation.'}</div></div>
    <div class="field"><label>Available rinks</label><input id="qsRinks" type="number" min="1" max="30" value="${x.rinks||6}"></div>
    <div class="field"><label>Start time</label><input id="qsStart" type="time" value="${x.start||'09:00'}"></div>
-   <div class="field"><label>Your minutes per game</label><input id="qsMinutes" type="number" min="10" max="240" value="${x.minutes||60}"><div class="meta">Kept unless you choose to use the recommendation.</div></div>
+   <div class="field"><label>Your minutes per game</label><input id="qsMinutes" type="number" min="10" max="240" value="${x.minutes||60}"><div class="meta">Kept unless you choose to use the recommendation.</div><div id="qsRecommendedTime" class="oknotice" style="margin-top:8px;padding:8px"></div></div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" class="btn primary" id="applyQuickStart">Apply Quick Start</button><button type="button" class="btn success" id="applyQuickRecommended">Apply + Use Recommended Time</button></div>
  </div>
@@ -1417,8 +1417,9 @@ function renderBuilder(s){
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
  document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}updatePlanner()};
- const syncQuickStartSingles=()=>{let single=document.getElementById('qsGame')?.value==='singles',qe=document.getElementById('qsEnds'),qh=document.getElementById('qsEndsHelp');if(qe)qe.disabled=single;if(qh)qh.textContent=single?'Singles is first to 21 shots.':'Used to calculate the recommendation.'};
- let qsGame=document.getElementById('qsGame');if(qsGame)qsGame.onchange=syncQuickStartSingles;syncQuickStartSingles();
+ const updateQuickRecommendedTime=()=>{let single=document.getElementById('qsGame')?.value==='singles',qe=Math.max(1,+document.getElementById('qsEnds')?.value||12),out=document.getElementById('qsRecommendedTime');if(!out)return;if(single){out.innerHTML='<b>Recommended time:</b> use your chosen planning time for Singles <span class="muted">(first to 21 shots)</span>';return}let recM=recommendedMinutesFromEnds(qe);out.innerHTML=`<b>Recommended time:</b> ${recM} minutes <span class="muted">(${qe} ends × 6 min 46 sec, rounded to nearest 5)</span>`};
+ const syncQuickStartSingles=()=>{let single=document.getElementById('qsGame')?.value==='singles',qe=document.getElementById('qsEnds'),qh=document.getElementById('qsEndsHelp');if(qe)qe.disabled=single;if(qh)qh.textContent=single?'Singles is first to 21 shots.':'Used to calculate the recommendation.';updateQuickRecommendedTime()};
+ let qsGame=document.getElementById('qsGame');if(qsGame)qsGame.onchange=syncQuickStartSingles;let qsEnds=document.getElementById('qsEnds');if(qsEnds)qsEnds.addEventListener('input',updateQuickRecommendedTime);syncQuickStartSingles();
  const applyQuickStart=(useRecommended=false)=>{
   let qg=document.getElementById('qsGame')?.value||'pairs',qn=Math.max(2,+document.getElementById('qsTeams')?.value||16),qe=Math.max(1,+document.getElementById('qsEnds')?.value||12),qr=Math.max(1,+document.getElementById('qsRinks')?.value||6),qs=document.getElementById('qsStart')?.value||'09:00',qm=Math.max(10,+document.getElementById('qsMinutes')?.value||60);
   document.getElementById('bGame').value=qg;document.getElementById('bTeams').value=qn;document.getElementById('bEnds').value=qe;document.getElementById('bRinks').value=qr;document.getElementById('bStart').value=qs;document.getElementById('bMinutes').value=qm;
