@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.96';
+const APP_VERSION='2026.09.06.97';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1235,7 +1235,7 @@ function renderBuilder(s){
    <div class="field"><label>Day 2 knockout start</label><input id="bDay2Start" type="time" value="${x.day2Start}"></div>
  </div></div>
  <div class="card" style="box-shadow:none;margin-top:14px;border:2px solid #bae6fd;background:#f0f9ff">
-  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin-bottom:4px">Recommended Setup</h3><p class="muted" style="margin:0">Prioritises practical groups of 4, then checks rinks, game times, qualification and target finish.</p></div><span class="pill wait" id="plannerStatus">Calculating…</span></div>
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin-bottom:4px">Recommended Setup</h3><p class="muted" style="margin:0">Prioritises practical, even groups of 4–6 and a clean knockout of 4, 8, 16 or 32, then checks rinks, game times and target finish.</p></div><span class="pill wait" id="plannerStatus">Calculating…</span></div>
   <div id="plannerResult" style="margin-top:12px"></div>
   <button class="btn success" id="useRecommendation" type="button">Use Recommended Setup</button>
  </div>
@@ -1273,7 +1273,8 @@ function renderBuilder(s){
   let v=plannerValues(),rec=suggestedGroup(v.n,v.r,v.m+v.buffer,v.km+v.buffer,v.start,v.target,v.qualify,v.best,v.mode,v.event,v.day1,v.day2),p=rec.p;latestRec=rec;use.disabled=false;
   let ok=!!(p.onTime&&p.day1OnTime),tight=ok&&p.minutesToTarget<60,statusText=ok?(tight?'⚠ Tight':'✓ Comfortable'):'✕ Not achievable',statusClass=ok&&!tight?'done':'wait';status.textContent=statusText;status.className='pill '+statusClass;
   let groupText=p.sizes.map((z,i)=>`Group ${String.fromCharCode(65+i)}: ${z}`).join(' • '),koText=(p.koRounds||[]).map(r=>r.name).join(' → ')||'No knockout';
-  box.innerHTML=`<div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
+  let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`;
+  box.innerHTML=`<div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p><div class="${cleanKo?'oknotice':'notice'}"><b>Knockout fit:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
@@ -1452,22 +1453,31 @@ function fullTournamentPlan(n,groupSize,rinks,minutes,koMinutes,start,target,qua
  }
  let gp=planFor(n,groupSize,rinks,minutes,start),q=Math.min(n,qualifierCount(gp.sizes.length,qualify,bestRunners)),ko=knockoutPlan(q,rinks,koMinutes,day2Start),groupFinishMin=minutesOfDay(gp.finish),day1TargetMin=minutesOfDay(day1Target),finalMin=minutesOfDay(ko.finish),targetMin=minutesOfDay(target);if(groupFinishMin<minutesOfDay(start))groupFinishMin+=1440;if(day1TargetMin<minutesOfDay(start))day1TargetMin+=1440;if(finalMin<minutesOfDay(day2Start))finalMin+=1440;if(targetMin<minutesOfDay(day2Start))targetMin+=1440;return {...gp,groupGames:gp.games,groupSessions:gp.sessions,groupFinish:gp.finish,qualifiers:q,bracketSize:ko.bracketSize,koRounds:ko.rounds,koSessions:ko.sessions,finalFinish:ko.finish,totalSessions:gp.sessions+ko.sessions,onTime:finalMin<=targetMin,overBy:Math.max(0,finalMin-targetMin),minutesToTarget:targetMin-finalMin,day1OnTime:groupFinishMin<=day1TargetMin,day1OverBy:Math.max(0,groupFinishMin-day1TargetMin),eventFormat:'two_day'};
 }
+function isStandardKnockoutSize(q){return q>=2&&(q&(q-1))===0}
+function nextStandardKnockoutSize(q){let s=2;while(s<Math.max(2,q))s*=2;return s}
 function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00'){
  let candidates=[];
  for(let g=3;g<=Math.min(8,n);g++){
-  let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start),min=Math.min(...p.sizes),avg=n/p.sizes.length;
+  let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start),min=Math.min(...p.sizes),max=Math.max(...p.sizes),avg=n/p.sizes.length;
   if(min<3&&n>=3)continue;
-  let imbalance=Math.max(...p.sizes)-Math.min(...p.sizes),latePenalty=(p.onTime&&p.day1OnTime)?0:50000+p.overBy*100+p.day1OverBy*100;
-  let fourGroupPenalty=Math.abs(avg-4)*4000;
-  let exactFourBonus=(p.sizes.length&&p.sizes.every(z=>z===4))?-12000:0;
-  let extraGamesPenalty=Math.max(0,p.groupGames-(n*1.5))*20;
+  let imbalance=max-min,latePenalty=(p.onTime&&p.day1OnTime)?0:50000+p.overBy*100+p.day1OverBy*100;
+  // Tournament-first thinking: keep groups practical (normally 4–6), as even as possible,
+  // and favour a qualification count that naturally lands on a standard knockout bracket.
+  let outsidePractical=p.sizes.reduce((sum,z)=>sum+(z<4?(4-z):(z>6?(z-6):0)),0);
+  let practicalPenalty=outsidePractical*18000;
+  let evenPenalty=imbalance*1800;
+  let q=Math.min(n,p.qualifiers),next=nextStandardKnockoutSize(q),clean=isStandardKnockoutSize(q);
+  let bracketFill=clean?0:Math.max(0,next-q);
+  let bracketPenalty=clean?-10000:bracketFill*6500;
+  let preferredFivePenalty=Math.abs(avg-5.25)*350;
+  let extraGamesPenalty=Math.max(0,p.groupGames-(n*2.4))*8;
   let score;
-  if(mode==='shortest')score=latePenalty+p.totalSessions*1000+(100-p.util)*2+imbalance*20+Math.abs(avg-4);
-  else if(mode==='games')score=latePenalty-p.groupGames*1000+p.totalSessions*10+(100-p.util)+imbalance*20;
-  else score=latePenalty+fourGroupPenalty+exactFourBonus+extraGamesPenalty+imbalance*200+(100-p.util)*.25+p.totalSessions*.3+p.backToBack*.2;
-  candidates.push({g,p,score});
+  if(mode==='shortest')score=latePenalty+practicalPenalty+bracketPenalty+p.totalSessions*850+(100-p.util)*2+evenPenalty+preferredFivePenalty;
+  else if(mode==='games')score=latePenalty+practicalPenalty+bracketPenalty-p.groupGames*250+p.totalSessions*10+(100-p.util)+evenPenalty;
+  else score=latePenalty+practicalPenalty+bracketPenalty+evenPenalty+preferredFivePenalty+extraGamesPenalty+(100-p.util)*.4+p.totalSessions*2+p.backToBack*.5;
+  candidates.push({g,p,score,cleanBracket:clean,bracketFill,practical:outsidePractical===0});
  }
- return candidates.sort((a,b)=>a.score-b.score||Number(b.p.onTime&&b.p.day1OnTime)-Number(a.p.onTime&&a.p.day1OnTime)||Math.abs((a.p.sizes.reduce((x,y)=>x+y,0)/a.p.sizes.length)-4)-Math.abs((b.p.sizes.reduce((x,y)=>x+y,0)/b.p.sizes.length)-4)||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
+ return candidates.sort((a,b)=>a.score-b.score||Number(b.practical)-Number(a.practical)||Number(b.cleanBracket)-Number(a.cleanBracket)||a.bracketFill-b.bracketFill||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
 }
 function knockoutOnlyPlan(n,rinks,minutes,start){
  n=Math.max(2,+n||2);rinks=Math.max(1,+rinks||1);minutes=Math.max(10,+minutes||80);
