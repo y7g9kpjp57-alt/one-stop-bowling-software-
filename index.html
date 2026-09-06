@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.91';
+const APP_VERSION='2026.09.06.92';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -578,6 +578,8 @@ async function showMyTournaments(){
  list.querySelectorAll('[data-my-open]').forEach(b=>b.onclick=()=>openSavedTournament(rows[+b.dataset.myOpen]));
  list.querySelectorAll('[data-my-duplicate]').forEach(b=>b.onclick=()=>duplicateSavedTournament(rows[+b.dataset.myDuplicate]));
  list.querySelectorAll('[data-my-archive]').forEach(b=>b.onclick=()=>archiveSavedTournament(rows[+b.dataset.myArchive]))
+
+ document.querySelectorAll('[data-delete-tournament]').forEach(b=>b.onclick=()=>deleteTournamentPermanently(b.dataset.deleteTournament,b.dataset.deleteTitle||'Tournament'));
 }
 
 function isArchived(c=comp()){return !!c.archivedAt}
@@ -600,7 +602,6 @@ function competitionSummaryHTML(c=comp()){
   body+=`<h2>Results</h2><table><tr><th>Game</th><th>Team A</th><th>Score</th><th>Team B</th></tr>${(c.fixtures||[]).map(f=>`<tr><td>${f.game||''}</td><td>${esc(fixtureTeamName(f,'a',c))}</td><td>${completed(f)?`${f.scoreA} – ${f.scoreB}`:'—'}</td><td>${esc(fixtureTeamName(f,'b',c))}</td></tr>`).join('')}</table>`;
  }
  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:28px;color:#111}h1{margin-bottom:4px}.muted{color:#666}table{width:100%;border-collapse:collapse;margin:10px 0 24px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#eee}@media print{@page{size:A4;margin:12mm}}</style></head><body><h1>${title}</h1><p class="muted">Archived ${c.archivedAt?new Date(c.archivedAt).toLocaleString():''} • One Stop Bowling Software</p>${body}</body></html>`;
- document.querySelectorAll('[data-delete-tournament]').forEach(b=>b.onclick=()=>deleteTournamentPermanently(b.dataset.deleteTournament,b.dataset.deleteTitle||'Tournament'));
 
 }
 function downloadResultsSummary(c=comp()){downloadBlobFile(competitionSummaryHTML(c),'text/html',safeFileName(c.title||'competition')+'-results-summary.html')}
