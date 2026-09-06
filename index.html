@@ -205,7 +205,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.85';
+const APP_VERSION='2026.09.06.86';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1812,9 +1812,21 @@ function advanceStandardKnockout(c=comp()){
 function openLiveKnockoutDraw(roundIndex){
  let c=comp(),rounds=normaliseStandardKnockout(c),prev=rounds[roundIndex-1];if(!standardRoundComplete(prev))return alert('Finish the previous round first.');
  let winners=standardRoundWinners(prev),s=document.getElementById('screen'),name=koRoundNameFromCount(Math.ceil(winners.length/2)),opts=winners.map(id=>`<option value="${esc(id)}">${esc(teamName(id,c))}</option>`).join('');
- s.innerHTML=`<div class="card"><h2>${esc(name)} Live Draw</h2><p class="muted">Choose the players/teams in the order they are drawn. Positions 1 v 2, 3 v 4 and so on become the matches.</p><div class="formgrid">${winners.map((_,i)=>`<div class="field"><label>Draw position ${i+1}</label><select data-liveko-slot="${i}"><option value="">Select…</option>${opts}</select></div>`).join('')}</div><div class="ko-controls"><button class="btn success" id="saveLiveKoDraw">Save Live Draw</button><button class="btn secondary" id="cancelLiveKoDraw">Cancel</button></div></div>`;
+ let matchCount=Math.ceil(winners.length/2),rinkCount=Math.max(1,+c.settings.rinks||1);
+ let rinkOptions=(selected)=>Array.from({length:rinkCount},(_,i)=>{let r=i+1;return `<option value="${r}" ${String(selected)===String(r)?'selected':''}>Rink ${r}</option>`}).join('');
+ s.innerHTML=`<div class="card"><h2>${esc(name)} Live Draw</h2><p class="muted">Choose the players/teams in the order they are drawn. Positions 1 v 2, 3 v 4 and so on become the matches.</p><div class="formgrid">${winners.map((_,i)=>`<div class="field"><label>Draw position ${i+1}</label><select data-liveko-slot="${i}"><option value="">Select…</option>${opts}</select></div>`).join('')}</div><div class="notice" style="margin-top:14px"><b>Rink allocation</b><div class="meta" style="margin:4px 0 10px">The app suggests the rinks in order, but you can overwrite them before saving the live draw.</div><div class="formgrid">${Array.from({length:matchCount},(_,mi)=>`<div class="field"><label>Match ${mi+1} • positions ${mi*2+1} v ${mi*2+2}</label><select data-liveko-rink="${mi}">${rinkOptions(mi%rinkCount+1)}</select></div>`).join('')}</div></div><div class="ko-controls"><button class="btn success" id="saveLiveKoDraw">Save Live Draw</button><button class="btn secondary" id="cancelLiveKoDraw">Cancel</button></div></div>`;
  document.getElementById('cancelLiveKoDraw').onclick=render;
- document.getElementById('saveLiveKoDraw').onclick=()=>{let vals=[...document.querySelectorAll('[data-liveko-slot]')].sort((a,b)=>+a.dataset.livekoSlot-+b.dataset.livekoSlot).map(x=>x.value).filter(Boolean);if(vals.length!==winners.length)return alert('Select every winner once.');if(new Set(vals).size!==vals.length)return alert('A player/team has been selected more than once.');let valid=new Set(winners.map(String));if(vals.some(v=>!valid.has(String(v))))return alert('Only winners from the previous round can be selected.');rounds[roundIndex]=makeStandardNextRound(c,winners,roundIndex,vals);c.knockoutLiveDrawDone=c.knockoutLiveDrawDone||{};c.knockoutLiveDrawDone[roundIndex]=true;saveDB();render()}
+ document.getElementById('saveLiveKoDraw').onclick=()=>{
+  let vals=[...document.querySelectorAll('[data-liveko-slot]')].sort((a,b)=>+a.dataset.livekoSlot-+b.dataset.livekoSlot).map(x=>x.value).filter(Boolean);
+  if(vals.length!==winners.length)return alert('Select every winner once.');
+  if(new Set(vals).size!==vals.length)return alert('A player/team has been selected more than once.');
+  let valid=new Set(winners.map(String));if(vals.some(v=>!valid.has(String(v))))return alert('Only winners from the previous round can be selected.');
+  let rinks=[...document.querySelectorAll('[data-liveko-rink]')].sort((a,b)=>+a.dataset.livekoRink-+b.dataset.livekoRink).map(x=>Math.max(1,+x.value||1));
+  if(new Set(rinks).size!==rinks.length)return alert('Each live-draw match must use a different rink. Choose a different rink for one of the matches.');
+  rounds[roundIndex]=makeStandardNextRound(c,winners,roundIndex,vals);
+  rounds[roundIndex].forEach((m,i)=>m.rink=rinks[i]||i%rinkCount+1);
+  c.knockoutLiveDrawDone=c.knockoutLiveDrawDone||{};c.knockoutLiveDrawDone[roundIndex]=true;saveDB();render()
+ }
 }
 function persistStandardKnockoutEnds(m,matchId){
  let max=Math.max(1,+comp().settings?.ends||12),hasAny=false;
