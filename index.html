@@ -182,6 +182,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
     <button class="btn secondary" id="helpBtn">Help / User Guide</button>
+    <button class="btn secondary" id="aiReportBtn">AI Tournament Report</button>
     <button class="btn secondary" id="exportBtn">Backup</button>
     <label class="btn secondary" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
   </div>
@@ -205,6 +206,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 <details><summary>11. Fixing a mistake</summary><div>If a result is wrong, re-open the relevant stage, correct the score and complete the stage again. If later knockout rounds depend on the wrong result, the software may clear those later rounds so the correct winner can progress.</div></details>
 <details><summary>12. TV Display</summary><div>Open <b>TV Display</b> for the public screen. Use <b>Auto</b> to switch naturally from groups to knockout, or force <b>Groups</b> / <b>Knockout</b>. On iPad, use Control Centre → <b>Screen Mirroring</b> to show the display on a compatible TV.</div></details>
 <details><summary>13. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
+<details><summary>14. AI Tournament Report</summary><div>In <b>Admin</b>, tap <b>AI Tournament Report</b> at any stage of the competition. Download or copy the structured report, then attach/paste it into ChatGPT to create a tournament write-up. The report only uses results currently stored in the tournament and does not invent missing scores.</div></details>
 </div></div>
 <div class="modal hidden" id="authModal"><div class="modalbox">
 <h3 id="authTitle">Sign in</h3>
@@ -229,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.88';
+const APP_VERSION='2026.09.06.89';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -914,6 +916,7 @@ function wireGlobalToolbar(){
  };
  let mt=document.getElementById('myTournamentsBtn');if(mt)mt.onclick=showMyTournaments;
  let oc=document.getElementById('openCodeBtn');if(oc)oc.onclick=()=>openTournamentByCode();
+ let ar=document.getElementById('aiReportBtn');if(ar){ar.style.display=role==='admin'?'':'none';ar.onclick=openAiTournamentReport}
 }
 
 function applyArchivedReadOnly(s,c){
@@ -1921,6 +1924,120 @@ function renderKnockout(s){
  document.querySelectorAll('[data-complete-ko-round]').forEach(b=>b.onclick=()=>completeKnockoutRoundStage(+b.dataset.completeKoRound));document.querySelectorAll('[data-reopen-ko-round]').forEach(b=>b.onclick=()=>reopenKnockoutRoundStage(+b.dataset.reopenKoRound));
  document.querySelectorAll('[data-apply-live-total]').forEach(b=>{let id=b.dataset.applyLiveTotal;if(rounds.flat().some(m=>String(m.id)===String(id)))b.onclick=()=>saveStandardKnockoutLive(id)});document.querySelectorAll('[data-save-stdko]').forEach(b=>b.onclick=()=>saveStandardKnockoutMatch(b.dataset.saveStdko))
 }
+
+function tournamentStageLabel(c=comp()){
+ if(c.archivedAt)return 'Finished / archived';
+ if((c.settings?.tournamentType||'standard')==='aggregate')return 'Aggregate match in progress';
+ let rounds=normaliseStandardKnockout(c);
+ if(rounds.length){
+  let current=rounds.find(r=>r.some(m=>!completed(m)));
+  if(current)return (current[0]?.roundName||koRoundNameFromCount(current.length))+' in progress';
+  let last=rounds[rounds.length-1],w=last?.length===1?koWinner(last[0]):null;
+  if(w)return 'Tournament complete';
+ }
+ if(c.stageFlow?.groupCompleteAt)return 'Group stage complete / knockout pending';
+ let total=(c.fixtures||[]).length,done=(c.fixtures||[]).filter(completed).length;
+ return total?`Group stage in progress (${done}/${total} games final)`:'Tournament setup';
+}
+function aiTournamentReportText(c=comp()){
+ let lines=[],title=(c.title||'Tournament').trim()||'Tournament',club=(c.settings?.clubName||remoteClubName||'').trim();
+ let type=c.settings?.tournamentType||'standard';
+ lines.push('ONE STOP BOWLING SOFTWARE — AI TOURNAMENT REPORT');
+ lines.push('');
+ lines.push('INSTRUCTION FOR AI');
+ lines.push('Use the factual tournament data below to create a natural bowls tournament write-up. Do not invent missing results. Mention the winner and runner-up only when confirmed. If the competition is still in progress, write an update rather than a final report.');
+ lines.push('');
+ lines.push('TOURNAMENT');
+ lines.push(`Name: ${title}`);
+ if(club)lines.push(`Club / organiser: ${club}`);
+ lines.push(`Status: ${tournamentStageLabel(c)}`);
+ lines.push(`Entries: ${(c.teams||[]).length}`);
+ lines.push(`Format: ${type==='standard'?'Round Robin + Knockout':type==='knockout'?'Knockout Only':'Team / District Aggregate'}`);
+ if(c.settings?.gameType)lines.push(`Game type: ${c.settings.gameType}`);
+ if(c.settings?.ends)lines.push(`Ends: ${c.settings.ends}`);
+ let venues=scheduleVenueNames(c).filter(Boolean);if(venues.length)lines.push(`Venue(s): ${venues.join(', ')}`);
+ if(c.created)lines.push(`Created: ${new Date(c.created).toLocaleString()}`);
+ lines.push('');
+
+ if(type==='aggregate'){
+  let t=aggregateTotals(c),rows=ensureAggregate(c);
+  lines.push('AGGREGATE SCORE');
+  lines.push(`${c.settings.aggregateSideA||'Side A'} ${t.a} - ${t.b} ${c.settings.aggregateSideB||'Side B'}`);
+  lines.push(`${t.complete}/${t.total} rinks final`);
+  rows.forEach(r=>{let cs=currentScore(r),status=completed(r)?'FINAL':cs.live?'LIVE':'WAITING';lines.push(`Rink ${r.rink}: ${r.skipA||c.settings.aggregateSideA||'Side A'} ${cs.a}-${cs.b} ${r.skipB||c.settings.aggregateSideB||'Side B'} (${status})`)});
+ }else{
+  if((c.fixtures||[]).length){
+   let st=standings(c),groups=Object.keys(st).filter(Boolean).sort();
+   lines.push('GROUP STAGE');
+   lines.push(`${(c.fixtures||[]).filter(completed).length}/${(c.fixtures||[]).length} group games final`);
+   groups.forEach(g=>{
+    lines.push(`Group ${g}:`);
+    (st[g]||[]).forEach((r,i)=>lines.push(`  ${i+1}. ${r.name} — P ${r.p}, W ${r.w}, D ${r.d}, L ${r.l}, SF ${r.sf}, SA ${r.sa}, SD ${r.sd>=0?'+':''}${r.sd}, Pts ${r.pts}`));
+   });
+   lines.push('');
+   lines.push('GROUP RESULTS');
+   (c.fixtures||[]).forEach(f=>{
+    let a=fixtureTeamName(f,'a',c),b=fixtureTeamName(f,'b',c),cs=currentScore(f);
+    let status=completed(f)?`FINAL ${f.scoreA}-${f.scoreB}`:cs.live?`LIVE ${cs.a}-${cs.b}${cs.ends?` after ${cs.ends} ends`:''}`:'NOT PLAYED';
+    lines.push(`${a} v ${b} — ${status}${f.group?` — Group ${f.group}`:''}${f.start?` — ${f.start}`:''}${f.rink?` — Rink ${fixtureLocalRink(f,c)}`:''}`);
+   });
+  }
+
+  let rounds=normaliseStandardKnockout(c);
+  if(rounds.length){
+   lines.push('');
+   lines.push('KNOCKOUT');
+   rounds.forEach(round=>{
+    let rn=round[0]?.roundName||koRoundNameFromCount(round.length);
+    lines.push(rn+':');
+    round.forEach(m=>{
+     let a=knockoutRefName(m.a,c)||'TBC',b=knockoutRefName(m.b,c)||'TBC',cs=currentScore(m);
+     let result=completed(m)?`FINAL ${m.scoreA}-${m.scoreB}`:cs.live?`LIVE ${cs.a}-${cs.b}${cs.ends?` after ${cs.ends} ends`:''}`:'TO PLAY';
+     let w=koWinner(m);
+     lines.push(`  ${a} v ${b} — ${result}${w&&completed(m)?` — Winner: ${knockoutRefName(w,c)}`:''}${m.start?` — ${m.start}`:''}${m.rink?` — Rink ${m.rink}`:''}`);
+    });
+   });
+   let finalRound=rounds.find(r=>(r[0]?.roundName||koRoundNameFromCount(r.length))==='Final');
+   let fm=finalRound?.[0];
+   if(fm&&completed(fm)){
+    let w=koWinner(fm),runner=String(w)===String(fm.a)?fm.b:fm.a;
+    lines.push('');
+    lines.push('FINAL PLACINGS');
+    lines.push(`Winner: ${knockoutRefName(w,c)}`);
+    lines.push(`Runner-up: ${knockoutRefName(runner,c)}`);
+    lines.push(`Final score: ${fm.scoreA}-${fm.scoreB}`);
+   }else if(fm&&fm.a&&fm.b){
+    lines.push('');
+    lines.push('FINALISTS');
+    lines.push(`${knockoutRefName(fm.a,c)} v ${knockoutRefName(fm.b,c)}`);
+   }
+  }
+ }
+
+ lines.push('');
+ lines.push('END OF REPORT DATA');
+ return lines.join('\n');
+}
+function openAiTournamentReport(){
+ if(role!=='admin')return alert('Open Admin to generate the tournament report.');
+ let c=comp(),report=aiTournamentReportText(c);
+ document.getElementById('aiReportModal')?.remove();
+ let box=document.createElement('div');box.className='modal';box.id='aiReportModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(860px,100%);max-height:92vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">AI Tournament Report</h2><p class="muted" style="margin:5px 0 0">Works during the tournament or after the final.</p></div><button class="btn secondary" id="closeAiReport">Close</button></div>
+  <div class="notice" style="margin-top:12px"><b>How to use it:</b> download or copy this report, then attach/paste it into ChatGPT and ask for a Facebook post, website article, press report or tournament summary.</div>
+  <textarea id="aiReportText" readonly style="width:100%;min-height:380px;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;font:13px/1.45 ui-monospace,Menlo,monospace">${esc(report)}</textarea>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="downloadAiReport">Download Report</button><button class="btn secondary" id="copyAiReport">Copy Report</button></div>
+ </div>`;
+ document.body.appendChild(box);
+ document.getElementById('closeAiReport').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ document.getElementById('downloadAiReport').onclick=()=>downloadBlobFile(report,'text/plain;charset=utf-8',safeFileName(c.title||'tournament')+'-ai-report.txt');
+ document.getElementById('copyAiReport').onclick=async()=>{
+  try{await navigator.clipboard.writeText(report);let b=document.getElementById('copyAiReport');b.textContent='Copied ✓';setTimeout(()=>{if(b)b.textContent='Copy Report'},1500)}
+  catch(e){let ta=document.getElementById('aiReportText');ta.select();document.execCommand('copy');}
+ };
+}
+
 function renderAdmin(s){
  let c=comp(),globalAdmin=['owner','admin'].includes(currentAppRole),tournamentAdmin=['owner','admin'].includes(remoteAccessRole);
  if(!globalAdmin&&!tournamentAdmin){s.innerHTML='<div class="card"><h2>Admin</h2><p>This account does not have Admin permission for this tournament.</p></div>';return}
