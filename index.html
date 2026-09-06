@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.89';
+const APP_VERSION='2026.09.06.90';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -645,36 +645,98 @@ function showAuthModal(target,mode='signin'){
  authRequestedRole=target||'scorer';let m=document.getElementById('authModal');m.classList.remove('hidden');setAuthMode(mode);
  setTimeout(()=>document.getElementById(authMode==='signup'?'authName':'authEmail').focus(),50)
 }
+
+let approvalWatchTimer=null;
+
+function stopApprovalWatch(){
+ if(approvalWatchTimer){clearInterval(approvalWatchTimer);approvalWatchTimer=null}
+}
+
+function showPendingApprovalScreen(message='Your account has been created and is waiting for Admin approval.'){
+ stopApprovalWatch();
+ document.getElementById('approvalModal')?.remove();
+ let box=document.createElement('div');box.className='modal';box.id='approvalModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(460px,100%)">
+   <div style="text-align:center">
+    <div style="font-size:42px;margin-bottom:8px">⏳</div>
+    <h2 style="margin:0 0 8px">Waiting for Admin Approval</h2>
+    <p class="muted" style="margin:0 0 12px">${esc(message)}</p>
+    <div class="notice" style="text-align:left">
+      <b>What happens next?</b>
+      <div class="meta" style="margin-top:5px">An Admin has been notified of your request. You do not need to create another account.</div>
+    </div>
+    <div id="approvalStatus" class="meta" style="margin:10px 0">Checking approval status…</div>
+    <button class="btn primary" id="checkApprovalNow" style="width:100%">Check Approval Now</button>
+    <button class="btn secondary" id="closeApproval" style="width:100%;margin-top:8px">Close</button>
+   </div>
+ </div>`;
+ document.body.appendChild(box);
+ document.getElementById('closeApproval').onclick=()=>{stopApprovalWatch();box.remove()};
+ document.getElementById('checkApprovalNow').onclick=checkApprovalStatus;
+ approvalWatchTimer=setInterval(checkApprovalStatus,10000);
+ checkApprovalStatus();
+}
+
+async function checkApprovalStatus(){
+ if(!currentUser||!cloud)return;
+ let status=document.getElementById('approvalStatus');
+ try{
+  let {data,error}=await cloud.from('bowls_users').select('role,display_name,email,subscription_status,trial_started_at,trial_ends_at,subscription_ends_at').eq('user_id',currentUser.id).maybeSingle();
+  if(error)throw error;
+  if(data){currentAppRole=data.role||'pending';currentAccess=data;updateAccountButton()}
+  if(currentAppRole!=='pending'){
+    stopApprovalWatch();
+    if(status){status.style.color='#166534';status.innerHTML='<b>Approved ✓</b> Your account is now ready to use.'}
+    let btn=document.getElementById('checkApprovalNow');
+    if(btn){btn.textContent='Continue';btn.onclick=()=>{document.getElementById('approvalModal')?.remove();requestRole('scorer')}}
+  }else if(status){
+    status.style.color='#64748b';
+    status.textContent='Still waiting for Admin approval.';
+  }
+ }catch(e){
+  if(status){status.style.color='#b91c1c';status.textContent='Could not check approval just now. Try again shortly.'}
+ }
+}
+
+function showAccountCreatedPending(){
+ let msg='Your account has been created successfully. Once your email is confirmed, sign in and your account will remain pending until an Admin approves it.';
+ showPendingApprovalScreen(msg);
+}
+
 async function requestRole(target){
  if(target==='public'){role='public';tab='dashboard';setQueryRole('public');render();return}
  if(!currentUser){showAuthModal(target);return}
  await loadCurrentProfile();
- if(!roleAllowed(target)){let a=accessState();alert(currentAppRole==='pending'?'Your account is waiting for an Owner/Admin to approve it.':(!a.active?'Your trial has expired. Please contact the software administrator to activate or extend your access.':'Your account does not have permission for this area.'));return}
+ if(!roleAllowed(target)){let a=accessState();if(currentAppRole==='pending'){showPendingApprovalScreen('Your sign-in worked. Your account is waiting for Admin approval before scoring or admin access is unlocked.');return}alert(!a.active?'Your trial has expired. Please contact the software administrator to activate or extend your access.':'Your account does not have permission for this area.');return}
  role=target;tab=target==='scorer'?scoringHomeTab():'dashboard';setQueryRole(target);render();
 }
 async function signInAccount(){
- let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,err=document.getElementById('authError');err.textContent='';
+ let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,err=document.getElementById('authError'),submit=document.getElementById('authSubmit');err.textContent='';
  if(!email||!password){err.textContent='Enter your email and password.';return}
- let {data,error}=await cloud.auth.signInWithPassword({email,password});if(error){err.textContent=error.message;return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');
+ submit.disabled=true;submit.textContent='Signing in…';
+ let {data,error}=await cloud.auth.signInWithPassword({email,password});
+ submit.disabled=false;submit.textContent='Sign in';
+ if(error){err.textContent=error.message;return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');
  let q=new URLSearchParams(location.search),inviteCode=q.get('code'),join=q.get('join');
  if(inviteCode&&join==='scorer'){await openTournamentByCode(inviteCode);return}
  await requestRole(authRequestedRole||'scorer')
 }
 async function createAccount(){
- let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,password2=document.getElementById('authPassword2').value,name=document.getElementById('authName').value.trim(),err=document.getElementById('authError');err.textContent='';
+ let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,password2=document.getElementById('authPassword2').value,name=document.getElementById('authName').value.trim(),err=document.getElementById('authError'),submit=document.getElementById('authSubmit');err.textContent='';
  if(!name){err.textContent='Please enter your name.';return}
  if(!email){err.textContent='Please enter your email address.';return}
  if(password.length<6){err.textContent='Password must be at least 6 characters.';return}
  if(password!==password2){err.textContent='The two passwords do not match.';return}
- let {data,error}=await cloud.auth.signUp({email,password,options:{data:{display_name:name||email.split('@')[0]}}});if(error){err.textContent=error.message;return}
+ submit.disabled=true;submit.textContent='Creating account…';
+ let {data,error}=await cloud.auth.signUp({email,password,options:{data:{display_name:name||email.split('@')[0]}}});
+ submit.disabled=false;submit.textContent='Create account';
+ if(error){err.textContent=error.message;return}
  if(!data.session){
    err.style.color='#166534';
-   err.innerHTML='<b>Account created.</b><br>Check your email and tap the confirmation link. Then return here and choose <b>Sign in</b>.';
-   document.getElementById('authSubmit').disabled=true;
-   setTimeout(()=>document.getElementById('authSubmit').disabled=false,3000);
+   err.innerHTML='<b>Account created ✓</b><br>Check your email and tap the confirmation link. Then return here and sign in. After sign-in, your account will show <b>Waiting for Admin Approval</b> until it is approved.';
    return
  }
- currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');await requestRole(authRequestedRole||'scorer')
+ currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');if(currentAppRole==='pending')showPendingApprovalScreen('Your account has been created successfully and is now waiting for Admin approval.');else await requestRole(authRequestedRole||'scorer')
 }
 async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;currentClubs=[];accessNotificationCount=0;if(notificationRefreshTimer){clearInterval(notificationRefreshTimer);notificationRefreshTimer=null}role='public';tab='dashboard';updateAccountButton();render()}
 async function auditEvent(action,target,oldValue,newValue){
