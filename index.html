@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.101';
+const APP_VERSION='2026.09.06.102';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1207,7 +1207,7 @@ function renderBuilder(s){
   <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly)?'selected':''}>Round Robin + Knockout</option><option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
   <div class="field"><label>Scoring mode</label><div style="padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:#ecfdf5;color:#065f46;font-weight:800">End-by-End / Anytime Scoring</div><input type="hidden" id="bScoring" value="live_optional"></div>
   <div class="field"><label>Game format</label><select id="bGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select></div>
-  <div class="field"><label>Ends</label><input id="bEnds" type="number" min="1" max="40" value="${x.ends||12}"></div>
+  <div class="field"><label>Ends</label><input id="bEnds" type="number" min="1" max="40" value="${x.ends||12}"><div class="meta">Recommended game time: 6 min 46 sec per end, rounded to the nearest minute.</div></div>
  </div>
  <div id="aggSetup" class="${agg?'':'hidden'}" style="margin-top:12px"><div class="formgrid">
   <div class="field"><label>Side A</label><input id="bSideA" value="${esc(x.aggregateSideA||'District A')}"></div>
@@ -1280,7 +1280,15 @@ function renderBuilder(s){
   let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`;
   box.innerHTML=`<div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p><div class="${cleanKo?'oknotice':'notice'}"><b>Knockout fit:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
- let gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes');
+ let endsInput=document.getElementById('bEnds'),gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes');
+ const recommendedMinutesFromEnds=(ends)=>Math.max(10,Math.round(Math.max(1,+ends||1)*406/60));
+ if(endsInput&&gameMinutesInput){
+  endsInput.addEventListener('input',()=>{
+   gameMinutesInput.value=recommendedMinutesFromEnds(endsInput.value);
+   if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=gameMinutesInput.value;
+   updatePlanner();
+  });
+ }
  if(gameMinutesInput&&koMinutesInput){
   gameMinutesInput.addEventListener('input',()=>{if(koMinutesInput.dataset.manual!=='1'){koMinutesInput.value=gameMinutesInput.value;updatePlanner()}});
   koMinutesInput.addEventListener('input',()=>{koMinutesInput.dataset.manual='1';updatePlanner()});
