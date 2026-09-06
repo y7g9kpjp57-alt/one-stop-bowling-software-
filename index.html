@@ -178,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.79';
+const APP_VERSION='2026.09.06.80';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1058,7 +1058,16 @@ function renderDashboard(s){
  }
  let done=c.fixtures.filter(completed).length,total=c.fixtures.length,st=standings(c),
      leaders=Object.entries(st).map(([g,r])=>r[0]&&`Group ${g}: ${r[0].name}`).filter(Boolean),
-     liveGames=c.fixtures.filter(f=>!completed(f)&&currentScore(f).live);
+     liveGames=c.fixtures.filter(f=>!completed(f)&&currentScore(f).live),
+     knockoutActive=!!c.stageFlow?.groupCompleteAt&&Array.isArray(c.knockout)&&c.knockout.length>0;
+ if(role==='public'&&knockoutActive){
+  let koRounds=normaliseStandardKnockout(c),koAll=koRounds.flat(),koLive=koAll.filter(m=>!completed(m)&&currentScore(m).live),koDone=koAll.filter(completed).length,koTotal=koAll.length;
+  s.innerHTML=`<div class="card" style="border:2px solid #93c5fd;background:#eff6ff"><h2 style="margin-bottom:6px">🏆 Knockout Stage</h2><p style="margin:0 0 8px"><b>Group games complete ✓</b></p><p class="muted" style="margin:0">The competition is now in the knockout stage. Live and final knockout scores are shown below.</p></div>
+  <div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Entries</span></div><div class="kpi"><b>${koDone}/${koTotal}</b><span>Knockout games final</span></div><div class="kpi"><b>${koLive.length}</b><span>Live now</span></div><div class="kpi"><b>${koRounds.length}</b><span>Knockout rounds</span></div></div>
+  <div class="card"><h3>🔴 Live Knockout Scores</h3>${koLive.length?koLive.map(m=>{let cs=currentScore(m);return `<div style="padding:12px 0;border-bottom:1px solid var(--line)"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="meta">${esc(m.roundName||m.label||'Knockout')} • ${esc(knockoutVenueName(m,c))} • Rink ${m.rink||'—'}</div></div><span style="font-size:24px;font-weight:900">${cs.a} – ${cs.b}<div class="meta" style="text-align:center">${cs.ends?`after ${cs.ends} ends • `:''}<b>LIVE</b></div></span><div style="text-align:right"><b>${esc(knockoutRefName(m.b,c))}</b><div class="meta">${m.start||''}</div></div></div></div>`}).join(''):'<p class="muted">No knockout games are currently showing a live score.</p>'}</div>
+  <div class="card"><h3>Knockout Results</h3><p class="muted">Open <b>Finals</b> to see the full knockout draw, live scores and completed results.</p></div>`;
+  return
+ }
  s.innerHTML=`<div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${new Set(c.teams.map(t=>t.group).filter(Boolean)).size}</b><span>Groups</span></div><div class="kpi"><b>${c.settings.rinks}</b><span>Rinks</span></div><div class="kpi"><b>${done}/${total}</b><span>Games complete</span></div></div>
  <div class="card"><h2>${esc(c.title)}</h2><p class="muted">${c.settings.ends} ends • ${c.settings.minutes} min games • ${Math.max(0,+c.settings.changeoverMinutes||0)} min changeover${c.settings.lunchEnabled?` • lunch ${esc(c.settings.lunchStart||'13:00')}`:''} • starts ${c.settings.start}</p>${total?`<div style="height:10px;background:#e2e8f0;border-radius:9px;overflow:hidden"><div style="height:100%;width:${Math.round(done/total*100)}%;background:#0284c7"></div></div><p><b>${total?Math.round(done/total*100):0}% complete</b></p>`:`<p>No fixtures yet. ${role==='admin'?'Open Tournament Builder and generate the draw.':'The organiser has not generated fixtures yet.'}</p>`}</div>
  <div class="card"><h3>🔴 Live Scores</h3>${liveGames.length?liveGames.map(f=>{let cs=currentScore(f);return `<div style="padding:12px 0;border-bottom:1px solid var(--line)"><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center"><div><b>${esc(fixtureTeamName(f,'a',c))}</b><div class="meta">${esc(fixtureVenue(f,c))} • Group ${esc(f.group||'')} • Rink ${fixtureLocalRink(f,c)}</div></div><span style="font-size:24px;font-weight:900">${cs.a} – ${cs.b}</span><div style="text-align:right"><b>${esc(fixtureTeamName(f,'b',c))}</b><div class="meta">${cs.ends?`after ${cs.ends} ends • `:''}<b>LIVE</b></div></div></div></div>`}).join(''):'<p class="muted">No games are currently showing a live score.</p>'}</div>
