@@ -178,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.81';
+const APP_VERSION='2026.09.06.82';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -383,13 +383,28 @@ async function showTournamentAccess(){
  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Invite / Access</h2><p class="muted" style="margin:5px 0 0">${esc(c.title||'Tournament')} • Code <b>${esc(remoteTournamentCode)}</b></p></div><button class="btn secondary" id="closeAccess">Close</button></div>
  <div class="card" style="box-shadow:none;margin-top:14px"><h3>Public View</h3><p class="muted">Share a read-only live view. Public viewers cannot change scores.</p><button class="btn primary" id="sharePublicInvite" style="width:100%">Share Public View</button></div>
  <div class="card" style="box-shadow:none"><h3>Scorer Invite</h3><p class="muted">The scorer signs in and requests access. You approve them before they can enter scores.</p><button class="btn primary" id="shareScorerInvite" style="width:100%">Share Scorer Invite</button></div>
- ${canManage?`<div class="card" style="box-shadow:none"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h3 style="margin:0">People & Permissions</h3><button class="btn secondary" id="refreshAccessMembers">Refresh</button></div><div class="notice" style="margin-top:10px"><b>Scorer</b> = can change scores only. <b>Admin</b> = full tournament control.</div><div id="accessMembers" style="margin-top:10px"><p class="muted">Loading…</p></div></div>`:`<div class="notice">Only the organiser or an admin can approve scorers.</div>`}
+ ${canManage?`<div class="card" style="box-shadow:none"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><h3 style="margin:0">People & Permissions</h3><button class="btn secondary" id="refreshAccessMembers">Refresh</button></div><div class="notice" style="margin-top:10px"><b>Scorer</b> = can change scores only. <b>Admin</b> = full tournament control.</div><div class="card" style="box-shadow:none;margin:12px 0;background:#f8fafc"><h3 style="margin-top:0">Add Existing Scorer</h3><p class="muted">If they already have a One Stop Bowling login, enter their email and add them straight to this tournament.</p><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input id="existingScorerEmail" type="email" placeholder="Scorer email address" style="width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:9px"><button class="btn primary" id="addExistingScorer">Add Scorer</button></div><div id="addExistingScorerMsg" class="meta" style="margin-top:7px"></div></div><div id="accessMembers" style="margin-top:10px"><p class="muted">Loading…</p></div></div>`:`<div class="notice">Only the organiser or an admin can approve scorers.</div>`}
  </div>`;
  document.body.appendChild(box);
  document.getElementById('closeAccess').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
  document.getElementById('sharePublicInvite').onclick=()=>shareTournamentInvite('public');
  document.getElementById('shareScorerInvite').onclick=()=>shareTournamentInvite('scorer');
- if(canManage){document.getElementById('refreshAccessMembers').onclick=loadTournamentMembers;await loadTournamentMembers()}
+ if(canManage){
+  document.getElementById('refreshAccessMembers').onclick=loadTournamentMembers;
+  let addBtn=document.getElementById('addExistingScorer');
+  if(addBtn)addBtn.onclick=async()=>{
+   let email=document.getElementById('existingScorerEmail')?.value.trim()||'',msg=document.getElementById('addExistingScorerMsg');
+   if(!email){if(msg)msg.textContent='Enter the scorer email address first.';return}
+   addBtn.disabled=true;addBtn.textContent='Adding…';if(msg)msg.textContent='';
+   let {data,error}=await cloud.rpc('bowls_add_tournament_scorer_by_email',{p_id:remoteTournamentId,p_email:email});
+   addBtn.disabled=false;addBtn.textContent='Add Scorer';
+   if(error){if(msg){msg.style.color='#b91c1c';msg.textContent=error.message}return}
+   if(msg){msg.style.color='#166534';msg.textContent='Scorer added to this tournament ✓'}
+   let inp=document.getElementById('existingScorerEmail');if(inp)inp.value='';
+   await loadTournamentMembers();setTimeout(refreshAccessNotificationBadge,250)
+  };
+  await loadTournamentMembers()
+ }
 }
 async function loadTournamentMembers(){
  let list=document.getElementById('accessMembers');if(!list)return;
