@@ -199,7 +199,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 <details><summary>4. Set up greens & rinks</summary><div>If you are using more than one green, use <b>Split / Edit Greens & Rinks</b>. Enter the venue names and assign the groups. Rink numbers restart from 1 on each green.</div></details>
 <details><summary>5. Set the playing schedule</summary><div>Open <b>Playing Schedule</b>. Check each game has the correct time, green and rink. Use <b>Quick Team Schedule</b> if you want to check one team at a time. Print or save the schedule when ready.</div></details>
 <details><summary>6. Print scorecards</summary><div>Open <b>Scorecards</b> and print the cards required for the event. These can include teams, players, rink, time, green and number of ends.</div></details>
-<details><summary>7. Give scorers access</summary><div>Open <b>Invite / Access</b>. A scorer signs in and requests access to the tournament. Approve them as <b>Scorer</b> so they can enter scores without full admin rights.</div></details>
+<details><summary>7. Give scorers access</summary><div>Open <b>Invite / Access</b>. A scorer signs in and requests access to the tournament. Approve them as <b>Scorer</b>, then use <b>Configure Scoring</b> to give them all matches, selected matches, selected rinks or selected sessions.</div></details>
 <details><summary>8. Enter scores</summary><div>Open <b>Scores</b> and select the correct green if required. Games are shown in rink order. Use <b>Quick Current Total</b> for a live score, optional <b>end-by-end scoring</b>, or enter the <b>Final Score</b>. Save the final result when the game is complete.</div></details>
 <details><summary>9. Tables & completing the groups</summary><div>The <b>Tables</b> update automatically as final results are saved. Once every group game is final, tap <b>Complete Group Stage & Continue</b> to confirm qualifiers and move into the knockout stage.</div></details>
 <details><summary>10. Knockout & live draws</summary><div>Open <b>Knockout</b>. You can use an automatic draw, manual selection or a live draw. Score knockout games the same way as group games. When a round is finished, use <b>Complete Round & Continue</b> to move to the next stage.</div></details>
@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.90';
+const APP_VERSION='2026.09.06.93';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -497,18 +497,39 @@ async function loadTournamentMembers(){
   return `<div style="padding:10px 0;border-bottom:1px solid var(--line)">
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
       <div><b>${esc(who)}</b><div style="margin-top:5px"><span class="pill ${badgeClass}">${esc(accessText)}</span></div>
-      ${r==='scorer'?'<div class="meta" style="margin-top:5px">Can update rink scores only. No setup or admin changes.</div>':''}
+      ${r==='scorer'?`<div class="meta" style="margin-top:5px">Can update scores only. Assigned access: <b>${esc(scorerPermissionLabel(m.user_id))}</b>.</div>`:''}
       ${r==='admin'?'<div class="meta" style="margin-top:5px">Can manage tournament setup, scoring and access.</div>':''}
       ${r==='pending'?'<div class="meta" style="margin-top:5px">Approve as Scorer to allow score entry.</div>':''}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
        ${r==='pending'?`<button class="btn primary" data-member="${esc(m.user_id)}" data-mrole="scorer">Approve Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Make Admin</button>`:
-       r==='owner'?'':`<button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="scorer">Set Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Set Admin</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="pending">Remove Access</button>`}
+       r==='owner'?'':`${r==='scorer'?`<button class="btn primary" data-config-scorer="${esc(m.user_id)}" data-config-label="${esc(who)}">Configure Scoring</button>`:''}<button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="scorer">Set Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Set Admin</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="pending">Remove Access</button>`}
       </div>
     </div>
   </div>`
  }).join('');
- list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}await loadTournamentMembers()})
+ list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}if(role==='scorer'){let st=scorerPermissionStore(comp());st[String(b.dataset.member)]=st[String(b.dataset.member)]||{mode:'all',matchIds:[],rinks:[],sessions:[]};saveDB()}await loadTournamentMembers()});
+ list.querySelectorAll('[data-config-scorer]').forEach(b=>b.onclick=()=>openScorerAssignment(b.dataset.configScorer,b.dataset.configLabel||'Scorer'))
+}
+
+
+async function deleteTournamentPermanently(id,title='Tournament'){
+ if(!cloud||!currentUser)return alert('Sign in before deleting a tournament.');
+ // Stage 1: clear warning.
+ if(!confirm(`Permanently delete "${title}"?\n\nThis will remove the tournament, scores, draw, results and access records. This cannot be undone.`))return;
+ // Stage 2: typed confirmation prevents accidental taps.
+ let typed=prompt(`FINAL CHECK\n\nType DELETE to permanently remove "${title}".`);
+ if(typed!=='DELETE')return alert('Deletion cancelled. Nothing was removed.');
+ let {error}=await cloud.rpc('bowls_delete_tournament',{p_id:id});
+ if(error)return alert('Tournament was NOT deleted: '+error.message);
+ if(String(remoteTournamentId)===String(id)){
+   setRemoteTournament('','','public','','');
+   let remaining=db.competitions||[];
+   if(remaining.length){db.active=remaining[0].id}else{let n=defaultComp();remaining.push(n);db.active=n.id}
+   localStorage.setItem(APPKEY,JSON.stringify(db));
+ }
+ alert(`"${title}" has been permanently deleted.`);
+ await showMyTournaments();
 }
 
 async function showMyTournaments(){
@@ -550,7 +571,7 @@ async function showMyTournaments(){
       <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
        <button class="btn primary" data-my-open="${i}">Open Tournament</button>
        ${canManage?`<button class="btn secondary" data-my-duplicate="${i}">Duplicate</button>`:''}
-       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button>`:''}
+       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button> <button class="btn danger" data-delete-tournament="${t.id}" data-delete-title="${esc(t.title||'Tournament')}">Delete</button>`:''}
       </div>
     </div>
    </div>`
@@ -558,6 +579,8 @@ async function showMyTournaments(){
  list.querySelectorAll('[data-my-open]').forEach(b=>b.onclick=()=>openSavedTournament(rows[+b.dataset.myOpen]));
  list.querySelectorAll('[data-my-duplicate]').forEach(b=>b.onclick=()=>duplicateSavedTournament(rows[+b.dataset.myDuplicate]));
  list.querySelectorAll('[data-my-archive]').forEach(b=>b.onclick=()=>archiveSavedTournament(rows[+b.dataset.myArchive]))
+
+ document.querySelectorAll('[data-delete-tournament]').forEach(b=>b.onclick=()=>deleteTournamentPermanently(b.dataset.deleteTournament,b.dataset.deleteTitle||'Tournament'));
 }
 
 function isArchived(c=comp()){return !!c.archivedAt}
@@ -580,6 +603,7 @@ function competitionSummaryHTML(c=comp()){
   body+=`<h2>Results</h2><table><tr><th>Game</th><th>Team A</th><th>Score</th><th>Team B</th></tr>${(c.fixtures||[]).map(f=>`<tr><td>${f.game||''}</td><td>${esc(fixtureTeamName(f,'a',c))}</td><td>${completed(f)?`${f.scoreA} – ${f.scoreB}`:'—'}</td><td>${esc(fixtureTeamName(f,'b',c))}</td></tr>`).join('')}</table>`;
  }
  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:28px;color:#111}h1{margin-bottom:4px}.muted{color:#666}table{width:100%;border-collapse:collapse;margin:10px 0 24px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#eee}@media print{@page{size:A4;margin:12mm}}</style></head><body><h1>${title}</h1><p class="muted">Archived ${c.archivedAt?new Date(c.archivedAt).toLocaleString():''} • One Stop Bowling Software</p>${body}</body></html>`;
+
 }
 function downloadResultsSummary(c=comp()){downloadBlobFile(competitionSummaryHTML(c),'text/html',safeFileName(c.title||'competition')+'-results-summary.html')}
 async function completeAndArchive(){
@@ -931,6 +955,51 @@ function scoringHomeTab(c=comp()){
  let groupStageComplete=!!c.stageFlow?.groupCompleteAt;
  let hasKnockout=Array.isArray(c.knockout)&&c.knockout.length>0;
  return (knockoutOnly||(groupStageComplete&&hasKnockout))?'knockout':'quick'
+}
+
+// Build 93: flexible per-scorer assignments.
+function scorerPermissionStore(c=comp()){c.scorerPermissions=c.scorerPermissions||{};return c.scorerPermissions}
+function scorerPermissionFor(userId=currentUser?.id,c=comp()){
+ if(!userId)return {mode:'all',matchIds:[],rinks:[],sessions:[]};
+ return scorerPermissionStore(c)[String(userId)]||{mode:'all',matchIds:[],rinks:[],sessions:[]}
+}
+function scorerCanScoreItem(item,c=comp(),userId=currentUser?.id){
+ if(role!=='scorer')return true;
+ let p=scorerPermissionFor(userId,c),mode=p.mode||'all';if(mode==='all')return true;
+ if(mode==='matches')return (p.matchIds||[]).map(String).includes(String(item?.id));
+ if(mode==='rinks')return (p.rinks||[]).map(Number).includes(Number(item?.rink||fixtureLocalRink(item,c)));
+ if(mode==='sessions')return (p.sessions||[]).map(Number).includes(Number(item?.session));
+ return true
+}
+function scorerPermissionLabel(userId,c=comp()){
+ let p=scorerPermissionFor(userId,c),mode=p.mode||'all';
+ if(mode==='matches')return `${(p.matchIds||[]).length} selected match${(p.matchIds||[]).length===1?'':'es'}`;
+ if(mode==='rinks')return `Rink${(p.rinks||[]).length===1?'':'s'} ${(p.rinks||[]).join(', ')||'none'}`;
+ if(mode==='sessions')return `Session${(p.sessions||[]).length===1?'':'s'} ${(p.sessions||[]).join(', ')||'none'}`;
+ return 'All matches'
+}
+function openScorerAssignment(userId,label='Scorer'){
+ let c=comp(),p=scorerPermissionFor(userId,c),fixtures=c.fixtures||[],ko=(c.knockout||[]).flat();
+ document.getElementById('scorerAssignModal')?.remove();let box=document.createElement('div');box.className='modal';box.id='scorerAssignModal';
+ let matchRows=[...fixtures.map(f=>({id:f.id,label:`Group ${f.group||''} • ${f.start||''} • Rink ${fixtureLocalRink(f,c)} • ${fixtureTeamName(f,'a',c)} v ${fixtureTeamName(f,'b',c)}`})),...ko.map(m=>({id:m.id,label:`${m.roundName||'Knockout'} • ${m.start||''} • Rink ${m.rink||'—'} • ${knockoutRefName(m.a,c)} v ${knockoutRefName(m.b,c)}`}))];
+ let rinks=[...new Set([...fixtures.map(f=>fixtureLocalRink(f,c)),...ko.map(m=>+m.rink||0)].filter(Boolean))].sort((a,b)=>a-b),sessions=[...new Set(fixtures.map(f=>+f.session||0).filter(Boolean))].sort((a,b)=>a-b);
+ box.innerHTML=`<div class="modalbox" style="width:min(760px,100%);max-height:92vh;overflow:auto"><div style="display:flex;justify-content:space-between;gap:10px"><div><h2 style="margin:0">Scoring Access</h2><p class="muted" style="margin:5px 0 0">${esc(label)}</p></div><button class="btn secondary" id="closeScorerAssign">Close</button></div>
+ <div class="field" style="margin-top:14px"><label>Access</label><select id="scorerAssignMode"><option value="all">All matches</option><option value="matches">Selected matches</option><option value="rinks">Selected rinks</option><option value="sessions">Selected sessions</option></select></div>
+ <div id="assignMatches" style="margin-top:12px">${matchRows.length?matchRows.map(x=>`<label style="display:block;padding:8px;border-bottom:1px solid var(--line)"><input type="checkbox" data-assign-match="${esc(String(x.id))}" ${(p.matchIds||[]).map(String).includes(String(x.id))?'checked':''}> ${esc(x.label)}</label>`).join(''):'<p class="muted">No matches created yet.</p>'}</div>
+ <div id="assignRinks" style="margin-top:12px">${rinks.map(n=>`<label style="display:inline-block;margin:5px 12px 5px 0"><input type="checkbox" data-assign-rink="${n}" ${(p.rinks||[]).map(Number).includes(n)?'checked':''}> Rink ${n}</label>`).join('')||'<p class="muted">No rinks available yet.</p>'}</div>
+ <div id="assignSessions" style="margin-top:12px">${sessions.map(n=>`<label style="display:inline-block;margin:5px 12px 5px 0"><input type="checkbox" data-assign-session="${n}" ${(p.sessions||[]).map(Number).includes(n)?'checked':''}> Session ${n}</label>`).join('')||'<p class="muted">No group sessions available yet.</p>'}</div>
+ <button class="btn primary" id="saveScorerAssign" style="width:100%;margin-top:14px">Save Scorer Access</button></div>`;
+ document.body.appendChild(box);let mode=document.getElementById('scorerAssignMode');mode.value=p.mode||'all';
+ const toggle=()=>{document.getElementById('assignMatches').classList.toggle('hidden',mode.value!=='matches');document.getElementById('assignRinks').classList.toggle('hidden',mode.value!=='rinks');document.getElementById('assignSessions').classList.toggle('hidden',mode.value!=='sessions')};mode.onchange=toggle;toggle();
+ document.getElementById('closeScorerAssign').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ document.getElementById('saveScorerAssign').onclick=()=>{let store=scorerPermissionStore(c);store[String(userId)]={mode:mode.value,matchIds:[...document.querySelectorAll('[data-assign-match]:checked')].map(x=>x.dataset.assignMatch),rinks:[...document.querySelectorAll('[data-assign-rink]:checked')].map(x=>+x.dataset.assignRink),sessions:[...document.querySelectorAll('[data-assign-session]:checked')].map(x=>+x.dataset.assignSession)};saveDB();box.remove();loadTournamentMembers();alert('Scorer access updated ✓')}
+}
+function scorerResultConfirmation(item,c=comp(),isKo=false){
+ if(role!=='scorer'||!completed(item))return;
+ let a=isKo?knockoutRefName(item.a,c):fixtureTeamName(item,'a',c),b=isKo?knockoutRefName(item.b,c):fixtureTeamName(item,'b',c),msg=`Result confirmed ✓\n\n${a} ${item.scoreA} – ${item.scoreB} ${b}`;
+ if(isKo){let w=koWinner(item);if(w){let rounds=(c.settings?.tournamentType||'standard')==='knockout'?(c.knockout||[]):normaliseStandardKnockout(c),flat=rounds.flat(),last=flat.length&&String(flat[flat.length-1]?.id)===String(item.id)&&rounds[rounds.length-1]?.length===1;msg+=last?`\n\n🏆 Tournament winner: ${knockoutRefName(w,c)}`:`\n\n${knockoutRefName(w,c)} progresses to the next round`}}
+ else if(allGroupGamesComplete(c))msg+='\n\nAll group results are now complete.';else msg+='\n\nGroup tables updated.';
+ alert(msg)
 }
 function tabsFor(){
  if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];
@@ -1721,16 +1790,16 @@ function renderQuick(s){
  if((x.tournamentType||'standard')==='knockout'){
   advanceKnockoutOnly(c);let rounds=c.knockout||[];if(!rounds.length){s.innerHTML='<div class="card"><h2>Knockout Scoring</h2><p>Generate the knockout draw first.</p></div>';return}
   let activeRoundIndex=rounds.findIndex(round=>round.some(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&!completed(m)));if(activeRoundIndex<0)activeRoundIndex=rounds.length-1;
-  let round=rounds[activeRoundIndex],roundName=round[0]?.roundName||('Round '+(activeRoundIndex+1));
+  let round=rounds[activeRoundIndex],roundName=round[0]?.roundName||('Round '+(activeRoundIndex+1));if(role==='scorer')round=round.filter(m=>scorerCanScoreItem(m,c));
   s.innerHTML=`<div class="card"><h2>${esc(roundName)} Scoring</h2><p class="muted">${live?'Live end-by-end scoring is optional and auto-saves. Enter a final score to advance the winner.':'Enter the final score to advance the winner.'}</p>${round.map(m=>{let ready=knockoutEntryReady(m.a)&&knockoutEntryReady(m.b),ls=liveScore(m);return `<div class="card" style="box-shadow:none"><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center"><div>${sideBadge('a',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(knockoutRefName(m.a,c))}</div></div><b>v</b><div>${sideBadge('b',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(knockoutRefName(m.b,c))}</div></div></div><div class="meta" style="text-align:center;margin-top:5px">${esc(m.label||'')} • ${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div>${!ready?'<div class="notice" style="margin-top:10px">Waiting for earlier round result.</div>':`${liveCheckpointFields(m,m.id,knockoutRefName(m.a,c),knockoutRefName(m.b,c),x.ends||12)}${live?`<details style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(knockoutRefName(m.a,c))}</th><th>${esc(knockoutRefName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div>${sideBadge('a',c)}<div><b>${esc(knockoutRefName(m.a,c))}</b></div><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-ko-a="${m.id}" value="${m.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-ko-b="${m.id}" value="${m.scoreB}"><div class="away">${sideBadge('b',c)}<div><b>${esc(knockoutRefName(m.b,c))}</b></div><div class="meta">Final score</div></div></div>`}</div>`}).join('')}<button class="btn primary" style="width:100%;margin-top:12px" id="saveKoScores">Save Scores</button></div>`;
   const persistKo=()=>{round.forEach(m=>{if(!knockoutEntryReady(m.a)||!knockoutEntryReady(m.b))return;let a=document.querySelector(`[data-ko-a="${m.id}"]`),b=document.querySelector(`[data-ko-b="${m.id}"]`);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);persistLiveCheckpoint(m,m.id);if(live){m.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${m.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${m.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}});advanceKnockoutOnly(c)};
-  const koAuto=()=>queueLiveAutoSave(persistKo);attachBowlsEndRules(document,koAuto);document.querySelectorAll('[data-ko-a],[data-ko-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',koAuto));wireLiveTotalButtons(()=>saveScoresNow(persistKo,()=>render()));document.getElementById('saveKoScores').onclick=()=>saveScoresNow(persistKo,()=>render());return
+  const koAuto=()=>queueLiveAutoSave(persistKo);attachBowlsEndRules(document,koAuto);document.querySelectorAll('[data-ko-a],[data-ko-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',koAuto));wireLiveTotalButtons(()=>saveScoresNow(persistKo,()=>render()));document.getElementById('saveKoScores').onclick=()=>saveScoresNow(persistKo,()=>{let done=round.filter(completed);if(role==='scorer'&&done.length===1)scorerResultConfirmation(done[0],c,true);render()});return
  }
  let fs=c.fixtures;if(!fs.length){s.innerHTML='<div class="card"><h2>Quick Score</h2><p>No fixtures generated yet.</p></div>';return}
  let venues=[...new Set([...scheduleVenueNames(c),...fs.map(f=>fixtureVenue(f,c))].filter(Boolean))],session=Math.min(...fs.filter(f=>!completed(f)).map(f=>f.session).concat([Math.max(...fs.map(f=>f.session))]));
  let venueKey='bowlsScoreVenue:'+c.id,storedVenue=sessionStorage.getItem(venueKey)||'';if(storedVenue&&!venues.includes(storedVenue))storedVenue='';
  s.innerHTML=`<div class="card"><h2>Quick Score</h2><p class="muted">${live?'Live end-by-end is optional. Update ends when convenient, or simply enter the final score.':'Enter the final result for each game.'}${venues.length>1?' Select the green first so identical rink numbers at different greens stay separate.':''}</p><div class="toolbar">${venues.length>1?`<div style="min-width:160px;flex:1"><label style="display:block;font-size:12px;font-weight:800;margin-bottom:4px">Green / Venue</label><select id="venuePick" style="width:100%"><option value="">${role==='scorer'?'Choose green…':'All greens'}</option>${venues.map(v=>`<option value="${esc(v)}" ${v===storedVenue?'selected':''}>${esc(v)}</option>`).join('')}</select></div>`:''}<div style="min-width:160px;flex:1"><label style="display:block;font-size:12px;font-weight:800;margin-bottom:4px">Session</label><select id="sessionPick" style="width:100%">${[...new Set(fs.map(f=>f.session))].map(n=>`<option ${n===session?'selected':''} value="${n}">Session ${n} • ${fs.find(f=>f.session===n).start}</option>`).join('')}</select></div></div><div id="scoreList"></div></div>`;
- let draw=()=>{let n=+document.getElementById('sessionPick').value,v=document.getElementById('venuePick')?.value||'';if(v)sessionStorage.setItem(venueKey,v);else sessionStorage.removeItem(venueKey);let visible=fs.filter(f=>f.session===n&&(!v||fixtureVenue(f,c)===v)).sort((a,b)=>{let va=fixtureVenue(a,c),vb=fixtureVenue(b,c);return va.localeCompare(vb)||fixtureLocalRink(a,c)-fixtureLocalRink(b,c)||(+a.game||0)-(+b.game||0)});if(role==='scorer'&&venues.length>1&&!v){document.getElementById('scoreList').innerHTML='<div class="notice"><b>Select your green first.</b><br>This prevents Rink 1 at one green being confused with Rink 1 at the other green.</div>';return}
+ let draw=()=>{let n=+document.getElementById('sessionPick').value,v=document.getElementById('venuePick')?.value||'';if(v)sessionStorage.setItem(venueKey,v);else sessionStorage.removeItem(venueKey);let visible=fs.filter(f=>f.session===n&&(!v||fixtureVenue(f,c)===v)&&scorerCanScoreItem(f,c)).sort((a,b)=>{let va=fixtureVenue(a,c),vb=fixtureVenue(b,c);return va.localeCompare(vb)||fixtureLocalRink(a,c)-fixtureLocalRink(b,c)||(+a.game||0)-(+b.game||0)});if(role==='scorer'&&venues.length>1&&!v){document.getElementById('scoreList').innerHTML='<div class="notice"><b>Select your green first.</b><br>This prevents Rink 1 at one green being confused with Rink 1 at the other green.</div>';return}
  document.getElementById('scoreList').innerHTML=(visible.length?visible.map(f=>{let ls=liveScore(f),venue=fixtureVenue(f,c);return `<div class="card" style="box-shadow:none"><div style="font-weight:900;text-align:center;margin-bottom:8px;font-size:17px">${esc(venue)} • RINK ${fixtureLocalRink(f,c)}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center"><div>${sideBadge('a',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(fixtureTeamName(f,'a',c))}</div></div><b>v</b><div>${sideBadge('b',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(fixtureTeamName(f,'b',c))}</div></div></div><div class="meta" style="text-align:center;margin-top:5px">${esc(venue)} • Group ${f.group} • Rink ${fixtureLocalRink(f,c)} • Game ${f.game}</div>${liveCheckpointFields(f,f.id,fixtureTeamName(f,'a',c),fixtureTeamName(f,'b',c),x.ends||12)}${live?`<details style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(fixtureTeamName(f,'a',c))}</th><th>${esc(fixtureTeamName(f,'b',c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(f)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${f.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${f.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div>${sideBadge('a',c)}<div><b>${esc(fixtureTeamName(f,'a',c))}</b></div><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-sa="${f.id}" value="${f.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-sb="${f.id}" value="${f.scoreB}"><div class="away">${sideBadge('b',c)}<div><b>${esc(fixtureTeamName(f,'b',c))}</b></div><div class="meta">Final score</div></div></div><button type="button" class="btn primary" style="width:100%;margin-top:10px" data-save-fixture="${f.id}">Save This Score</button><div class="meta" style="text-align:center;margin-top:5px" data-save-status="${f.id}"></div></div>`}).join(''):'<div class="notice">No games are allocated to this green in the selected session.</div>')+`<button class="btn primary" style="width:100%;margin-top:12px" id="saveScores">Save Scores</button>`;
   const persistSessionForm=()=>{visible.forEach(f=>{let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);f.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);f.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);persistLiveCheckpoint(f,f.id);if(live){f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}})};
   const sessionAutoSave=()=>queueLiveAutoSave(persistSessionForm);
@@ -1744,7 +1813,7 @@ function renderQuick(s){
    if(live){f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}
    let after=scoreAuditSnapshot();localStorage.setItem(APPKEY,JSON.stringify(db));btn.disabled=true;btn.textContent='Saving…';
    let ok=await pushScoreDiff(before,after);await auditScoreDiff(before,after);let st=document.querySelector(`[data-save-status="${f.id}"]`);
-   if(ok){btn.textContent='Saved ✓';if(st)st.textContent='This game is saved';setTimeout(()=>{btn.disabled=false;btn.textContent='Save This Score'},1800)}
+   if(ok){btn.textContent='Saved ✓';if(st)st.textContent='This game is saved';if(completed(f))scorerResultConfirmation(f,c,false);setTimeout(()=>{btn.disabled=false;btn.textContent='Save This Score'},1800)}
    else{btn.disabled=false;btn.textContent='Save This Score';if(st)st.textContent='Save failed — please try again'}
   });
   let saveBtn=document.getElementById('saveScores');if(saveBtn)saveBtn.onclick=()=>saveScoresNow(persistSessionForm,()=>render())
@@ -1933,7 +2002,7 @@ function knockoutPrintHTML(c=comp()){
 }
 function printKnockoutDraw(){let c=comp();if(!c.knockout?.length)return alert('Generate the knockout draw first.');let w=window.open('','_blank');if(!w)return alert('Please allow pop-ups to print the knockout draw.');w.document.open();w.document.write(knockoutPrintHTML(c));w.document.close()}
 function saveStandardKnockoutMatch(matchId){
- let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;let before=scoreAuditSnapshot(c),a=document.querySelector(`[data-stdko-a="${matchId}"]`),b=document.querySelector(`[data-stdko-b="${matchId}"]`);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(completed(m)&&(+m.scoreA)===(+m.scoreB))return alert('A knockout game cannot finish as a draw. Enter the tie-break/final result.');advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);render()
+ let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;if(role==='scorer'&&!scorerCanScoreItem(m,c))return alert('This match is not assigned to your scorer access.');let before=scoreAuditSnapshot(c),a=document.querySelector(`[data-stdko-a="${matchId}"]`),b=document.querySelector(`[data-stdko-b="${matchId}"]`);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(completed(m)&&(+m.scoreA)===(+m.scoreB))return alert('A knockout game cannot finish as a draw. Enter the tie-break/final result.');advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);if(completed(m))scorerResultConfirmation(m,c,true);render()
 }
 function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('Not enough qualifiers yet.');return}let matches=buildKnockoutFirstRound(q);matches.forEach((m,i)=>{m.id=`sko1_${i+1}`;m.label=`R1-${i+1}`;m.roundName=koRoundNameFromCount(matches.length);m.venue=knockoutVenueOptions(c)[0]||'Main Green';m.rink=i%Math.max(1,+c.settings.rinks||1)+1});c.knockout=[matches];c.knockoutLiveDrawRound='';c.knockoutLiveDrawDone={};advanceStandardKnockout(c);saveDB();render()}
 function publicKnockoutHTML(c){
@@ -1953,11 +2022,11 @@ function compactCompletedKnockoutRoundHTML(round,ri,c){
  </details></div>`;
 }
 function activeKnockoutRoundHTML(round,ri,c){
- let rn=round[0]?.roundName||koRoundNameFromCount(round.length);
- return `<div class="round ko-current-round"><h3>${esc(rn)} <span class="pill wait">Current scoring</span></h3>${round.map(m=>{
+ let rn=round[0]?.roundName||koRoundNameFromCount(round.length),shown=role==='scorer'?round.filter(m=>scorerCanScoreItem(m,c)):round;
+ return `<div class="round ko-current-round"><h3>${esc(rn)} <span class="pill wait">Current scoring</span></h3>${shown.length?shown.map(m=>{
   let w=koWinner(m),ready=m.a&&m.b;
   return `<div class="match"><div><b>${esc(m.a?teamName(m.a,c):'BYE')}</b></div><div><b>${esc(m.b?teamName(m.b,c):'BYE')}</b></div><div class="qual">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div>${ready?`<div><div class="ko-sticky-match"><div><b>${esc(teamName(m.a,c))}</b></div><div class="ko-sticky-v">v</div><div style="text-align:right"><b>${esc(teamName(m.b,c))}</b></div></div>${liveCheckpointFields(m,m.id,teamName(m.a,c),teamName(m.b,c),c.settings.ends||12)}<details style="margin:0 0 10px"><summary><b>End-by-end scoring (optional)</b>${(()=>{let ls=liveScore(m);return ls.count&&!ls.manual?` — ${ls.a}–${ls.b} after ${ls.count} end${ls.count===1?'':'s'}`:''})()}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(teamName(m.a,c))}</th><th>${esc(teamName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:c.settings.ends||12},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-stdko-end-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-stdko-end-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details><button type="button" class="btn secondary" style="width:100%;margin:0 0 8px" data-save-stdko-live="${m.id}">Save Live / End-by-End Score</button><div class="ko-final-score"><div class="ko-final-side"><label>${esc(teamName(m.a,c))}</label><input inputmode="numeric" min="0" data-stdko-a="${m.id}" value="${m.scoreA}"></div><b class="ko-final-dash">–</b><div class="ko-final-side"><label>${esc(teamName(m.b,c))}</label><input inputmode="numeric" min="0" data-stdko-b="${m.id}" value="${m.scoreB}"></div></div><button type="button" class="btn primary" style="width:100%;margin-top:8px" data-save-stdko="${m.id}">${completed(m)?'Update Score':'Save Score'}</button></div>`:`<div class="qual">${w?`Advances: ${esc(teamName(w,c))}`:'Bye / waiting'}</div>`}${completed(m)?`<div class="qual"><b>Winner:</b> ${esc(teamName(w,c))}</div>`:''}</div>`
- }).join('')}</div>`;
+ }).join(''):'<div class="notice">No matches in this round are assigned to you.</div>'}</div>`;
 }
 
 function renderKnockout(s){
