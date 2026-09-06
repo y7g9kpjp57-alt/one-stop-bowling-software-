@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.94';
+const APP_VERSION='2026.09.06.95';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -571,7 +571,7 @@ async function showMyTournaments(){
       <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
        <button class="btn primary" data-my-open="${i}">Open Tournament</button>
        ${canManage?`<button class="btn secondary" data-my-duplicate="${i}">Duplicate</button>`:''}
-       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button> <button class="btn danger" data-delete-tournament="${esc(r.id||'')}" data-delete-title="${esc(c?.title||r.title||'Tournament')}">Delete</button>`:''}
+       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button>`:''}${canManage?` <button class="btn danger" data-delete-tournament="${esc(r.id||'')}" data-delete-title="${esc(c?.title||r.title||'Tournament')}">Delete</button>`:''}
       </div>
     </div>
    </div>`
