@@ -165,6 +165,15 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
  .tv-final-score{font-size:46px}
  .tv-final-name{font-size:28px}
 }
+
+/* Build 110: optional Simple Mode for less tech-savvy organisers */
+body.simple-mode .advanced-only{display:none!important}
+body.simple-mode .toolbar .btn,body.simple-mode .toolbar select{min-height:46px;font-size:15px}
+body.simple-mode .tabs button{font-size:15px;padding:12px 14px}
+body.simple-mode .bottom button{font-size:13px}
+.simple-mode-card{border:2px solid #bbf7d0!important;background:#f0fdf4!important}
+.simple-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.simple-actions .btn{min-height:56px;font-size:16px;font-weight:800}
 </style>
 </head>
 <body>
@@ -182,9 +191,10 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
     <button class="btn secondary" id="helpBtn">Help / User Guide</button>
-    <button class="btn secondary" id="aiReportBtn">AI Tournament Report</button>
-    <button class="btn secondary" id="exportBtn">Backup</button>
-    <label class="btn secondary" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
+    <button class="btn secondary" id="simpleModeBtn">Simple Mode</button>
+    <button class="btn secondary advanced-only" id="aiReportBtn">AI Tournament Report</button>
+    <button class="btn secondary advanced-only" id="exportBtn">Backup</button>
+    <label class="btn secondary advanced-only" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
   </div>
   <nav class="tabs" id="tabs"></nav>
   <section id="screen"></section>
@@ -232,7 +242,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.109';
+const APP_VERSION='2026.09.06.110';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -273,6 +283,7 @@ const defaultComp=()=>({
  pins:{admin:'0001',scorer:'0001'},teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})),fixtures:[],knockout:[],drawSeed:1
 });
 let db=loadDB();let role='public', tab='dashboard';
+setTimeout(applySimpleMode,0);
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
 function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament()){queueOfflineState(navigator.onLine?'Saving online':'Saved offline');if(cloudReady&&navigator.onLine)pushRemoteTournament();}}
@@ -995,6 +1006,20 @@ async function shareCurrentDraw(){
    if(e?.name!=='AbortError'){console.error(e);alert('Could not create the draw image. Please use Print Draw instead.')}
  }finally{if(actions)actions.style.display='flex'}
 }
+const SIMPLE_MODE_KEY='bowlsSimpleModeV1';
+function simpleModeOn(){return localStorage.getItem(SIMPLE_MODE_KEY)==='1'}
+function applySimpleMode(){
+ let on=simpleModeOn();document.body.classList.toggle('simple-mode',on);
+ let b=document.getElementById('simpleModeBtn');if(b){b.textContent=on?'Switch to Advanced Mode':'Simple Mode';b.classList.toggle('primary',on);b.classList.toggle('secondary',!on)}
+}
+function toggleSimpleMode(){localStorage.setItem(SIMPLE_MODE_KEY,simpleModeOn()?'0':'1');applySimpleMode();tab='dashboard';render()}
+function appendSimpleModeHome(s,c=comp()){
+ if(role!=='admin'||!simpleModeOn()||tab!=='dashboard')return;
+ let card=document.createElement('div');card.className='card simple-mode-card';
+ card.innerHTML=`<h2 style="margin-bottom:4px">Simple Mode</h2><p class="muted" style="margin-top:0">Only the main tournament jobs are shown. Nothing has been deleted — use <b>Switch to Advanced Mode</b> whenever you need the full controls.</p><div class="simple-actions"><button class="btn primary" data-simple-tab="builder">⚙ Set Up Tournament</button><button class="btn primary" data-simple-tab="teams">👥 Add Players / Teams</button><button class="btn primary" data-simple-tab="draw">🎲 Create Draw</button><button class="btn primary" data-simple-tab="${scoringHomeTab(c)}">⚡ Enter Scores</button><button class="btn primary" data-simple-tab="tables">▤ View Results</button><button class="btn primary" data-simple-tab="knockout">🏆 Finals</button></div>`;
+ s.insertAdjacentElement('afterbegin',card);card.querySelectorAll('[data-simple-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.simpleTab;render()})
+}
+
 function scoringHomeTab(c=comp()){
  let knockoutOnly=(c.settings?.tournamentType||'standard')==='knockout';
  let groupStageComplete=!!c.stageFlow?.groupCompleteAt;
@@ -1053,6 +1078,7 @@ function tabsFor(){
   return ko?[['knockout','Knockout Scores','🏆'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['quick','Group Scores','⚡']]:[['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['knockout','Knockout','🏆']]
  }
  let ko=scoringHomeTab()==='knockout';
+ if(simpleModeOn())return ko?[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['knockout','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆']]:[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['quick','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆']];
  if(ko)return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['knockout','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['admin','Admin','🔐']];
  return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]
 }
@@ -1093,6 +1119,7 @@ function wireGlobalToolbar(){
  let mt=document.getElementById('myTournamentsBtn');if(mt)mt.onclick=showMyTournaments;
  let oc=document.getElementById('openCodeBtn');if(oc)oc.onclick=()=>openTournamentByCode();
  let ar=document.getElementById('aiReportBtn');if(ar){ar.style.display=role==='admin'?'':'none';ar.onclick=openAiTournamentReport}
+ let sm=document.getElementById('simpleModeBtn');if(sm){sm.style.display=role==='admin'?'':'none';sm.onclick=toggleSimpleMode}applySimpleMode();
 }
 
 function applyArchivedReadOnly(s,c){
@@ -1130,7 +1157,7 @@ function undoLastLiveEnd(obj,c=comp()){
  saveDB();render();return true
 }
 function render(){captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
- wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);
+ wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);
 }
 function completed(f){let ok=Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!=='';if(!ok)return false;if(isSingles(comp()))return Math.max(+f.scoreA,+f.scoreB)>=21&&(+f.scoreA)!==(+f.scoreB);return true}
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
