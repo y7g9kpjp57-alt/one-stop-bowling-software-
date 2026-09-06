@@ -205,8 +205,9 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 <details><summary>10. Knockout & live draws</summary><div>Open <b>Knockout</b>. You can use an automatic draw, manual selection or a live draw. Score knockout games the same way as group games. When a round is finished, use <b>Complete Round & Continue</b> to move to the next stage.</div></details>
 <details><summary>11. Fixing a mistake</summary><div>If a result is wrong, re-open the relevant stage, correct the score and complete the stage again. If later knockout rounds depend on the wrong result, the software may clear those later rounds so the correct winner can progress.</div></details>
 <details><summary>12. TV Display</summary><div>Open <b>TV Display</b> for the public screen. Use <b>Auto</b> to switch naturally from groups to knockout, or force <b>Groups</b> / <b>Knockout</b>. On iPad, use Control Centre → <b>Screen Mirroring</b> to show the display on a compatible TV.</div></details>
-<details><summary>13. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
-<details><summary>14. AI Tournament Report</summary><div>In <b>Admin</b>, tap <b>AI Tournament Report</b> at any stage of the competition. Download or copy the structured report, then attach/paste it into ChatGPT to create a tournament write-up. The report only uses results currently stored in the tournament and does not invent missing scores.</div></details>
+<details><summary>13. Offline mode & automatic sync</summary><div>If the internet drops during a tournament, keep working normally. Scores and tournament changes are saved on the device and marked as waiting to sync. When the connection returns, One Stop Bowling Software sends the queued local version online before normal live refreshing resumes. Watch the status bar for <b>Offline</b>, <b>Unsynced</b>, <b>Syncing</b> and <b>Synced</b>.</div></details>
+<details><summary>14. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
+<details><summary>15. AI Tournament Report</summary><div>In <b>Admin</b>, tap <b>AI Tournament Report</b> at any stage of the competition. Download or copy the structured report, then attach/paste it into ChatGPT to create a tournament write-up. The report only uses results currently stored in the tournament and does not invent missing scores.</div></details>
 </div></div>
 <div class="modal hidden" id="authModal"><div class="modalbox">
 <h3 id="authTitle">Sign in</h3>
@@ -231,9 +232,41 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.106';
+const APP_VERSION='2026.09.06.107';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
+const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
+let offlineSyncBusy=false;
+function loadOfflineQueue(){try{return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY)||'{}')||{}}catch(e){return {}}}
+function saveOfflineQueue(q){try{localStorage.setItem(OFFLINE_QUEUE_KEY,JSON.stringify(q||{}))}catch(e){console.error('Offline queue save failed',e)}}
+function offlineQueueEntry(){let q=loadOfflineQueue();return remoteTournamentId?q[remoteTournamentId]||null:null}
+function offlinePendingCount(){return offlineQueueEntry()?1:0}
+function queueOfflineState(reason='Local changes waiting to sync'){
+ if(!remoteTournamentId)return;
+ let q=loadOfflineQueue();q[remoteTournamentId]={id:remoteTournamentId,code:remoteTournamentCode||'',title:comp()?.title||'Tournament',state:JSON.parse(JSON.stringify(db)),updatedAt:new Date().toISOString(),reason};saveOfflineQueue(q);updateConnectivityNotice();
+}
+function clearOfflineState(id=remoteTournamentId){if(!id)return;let q=loadOfflineQueue();if(q[id]){delete q[id];saveOfflineQueue(q)}updateConnectivityNotice()}
+function updateConnectivityNotice(custom=''){
+ let pending=offlinePendingCount();
+ if(custom){setSyncNotice(custom,!pending&&navigator.onLine);return}
+ if(!navigator.onLine){setSyncNotice(`Offline • ${pending?'1 change waiting to sync':'changes save on this device'} • Build ${APP_VERSION}`,false);return}
+ if(offlineSyncBusy){setSyncNotice(`Back online • syncing ${pending||1} queued change…`,false);return}
+ if(pending){setSyncNotice(`Online • ${pending} unsynced change waiting • Build ${APP_VERSION}`,false);return}
+ if(remoteTournamentId)setTournamentNotice();else setSyncNotice(`Online • all local changes saved • Build ${APP_VERSION}`,true)
+}
+async function flushOfflineQueue(){
+ if(offlineSyncBusy||!navigator.onLine||!remoteTournamentId||!cloud||!cloudReady||!canWriteRemoteTournament())return false;
+ let entry=offlineQueueEntry();if(!entry)return true;
+ offlineSyncBusy=true;updateConnectivityNotice();
+ try{
+  // Always push the queued local snapshot before allowing remote polling again.
+  cloudApplying=true;db=entry.state?.competitions?.length?entry.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
+  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||entry.title||'')});
+  if(error)throw error;
+  remoteLastPushAt=Date.now();clearOfflineState();setSyncNotice(`Synced • all changes saved online • Build ${APP_VERSION}`,true);setTimeout(refreshRemoteTournament,900);return true;
+ }catch(e){console.error('Offline sync failed',e);setSyncNotice(`Online but sync failed • changes are still safe on this device • Build ${APP_VERSION}`,false);return false}
+ finally{offlineSyncBusy=false}
+}
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
  settings:{clubName:'Your Bowls Club',tournamentType:'standard',scoringMode:'live_optional',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:6,ends:12,start:'09:00',minutes:60,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:60,knockoutMinutesManual:false,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,autoFillKnockout:true,optimise:'balanced'},
@@ -242,20 +275,23 @@ const defaultComp=()=>({
 let db=loadDB();let role='public', tab='dashboard';
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
-function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament())pushRemoteTournament();}
+function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament()){queueOfflineState(navigator.onLine?'Saving online':'Saved offline');if(cloudReady&&navigator.onLine)pushRemoteTournament();}}
 function canWriteRemoteTournament(){let a=accessState();return !!currentUser&&a.active&&['owner','admin','scorer'].includes(remoteAccessRole)}
 async function pushRemoteTournament(){
  if(remoteSaveBusy)return false;
+ if(!navigator.onLine){queueOfflineState('Saved offline');return false}
  remoteSaveBusy=true;
  try{
   let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||'')});
   if(error)throw error;
   remoteLastPushAt=Date.now();
+  clearOfflineState();
   setTournamentNotice();
   return true
  }catch(e){
   console.error('Tournament cloud save failed',e);
-  setSyncNotice('Cloud save failed • changes remain on this device',false);
+  queueOfflineState('Cloud save failed');
+  setSyncNotice('Cloud save failed • 1 change waiting to sync • changes remain on this device',false);
   return false
  }finally{remoteSaveBusy=false}
 }
@@ -269,7 +305,9 @@ function setRemoteTournament(id,code,accessRole,clubId='',clubName=''){
  localStorage.setItem('bowlsRemoteClubName',remoteClubName);
 }
 function setTournamentNotice(){
- let a=accessState(),parts=['Live tournament'];
+ if(!navigator.onLine){updateConnectivityNotice();return}
+ if(offlineQueueEntry()){setSyncNotice(`Online • 1 unsynced change waiting • Build ${APP_VERSION}`,false);return}
+ let a=accessState(),parts=['Online • synced','Live tournament'];
  if(remoteTournamentCode)parts.push('Code '+remoteTournamentCode);if(remoteClubName)parts.push(remoteClubName);
  if(remoteAccessRole)parts.push(remoteAccessRole==='owner'?'Organiser':remoteAccessRole[0].toUpperCase()+remoteAccessRole.slice(1));
  if(currentUser&&a.label)parts.push(a.label);
@@ -339,7 +377,8 @@ async function requestScorerAccess(){
 }
 
 async function refreshRemoteTournament(){
- if(!remoteTournamentCode||!cloud)return;
+ if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
+ if(offlineQueueEntry()){await flushOfflineQueue();if(offlineQueueEntry())return;}
  if(currentUser)await refreshRemoteAccess();
  if(remoteSaveBusy||Date.now()-remoteLastPushAt<2000)return;
  // Do not redraw the scoring form while someone is typing into an input.
@@ -792,7 +831,9 @@ function scorePatchData(data){
  }
 }
 async function pushScoreDiff(before,after){
- if(!(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()))return true;
+ if(!remoteTournamentId)return true;
+ if(!navigator.onLine||!cloudReady){queueOfflineState('Score changes saved offline');return false}
+ if(!canWriteRemoteTournament())return true;
  let c=comp(),ok=true;
  for(let k of Object.keys(after||{})){
   let a=before?.[k]?.data,b=after?.[k]?.data;
@@ -811,8 +852,8 @@ async function pushScoreDiff(before,after){
   });
   if(error){console.error('Score patch failed',error);ok=false}
  }
- if(ok){remoteLastPushAt=Date.now();setTournamentNotice();setTimeout(refreshRemoteTournament,700)}
- else setSyncNotice('Score save failed online • retry before leaving this screen',false);
+ if(ok){remoteLastPushAt=Date.now();clearOfflineState();setTournamentNotice();setTimeout(refreshRemoteTournament,700)}
+ else {queueOfflineState('Score changes waiting to sync');setSyncNotice('Score saved on this device • waiting to sync online',false);}
  return ok
 }
 
@@ -824,7 +865,8 @@ async function saveScoresNow(saveForm,afterSave){
  let ok=await pushScoreDiff(before,after);
  await auditScoreDiff(before,after);
  if(ok&&afterSave)afterSave();
- else if(!ok)alert('The score did not save online. Please try again before leaving this screen.')
+ else if(!ok&&!navigator.onLine)setSyncNotice('Offline • score saved safely on this device • will sync when connection returns',false);
+ else if(!ok)setSyncNotice('Score saved on this device • online sync is waiting to retry',false)
 }
 async function openBestActiveTournament(){
  if(!cloud||!currentUser)return false;
@@ -840,7 +882,7 @@ async function initCloudSync(){
  try{
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   let {data:sessionData}=await cloud.auth.getSession();currentUser=sessionData?.session?.user||null;await loadCurrentProfile();
-  cloudReady=true;startNotificationRefresh();
+  cloudReady=true;startNotificationRefresh();if(navigator.onLine)setTimeout(flushOfflineQueue,250);
   let params=new URLSearchParams(location.search),code=params.get('code');
   if(code){await openTournamentByCode(code);return}
   if(remoteTournamentCode){
@@ -850,7 +892,7 @@ async function initCloudSync(){
   }
   if(currentUser){let switched=await openBestActiveTournament();if(switched)return}
   setSyncNotice('Cloud ready • no active tournament selected • Build '+APP_VERSION,true);
- }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • cloud could not connect, but this device will keep saving locally',false)}
+ }catch(e){console.error('Cloud sync failed',e);cloudReady=false;updateConnectivityNotice()}
 }
 
 
@@ -2580,6 +2622,7 @@ function startTv(){
  },20000);
  if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial)});}
+window.addEventListener('offline',()=>updateConnectivityNotice());window.addEventListener('online',()=>{updateConnectivityNotice('Back online • checking for unsynced changes…');setTimeout(flushOfflineQueue,300)});
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});}
 </script>
 </body></html>
