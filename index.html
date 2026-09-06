@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.90';
+const APP_VERSION='2026.09.06.91';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -511,6 +511,26 @@ async function loadTournamentMembers(){
  list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}await loadTournamentMembers()})
 }
 
+
+async function deleteTournamentPermanently(id,title='Tournament'){
+ if(!cloud||!currentUser)return alert('Sign in before deleting a tournament.');
+ // Stage 1: clear warning.
+ if(!confirm(`Permanently delete "${title}"?\n\nThis will remove the tournament, scores, draw, results and access records. This cannot be undone.`))return;
+ // Stage 2: typed confirmation prevents accidental taps.
+ let typed=prompt(`FINAL CHECK\n\nType DELETE to permanently remove "${title}".`);
+ if(typed!=='DELETE')return alert('Deletion cancelled. Nothing was removed.');
+ let {error}=await cloud.rpc('bowls_delete_tournament',{p_id:id});
+ if(error)return alert('Tournament was NOT deleted: '+error.message);
+ if(String(remoteTournamentId)===String(id)){
+   setRemoteTournament('','','public','','');
+   let remaining=db.competitions||[];
+   if(remaining.length){db.active=remaining[0].id}else{let n=defaultComp();remaining.push(n);db.active=n.id}
+   localStorage.setItem(APPKEY,JSON.stringify(db));
+ }
+ alert(`"${title}" has been permanently deleted.`);
+ await showMyTournaments();
+}
+
 async function showMyTournaments(){
  if(!currentUser){showAuthModal('admin');return}
  if(!cloud)return alert('Online tournament storage is not connected yet.');
@@ -550,7 +570,7 @@ async function showMyTournaments(){
       <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
        <button class="btn primary" data-my-open="${i}">Open Tournament</button>
        ${canManage?`<button class="btn secondary" data-my-duplicate="${i}">Duplicate</button>`:''}
-       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button>`:''}
+       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button> <button class="btn danger" data-delete-tournament="${t.id}" data-delete-title="${esc(t.title||'Tournament')}">Delete</button>`:''}
       </div>
     </div>
    </div>`
@@ -580,6 +600,8 @@ function competitionSummaryHTML(c=comp()){
   body+=`<h2>Results</h2><table><tr><th>Game</th><th>Team A</th><th>Score</th><th>Team B</th></tr>${(c.fixtures||[]).map(f=>`<tr><td>${f.game||''}</td><td>${esc(fixtureTeamName(f,'a',c))}</td><td>${completed(f)?`${f.scoreA} – ${f.scoreB}`:'—'}</td><td>${esc(fixtureTeamName(f,'b',c))}</td></tr>`).join('')}</table>`;
  }
  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:28px;color:#111}h1{margin-bottom:4px}.muted{color:#666}table{width:100%;border-collapse:collapse;margin:10px 0 24px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#eee}@media print{@page{size:A4;margin:12mm}}</style></head><body><h1>${title}</h1><p class="muted">Archived ${c.archivedAt?new Date(c.archivedAt).toLocaleString():''} • One Stop Bowling Software</p>${body}</body></html>`;
+ document.querySelectorAll('[data-delete-tournament]').forEach(b=>b.onclick=()=>deleteTournamentPermanently(b.dataset.deleteTournament,b.dataset.deleteTitle||'Tournament'));
+
 }
 function downloadResultsSummary(c=comp()){downloadBlobFile(competitionSummaryHTML(c),'text/html',safeFileName(c.title||'competition')+'-results-summary.html')}
 async function completeAndArchive(){
