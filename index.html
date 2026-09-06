@@ -178,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.77';
+const APP_VERSION='2026.09.06.78';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -560,7 +560,7 @@ async function requestRole(target){
  if(!currentUser){showAuthModal(target);return}
  await loadCurrentProfile();
  if(!roleAllowed(target)){let a=accessState();alert(currentAppRole==='pending'?'Your account is waiting for an Owner/Admin to approve it.':(!a.active?'Your trial has expired. Please contact the software administrator to activate or extend your access.':'Your account does not have permission for this area.'));return}
- role=target;tab=target==='scorer'?'quick':'dashboard';setQueryRole(target);render();
+ role=target;tab=target==='scorer'?scoringHomeTab():'dashboard';setQueryRole(target);render();
 }
 async function signInAccount(){
  let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,err=document.getElementById('authError');err.textContent='';
@@ -774,7 +774,20 @@ async function shareCurrentDraw(){
    if(e?.name!=='AbortError'){console.error(e);alert('Could not create the draw image. Please use Print Draw instead.')}
  }finally{if(actions)actions.style.display='flex'}
 }
-function tabsFor(){if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];if(role==='scorer')return [['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['knockout','Knockout','🏆']];return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]}
+function scoringHomeTab(c=comp()){
+ let knockoutOnly=(c.settings?.tournamentType||'standard')==='knockout';
+ let groupStageComplete=!!c.stageFlow?.groupCompleteAt;
+ let hasKnockout=Array.isArray(c.knockout)&&c.knockout.length>0;
+ return (knockoutOnly||(groupStageComplete&&hasKnockout))?'knockout':'quick'
+}
+function tabsFor(){
+ if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];
+ if(role==='scorer'){
+  let ko=scoringHomeTab()==='knockout';
+  return ko?[['knockout','Knockout Scores','🏆'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['quick','Group Scores','⚡']]:[['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['knockout','Knockout','🏆']]
+ }
+ return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]
+}
 
 function updateAdminRoleBadge(){
  let b=document.querySelector('[data-role="admin"]');if(!b)return;
