@@ -178,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.80';
+const APP_VERSION='2026.09.06.81';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1065,7 +1065,9 @@ function renderDashboard(s){
   s.innerHTML=`<div class="card" style="border:2px solid #93c5fd;background:#eff6ff"><h2 style="margin-bottom:6px">🏆 Knockout Stage</h2><p style="margin:0 0 8px"><b>Group games complete ✓</b></p><p class="muted" style="margin:0">The competition is now in the knockout stage. Live and final knockout scores are shown below.</p></div>
   <div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Entries</span></div><div class="kpi"><b>${koDone}/${koTotal}</b><span>Knockout games final</span></div><div class="kpi"><b>${koLive.length}</b><span>Live now</span></div><div class="kpi"><b>${koRounds.length}</b><span>Knockout rounds</span></div></div>
   <div class="card"><h3>🔴 Live Knockout Scores</h3>${koLive.length?koLive.map(m=>{let cs=currentScore(m);return `<div style="padding:12px 0;border-bottom:1px solid var(--line)"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="meta">${esc(m.roundName||m.label||'Knockout')} • ${esc(knockoutVenueName(m,c))} • Rink ${m.rink||'—'}</div></div><span style="font-size:24px;font-weight:900">${cs.a} – ${cs.b}<div class="meta" style="text-align:center">${cs.ends?`after ${cs.ends} ends • `:''}<b>LIVE</b></div></span><div style="text-align:right"><b>${esc(knockoutRefName(m.b,c))}</b><div class="meta">${m.start||''}</div></div></div></div>`}).join(''):'<p class="muted">No knockout games are currently showing a live score.</p>'}</div>
-  <div class="card"><h3>Knockout Results</h3><p class="muted">Open <b>Finals</b> to see the full knockout draw, live scores and completed results.</p></div>`;
+  <div class="card"><h3>Knockout Results</h3><p class="muted">Open <b>Finals</b> to see the full knockout draw, live scores and completed results.</p></div>
+  <div class="card"><h3>TV / Display Mode</h3><p class="muted">Open the live tournament display for a TV, projector or cast screen.</p><button class="btn primary" id="openTv">Open TV Display</button></div>`;
+  let tv=document.getElementById('openTv');if(tv)tv.onclick=()=>{let q=new URLSearchParams({tv:'1'});if(remoteTournamentCode)q.set('code',remoteTournamentCode);if(remoteTournamentId)q.set('tid',remoteTournamentId);q.set('comp',comp().id||'');window.open(location.pathname+'?'+q.toString(),'_blank')};
   return
  }
  s.innerHTML=`<div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${new Set(c.teams.map(t=>t.group).filter(Boolean)).size}</b><span>Groups</span></div><div class="kpi"><b>${c.settings.rinks}</b><span>Rinks</span></div><div class="kpi"><b>${done}/${total}</b><span>Games complete</span></div></div>
