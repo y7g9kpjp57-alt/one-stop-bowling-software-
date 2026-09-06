@@ -178,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.76';
+const APP_VERSION='2026.09.06.77';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1743,8 +1743,14 @@ function saveStandardKnockoutMatch(matchId){
  let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;let before=scoreAuditSnapshot(c),a=document.querySelector(`[data-stdko-a="${matchId}"]`),b=document.querySelector(`[data-stdko-b="${matchId}"]`);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(completed(m)&&(+m.scoreA)===(+m.scoreB))return alert('A knockout game cannot finish as a draw. Enter the tie-break/final result.');advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);render()
 }
 function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('Not enough qualifiers yet.');return}let matches=buildKnockoutFirstRound(q);matches.forEach((m,i)=>{m.id=`sko1_${i+1}`;m.label=`R1-${i+1}`;m.roundName=koRoundNameFromCount(matches.length);m.venue=knockoutVenueOptions(c)[0]||'Main Green';m.rink=i%Math.max(1,+c.settings.rinks||1)+1});c.knockout=[matches];c.knockoutLiveDrawRound='';c.knockoutLiveDrawDone={};advanceStandardKnockout(c);saveDB();render()}
+function publicKnockoutHTML(c){
+ let rounds=(c.settings.tournamentType||'standard')==='knockout'?(c.knockout||[]):normaliseStandardKnockout(c);
+ if(!rounds.length)return `<div class="card"><h2>Knockout</h2><p class="muted">The knockout draw has not been created yet.</p></div>`;
+ return `<div class="card"><h2>Live Knockout Scores</h2><p class="muted">Live and final scores update automatically. Public View is read-only.</p></div>${rounds.map((round,ri)=>`<div class="card"><h2>${esc(round[0]?.roundName||koRoundNameFromCount(round.length))}</h2><div style="display:grid;gap:10px">${round.map(m=>{let cs=currentScore(m),done=completed(m),a=knockoutRefName(m.a,c),b=knockoutRefName(m.b,c),score=done?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'vs',status=done?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):(m.start||'Scheduled');return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff"><div><b style="font-size:18px">${esc(a||'TBC')}</b><div class="meta">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div></div><div style="text-align:center;min-width:92px"><div style="font-size:28px;font-weight:900">${score}</div><div class="pill ${done?'done':cs.live?'wait':''}">${status}</div></div><div style="text-align:right"><b style="font-size:18px">${esc(b||'TBC')}</b></div></div>`}).join('')}</div></div>`).join('')}`;
+}
 function renderKnockout(s){
  let c=comp();
+ if(role==='public'&&!c.archivedAt){s.innerHTML=publicKnockoutHTML(c);return}
  if(c.archivedAt){
   let rounds=normaliseStandardKnockout(c);
   if((c.settings.tournamentType||'standard')==='knockout') rounds=c.knockout||[];
