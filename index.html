@@ -178,7 +178,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.78';
+const APP_VERSION='2026.09.06.79';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -786,6 +786,8 @@ function tabsFor(){
   let ko=scoringHomeTab()==='knockout';
   return ko?[['knockout','Knockout Scores','🏆'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['quick','Group Scores','⚡']]:[['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['knockout','Knockout','🏆']]
  }
+ let ko=scoringHomeTab()==='knockout';
+ if(ko)return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['knockout','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['admin','Admin','🔐']];
  return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]
 }
 
@@ -1478,7 +1480,9 @@ function renderFixtures(s){
  s.innerHTML=`<div class="card"><h2>Fixtures</h2><div class="tablewrap"><table><thead><tr><th>Game</th><th>Group</th><th>Round</th><th>Time</th><th>Rink</th><th>Team A</th><th>Team B</th><th>Score</th><th>Status</th></tr></thead><tbody>${c.fixtures.map(f=>{let cs=currentScore(f);return `<tr><td>${f.game}</td><td>${f.group}</td><td>${f.round}</td><td>${f.start}</td><td>${fixtureLocalRink(f,c)}</td><td>${esc(fixtureTeamName(f,'a',c))}</td><td>${esc(fixtureTeamName(f,'b',c))}</td><td>${completed(f)?`${f.scoreA}–${f.scoreB}`:cs.live?`${cs.a}–${cs.b}${cs.ends?`<div class="meta">after ${cs.ends} ends</div>`:''}`:'—'}</td><td><span class="pill ${completed(f)?'done':'wait'}">${completed(f)?'Complete':cs.live?'Live':'Waiting'}</span></td></tr>`}).join('')}</tbody></table></div></div>`
 }
 function renderQuick(s){
- let c=comp(),x=c.settings,live=(x.scoringMode||'final')==='live_optional';
+ let c=comp();
+ if(scoringHomeTab(c)==='knockout'){tab='knockout';render();return}
+ let x=c.settings,live=(x.scoringMode||'final')==='live_optional';
  if(scheduleVenueNames(c).length>1){(c.fixtures||[]).forEach(f=>{f.rink=fixtureLocalRink(f,c)})}
  if(remoteTournamentId&&remoteTournamentCode&&!['owner','admin','scorer'].includes(remoteAccessRole||'')){
   let signed=!!currentUser,pending=remoteAccessRole==='pending';
