@@ -231,7 +231,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.103';
+const APP_VERSION='2026.09.06.104';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -1207,7 +1207,7 @@ function renderBuilder(s){
   <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly)?'selected':''}>Round Robin + Knockout</option><option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
   <div class="field"><label>Scoring mode</label><div style="padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:#ecfdf5;color:#065f46;font-weight:800">End-by-End / Anytime Scoring</div><input type="hidden" id="bScoring" value="live_optional"></div>
   <div class="field"><label>Game format</label><select id="bGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select></div>
-  <div class="field"><label>Ends</label><input id="bEnds" type="number" min="1" max="40" value="${x.ends||12}"><div class="meta">Recommended game time: 6 min 46 sec per end, rounded to the nearest minute.</div></div>
+  <div class="field"><label>Ends</label><input id="bEnds" type="number" min="1" max="40" value="${x.ends||12}"><div class="meta">Recommended game time: 6 min 46 sec per end, rounded to the nearest 5 minutes. Your selected game time only changes if you use the recommended setup.</div></div>
  </div>
  <div id="aggSetup" class="${agg?'':'hidden'}" style="margin-top:12px"><div class="formgrid">
   <div class="field"><label>Side A</label><input id="bSideA" value="${esc(x.aggregateSideA||'District A')}"></div>
@@ -1269,7 +1269,7 @@ function renderBuilder(s){
  function updatePlanner(){
   let box=document.getElementById('plannerResult'),status=document.getElementById('plannerStatus'),use=document.getElementById('useRecommendation');if(!box||!status||!use)return;
   if(type.value==='aggregate'){box.innerHTML='<p class="muted">The tournament planner is for tournament formats. Aggregate district matches use the number of rinks selected above.</p>';status.textContent='Not required';status.className='pill wait';use.disabled=true;return}
-  if(type.value==='knockout'){let v=plannerValues(),kp=knockoutOnlyPlan(v.n,v.r,v.km+v.buffer,v.start),path=kp.rounds.map(r=>r.name).join(' → '),recommendedGameMinutes=Math.max(10,Math.round(v.ends*406/60));latestRec={knockout:true,plan:kp};use.disabled=true;status.textContent='✓ Bracket calculated';status.className='pill done';box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>Recommended minutes per game:</b> ${recommendedGameMinutes} minutes <span class="muted">(${v.ends} ends × 6 min 46 sec per end)</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${kp.mainSize}</b><span>Main draw size</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Preliminary games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes to main draw</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Estimated final finish</span></div></div><p><b>Recommended format:</b> ${kp.prelimGames?`${kp.prelimGames} preliminary game${kp.prelimGames===1?'':'s'} involving ${kp.prelimTeams} teams, with ${kp.byes} bye${kp.byes===1?'':'s'} into the main draw.`:`Straight ${kp.mainSize}-team knockout — no preliminary round or byes required.`}</p><p><b>Knockout path:</b> ${path}</p><p class="muted">The automatic draw randomly selects which teams play in the preliminary round and which receive byes.</p>`;return}
+  if(type.value==='knockout'){let v=plannerValues(),kp=knockoutOnlyPlan(v.n,v.r,v.km+v.buffer,v.start),path=kp.rounds.map(r=>r.name).join(' → '),recommendedGameMinutes=Math.max(10,Math.round((v.ends*406/60)/5)*5);latestRec={knockout:true,plan:kp};use.disabled=true;status.textContent='✓ Bracket calculated';status.className='pill done';box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>Recommended minutes per game:</b> ${recommendedGameMinutes} minutes <span class="muted">(${v.ends} ends × 6 min 46 sec per end)</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${kp.mainSize}</b><span>Main draw size</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Preliminary games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes to main draw</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Estimated final finish</span></div></div><p><b>Recommended format:</b> ${kp.prelimGames?`${kp.prelimGames} preliminary game${kp.prelimGames===1?'':'s'} involving ${kp.prelimTeams} teams, with ${kp.byes} bye${kp.byes===1?'':'s'} into the main draw.`:`Straight ${kp.mainSize}-team knockout — no preliminary round or byes required.`}</p><p><b>Knockout path:</b> ${path}</p><p class="muted">The automatic draw randomly selects which teams play in the preliminary round and which receive byes.</p>`;return}
   let v=plannerValues(),rec=suggestedGroup(v.n,v.r,v.m+v.buffer,v.km+v.buffer,v.start,v.target,v.qualify,v.best,v.mode,v.event,v.day1,v.day2,v.preferredGroup),p=rec.p;latestRec=rec;use.disabled=false;
   let ok=!!(p.onTime&&p.day1OnTime),tight=ok&&p.minutesToTarget<60,statusText=ok?(tight?'⚠ Tight':'✓ Comfortable'):'✕ Not achievable',statusClass=ok&&!tight?'done':'wait';status.textContent=statusText;status.className='pill '+statusClass;
   let groupText=p.sizes.map((z,i)=>`Group ${String.fromCharCode(65+i)}: ${z}`).join(' • ');
@@ -1278,17 +1278,13 @@ function renderBuilder(s){
   let groupSummary=`${p.sizes.length} group${p.sizes.length===1?'':'s'}: ${groupSummaryParts.join(' and ')}`;
   let koText=(p.koRounds||[]).map(r=>r.name).join(' → ')||'No knockout';
   let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`;
-  let recommendedGameMinutes=Math.max(10,Math.round(v.ends*406/60));
+  let recommendedGameMinutes=Math.max(10,Math.round((v.ends*406/60)/5)*5);
   box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>Recommended minutes per game:</b> ${recommendedGameMinutes} minutes <span class="muted">(${v.ends} ends × 6 min 46 sec per end)</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p><div class="${cleanKo?'oknotice':'notice'}"><b>Knockout fit:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
  let endsInput=document.getElementById('bEnds'),gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes');
- const recommendedMinutesFromEnds=(ends)=>Math.max(10,Math.round(Math.max(1,+ends||1)*406/60));
- if(endsInput&&gameMinutesInput){
-  endsInput.addEventListener('input',()=>{
-   gameMinutesInput.value=recommendedMinutesFromEnds(endsInput.value);
-   if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=gameMinutesInput.value;
-   updatePlanner();
-  });
+ const recommendedMinutesFromEnds=(ends)=>Math.max(10,Math.round(((Math.max(1,+ends||1)*406/60)/5))*5);
+ if(endsInput){
+  endsInput.addEventListener('input',()=>{updatePlanner()});
  }
  if(gameMinutesInput&&koMinutesInput){
   gameMinutesInput.addEventListener('input',()=>{if(koMinutesInput.dataset.manual!=='1'){koMinutesInput.value=gameMinutesInput.value;updatePlanner()}});
@@ -1296,7 +1292,7 @@ function renderBuilder(s){
  }
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
- document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;updatePlanner()};
+ document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}updatePlanner()};
  document.getElementById('saveBuilder').onclick=()=>{
   let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
   if(type.value==='aggregate'){x.aggregateSideA=document.getElementById('bSideA').value.trim()||'Side A';x.aggregateSideB=document.getElementById('bSideB').value.trim()||'Side B';x.aggregateRinks=Math.max(1,+document.getElementById('bAggRinks').value||6);ensureAggregate(c)}
