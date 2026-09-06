@@ -232,7 +232,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.108';
+const APP_VERSION='2026.09.06.109';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1130,7 +1130,7 @@ function undoLastLiveEnd(obj,c=comp()){
  saveDB();render();return true
 }
 function render(){captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
- wireGlobalToolbar();restoreScoringUiState();
+ wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);
 }
 function completed(f){let ok=Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!=='';if(!ok)return false;if(isSingles(comp()))return Math.max(+f.scoreA,+f.scoreB)>=21&&(+f.scoreA)!==(+f.scoreB);return true}
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
@@ -1284,6 +1284,18 @@ function renderBuilder(s){
  let c=comp(),x=c.settings;x.scoringMode='live_optional';x.tournamentType=x.tournamentType||'standard';x.optimise=x.optimise||'balanced';x.qualify=x.qualify||'winner_best_runner';x.bestRunners=Number.isFinite(+x.bestRunners)?+x.bestRunners:4;x.autoFillKnockout=x.autoFillKnockout!==false;x.day1TargetFinish=x.day1TargetFinish||'21:00';x.day2Start=x.day2Start||'09:00';x.changeoverMinutes=Number.isFinite(+x.changeoverMinutes)?Math.max(0,+x.changeoverMinutes):5;x.lunchEnabled=!!x.lunchEnabled;x.lunchStart=x.lunchStart||'13:00';x.lunchMinutes=Number.isFinite(+x.lunchMinutes)?Math.max(0,+x.lunchMinutes):45;
  let agg=x.tournamentType==='aggregate',koOnly=x.tournamentType==='knockout';
  s.innerHTML=`<div class="card"><h2>Tournament Setup</h2><p class="muted">End-by-end / anytime scoring is always enabled. Scores can be updated during the game, with the final result confirmed when the match is complete.</p>
+ <div class="card" style="box-shadow:none;border:2px solid #bfdbfe;background:#eff6ff;margin-bottom:14px">
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0 0 4px">⚡ Quick Start</h3><p class="muted" style="margin:0">Enter the basics here. The full setup remains available below for anything more detailed.</p></div><span class="pill done">Simple setup</span></div>
+  <div class="formgrid" style="margin-top:12px">
+   <div class="field"><label>Game format</label><select id="qsGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select></div>
+   <div class="field"><label>Entries</label><input id="qsTeams" type="number" min="2" max="200" value="${x.teamCount||16}"></div>
+   <div class="field"><label>Ends</label><input id="qsEnds" type="number" min="1" max="40" value="${x.ends||12}" ${x.gameType==='singles'?'disabled':''}><div id="qsEndsHelp" class="meta">${x.gameType==='singles'?'Singles is first to 21 shots.':'Used to calculate the recommendation.'}</div></div>
+   <div class="field"><label>Available rinks</label><input id="qsRinks" type="number" min="1" max="30" value="${x.rinks||6}"></div>
+   <div class="field"><label>Start time</label><input id="qsStart" type="time" value="${x.start||'09:00'}"></div>
+   <div class="field"><label>Your minutes per game</label><input id="qsMinutes" type="number" min="10" max="240" value="${x.minutes||60}"><div class="meta">Kept unless you choose to use the recommendation.</div></div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" class="btn primary" id="applyQuickStart">Apply Quick Start</button><button type="button" class="btn success" id="applyQuickRecommended">Apply + Use Recommended Time</button></div>
+ </div>
  <div class="formgrid">
   <div class="field"><label>Competition name</label><input id="bTitle" value="${esc(c.title)}"></div>
   <div class="field"><label>Club / organiser</label><input id="bClub" value="${esc(x.clubName||'')}"></div>
@@ -1378,6 +1390,17 @@ function renderBuilder(s){
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
  document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}updatePlanner()};
+ const syncQuickStartSingles=()=>{let single=document.getElementById('qsGame')?.value==='singles',qe=document.getElementById('qsEnds'),qh=document.getElementById('qsEndsHelp');if(qe)qe.disabled=single;if(qh)qh.textContent=single?'Singles is first to 21 shots.':'Used to calculate the recommendation.'};
+ let qsGame=document.getElementById('qsGame');if(qsGame)qsGame.onchange=syncQuickStartSingles;syncQuickStartSingles();
+ const applyQuickStart=(useRecommended=false)=>{
+  let qg=document.getElementById('qsGame')?.value||'pairs',qn=Math.max(2,+document.getElementById('qsTeams')?.value||16),qe=Math.max(1,+document.getElementById('qsEnds')?.value||12),qr=Math.max(1,+document.getElementById('qsRinks')?.value||6),qs=document.getElementById('qsStart')?.value||'09:00',qm=Math.max(10,+document.getElementById('qsMinutes')?.value||60);
+  document.getElementById('bGame').value=qg;document.getElementById('bTeams').value=qn;document.getElementById('bEnds').value=qe;document.getElementById('bRinks').value=qr;document.getElementById('bStart').value=qs;document.getElementById('bMinutes').value=qm;
+  if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=qm;syncSinglesSetup();updatePlanner();
+  if(useRecommended&&qg!=='singles'){let recM=recommendedMinutesFromEnds(qe);document.getElementById('bMinutes').value=recM;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=recM;document.getElementById('qsMinutes').value=recM;updatePlanner()}
+  document.getElementById('plannerResult')?.scrollIntoView({behavior:'smooth',block:'center'});
+ };
+ document.getElementById('applyQuickStart').onclick=()=>applyQuickStart(false);document.getElementById('applyQuickRecommended').onclick=()=>applyQuickStart(true);
+
  document.getElementById('saveBuilder').onclick=()=>{
   let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
   if(type.value==='aggregate'){x.aggregateSideA=document.getElementById('bSideA').value.trim()||'Side A';x.aggregateSideB=document.getElementById('bSideB').value.trim()||'Side B';x.aggregateRinks=Math.max(1,+document.getElementById('bAggRinks').value||6);ensureAggregate(c)}
@@ -1388,6 +1411,53 @@ function renderBuilder(s){
   saveDB();render()
  };
  syncSinglesSetup();
+}
+
+function scorerNextMatch(c=comp()){
+ let useKo=scoringHomeTab(c)==='knockout'||(c.settings?.tournamentType||'standard')==='knockout';
+ if(useKo){
+  let rounds=(c.settings?.tournamentType||'standard')==='knockout'?(c.knockout||[]):normaliseStandardKnockout(c),all=rounds.flat().filter(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&!completed(m)&&scorerCanScoreItem(m,c));
+  all.sort((a,b)=>(currentScore(b).live?1:0)-(currentScore(a).live?1:0)||String(a.start||'99:99').localeCompare(String(b.start||'99:99'))||(+a.rink||99)-(+b.rink||99));
+  let m=all[0];return m?{type:'ko',item:m,a:knockoutRefName(m.a,c),b:knockoutRefName(m.b,c),rink:m.rink||'—',venue:knockoutVenueName(m,c)||'',start:m.start||'',label:m.roundName||m.label||'Knockout'}:null
+ }
+ let all=(c.fixtures||[]).filter(f=>!completed(f)&&scorerCanScoreItem(f,c));
+ all.sort((a,b)=>(currentScore(b).live?1:0)-(currentScore(a).live?1:0)||(+a.session||99)-(+b.session||99)||fixtureLocalRink(a,c)-fixtureLocalRink(b,c));
+ let f=all[0];return f?{type:'group',item:f,a:fixtureTeamName(f,'a',c),b:fixtureTeamName(f,'b',c),rink:fixtureLocalRink(f,c),venue:fixtureVenue(f,c)||'',start:f.start||'',label:`Session ${f.session||'—'} • Group ${f.group||'—'}`}:null
+}
+function appendScorerNextMatchCard(s,c=comp()){
+ if(role!=='scorer'||!['quick','knockout'].includes(tab)||!s)return;
+ let n=scorerNextMatch(c);if(!n)return;
+ let cs=currentScore(n.item),card=document.createElement('div');card.className='card';card.id='nextMatchCard';card.style.cssText='border:2px solid #38bdf8;background:#f0f9ff';
+ card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><div class="meta" style="font-weight:900;color:#0369a1">YOUR NEXT MATCH</div><h2 style="margin:3px 0 5px">${esc(n.a)} v ${esc(n.b)}</h2><div>${esc(n.label)} • ${n.venue?esc(n.venue)+' • ':''}Rink ${esc(n.rink)}${n.start?' • '+esc(n.start):''}</div>${cs.live?`<div class="oknotice notice" style="margin:8px 0 0"><b>In progress:</b> ${cs.a}–${cs.b}${cs.ends?` after ${cs.ends} ends`:''}</div>`:''}</div><button type="button" class="btn primary" id="openNextMatchBtn">Score Match</button></div>`;
+ s.prepend(card);document.getElementById('openNextMatchBtn').onclick=()=>{
+  if(n.type==='group'){sessionStorage.setItem('bowlsScoreSession:'+c.id,String(n.item.session||1));let v=fixtureVenue(n.item,c);if(v)sessionStorage.setItem('bowlsScoreVenue:'+c.id,v);tab='quick'}else tab='knockout';
+  render();setTimeout(()=>{let d=document.querySelector(`[data-score-panel="${CSS.escape(String(n.item.id))}"]`);if(d){d.open=true;(d.closest('.card')||d).scrollIntoView({behavior:'smooth',block:'start'})}},80)
+ };
+}
+function tournamentHealth(c=comp()){
+ let issues=[],good=[];
+ let names=(c.teams||[]).map(t=>(t.name||'').trim()).filter(Boolean),dupes=[...new Set(names.filter((n,i)=>names.findIndex(x=>x.toLowerCase()===n.toLowerCase())!==i))];
+ if(dupes.length)issues.push(`Duplicate team/player names: ${dupes.join(', ')}`);else good.push('No duplicate entry names');
+ if((c.teams||[]).some(t=>!(t.name||'').trim()||/^Team \d+$/i.test((t.name||'').trim())))issues.push('Some entries still have blank or placeholder names');else good.push('Entry names look complete');
+ if(!isAggregate(c)&&(c.settings?.tournamentType||'standard')==='standard'){
+  let ungrouped=(c.teams||[]).filter(t=>!t.group).length;if(ungrouped)issues.push(`${ungrouped} entr${ungrouped===1?'y is':'ies are'} not assigned to a group`);else if(c.teams?.length)good.push('All entries are assigned to groups');
+  if(!(c.fixtures||[]).length)issues.push('No group fixtures have been generated');else good.push(`${c.fixtures.length} group fixtures generated`);
+ }
+ let matches=isAggregate(c)?ensureAggregate(c):((c.settings?.tournamentType||'standard')==='knockout'?(c.knockout||[]).flat():[...(c.fixtures||[]),...(c.knockout||[]).flat()]);
+ let missingRink=matches.filter(m=>m&&!completed(m)&&m.a!=null&&m.b!=null&&!(+m.rink>0)).length;if(missingRink)issues.push(`${missingRink} playable match${missingRink===1?'':'es'} without a rink`);else if(matches.length)good.push('Playable matches have rink allocations');
+ let live=matches.filter(m=>m&&!completed(m)&&currentScore(m).live).length;if(live)good.push(`${live} match${live===1?' is':'es are'} currently in progress`);
+ let incomplete=matches.filter(m=>m&&m.a!=null&&m.b!=null&&!completed(m)).length;if(incomplete)good.push(`${incomplete} match${incomplete===1?'':'es'} still to complete`);else if(matches.length)good.push('All currently generated matches are complete');
+ let pending=offlineQueueEntry();if(pending)issues.push('This device has an unsynced offline change waiting');else good.push('No unsynced offline changes on this device');
+ return {issues,good,status:issues.length?'attention':'good'}
+}
+function openTournamentHealthCheck(){
+ let c=comp(),h=tournamentHealth(c);document.getElementById('healthCheckModal')?.remove();let box=document.createElement('div');box.className='modal';box.id='healthCheckModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(680px,100%);max-height:90vh;overflow:auto"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><h2 style="margin:0">Tournament Health Check</h2><p class="muted" style="margin:5px 0 0">Checks the tournament for common setup, scoring and sync problems.</p></div><button class="btn secondary" id="closeHealthCheck">Close</button></div><div class="${h.issues.length?'notice':'oknotice notice'}" style="margin-top:14px"><b>${h.issues.length?`${h.issues.length} item${h.issues.length===1?'':'s'} need attention`:'Everything checked looks good ✓'}</b></div>${h.issues.length?`<h3>Needs attention</h3>${h.issues.map(x=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)">⚠️ ${esc(x)}</div>`).join('')}`:''}<h3>Checks passed</h3>${h.good.map(x=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)">✅ ${esc(x)}</div>`).join('')}</div>`;
+ document.body.appendChild(box);document.getElementById('closeHealthCheck').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()}
+}
+function appendHealthCheckCard(s,c=comp()){
+ if(role!=='admin'||tab!=='dashboard'||!s||document.getElementById('healthCheckCard'))return;let h=tournamentHealth(c),card=document.createElement('div');card.className='card';card.id='healthCheckCard';
+ card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0 0 4px">🩺 Tournament Health Check</h3><p class="muted" style="margin:0">${h.issues.length?`${h.issues.length} item${h.issues.length===1?'':'s'} may need attention.`:'No obvious problems found.'}</p></div><button class="btn ${h.issues.length?'primary':'success'}" id="runHealthCheck">Run Health Check</button></div>`;s.appendChild(card);document.getElementById('runHealthCheck').onclick=openTournamentHealthCheck
 }
 function renderDashboard(s){
  let c=comp();
