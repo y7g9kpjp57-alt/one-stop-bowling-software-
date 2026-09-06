@@ -146,6 +146,25 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 .tv-potential-match{opacity:.92}
 .tv-potential-match>div:first-child,.tv-potential-match .right{font-size:20px;line-height:1.2}
 @media(max-width:900px){.tv-potential-match>div:first-child,.tv-potential-match .right{font-size:17px}}
+
+/* Build 88: dedicated final-stage TV screen */
+.tv-final-stage{padding:18px 0}
+.tv-final-kicker{text-align:center;font-size:34px;font-weight:1000;letter-spacing:.12em;margin-bottom:18px}
+.tv-final-card{display:grid;grid-template-columns:minmax(0,1fr) 260px minmax(0,1fr);gap:18px;align-items:stretch}
+.tv-final-side,.tv-final-center{background:rgba(8,31,77,.86);border:1px solid rgba(147,197,253,.6);border-radius:18px;min-height:220px;display:flex;align-items:center;justify-content:center;padding:24px}
+.tv-final-side.champion{outline:4px solid #facc15;box-shadow:0 0 28px rgba(250,204,21,.25)}
+.tv-final-name{font-size:34px;font-weight:1000;text-align:center;line-height:1.1}
+.tv-final-center{display:flex;flex-direction:column}
+.tv-final-score{font-size:58px;font-weight:1000;white-space:nowrap}
+.tv-final-status{font-size:20px;font-weight:900;margin-top:8px}
+.tv-final-meta{font-size:15px;opacity:.8;margin-top:10px;text-align:center}
+.tv-final-winner{text-align:center;margin-top:20px;padding:16px;border-radius:14px;background:#facc15;color:#111827;font-size:28px;font-weight:1000}
+@media(max-width:900px){
+ .tv-final-card{grid-template-columns:1fr}
+ .tv-final-side,.tv-final-center{min-height:120px}
+ .tv-final-score{font-size:46px}
+ .tv-final-name{font-size:28px}
+}
 </style>
 </head>
 <body>
@@ -210,7 +229,7 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.87';
+const APP_VERSION='2026.09.06.88';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const defaultComp=()=>({
@@ -2149,6 +2168,32 @@ function tvKnockoutDrawHTML(c){
  if(!rounds.length)return '<div class="tv-empty">The knockout draw has not been generated yet.</div>';
  return `<div class="tv-grid">${rounds.map((round,ri)=>`<div class="tv-card"><h2>${esc(round[0]?.roundName||(ri===rounds.length-1?'Final':'Round '+(ri+1)))}</h2>${round.map(m=>{let cs=currentScore(m),score=completed(m)?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'v';return `<div style="border-bottom:1px solid #334155;padding:12px 0"><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;font-size:20px"><b>${esc(knockoutRefName(m.a,c))}</b><span class="tv-score" style="font-size:24px">${score}</span><b style="text-align:right">${esc(knockoutRefName(m.b,c))}</b></div><div class="tv-muted" style="font-size:14px;text-align:center">${esc(knockoutVenueName(m,c))}${m.rink?` • Rink ${m.rink}`:''}${m.start?` • ${m.start}`:''}${cs.live&&!completed(m)?` • LIVE${cs.ends?` after ${cs.ends} ends`:''}`:''}</div></div>`}).join('')}</div>`).join('')}</div>`
 }
+
+function tvFinalStageHTML(c){
+ let rounds=normaliseStandardKnockout(c),finalRound=rounds.find(r=>(r[0]?.roundName||koRoundNameFromCount(r.length))==='Final')||rounds[rounds.length-1]||[],m=finalRound[0];
+ if(!m)return '<div class="tv-empty">The final has not been created yet.</div>';
+ let a=knockoutRefName(m.a,c)||'TBC',b=knockoutRefName(m.b,c)||'TBC',cs=currentScore(m),done=completed(m),winner=done?koWinner(m):null;
+ let score=done?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'vs';
+ let status=done?'FINAL RESULT':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):(m.start||'Final scheduled');
+ return `<div class="tv-final-stage">
+  <div class="tv-final-kicker">FINAL</div>
+  <div class="tv-final-card">
+   <div class="tv-final-side ${winner&&String(winner)===String(m.a)?'champion':''}">
+    <div class="tv-final-name">${esc(a)}</div>
+   </div>
+   <div class="tv-final-center">
+    <div class="tv-final-score">${score}</div>
+    <div class="tv-final-status">${esc(status)}</div>
+    <div class="tv-final-meta">${esc(knockoutVenueName(m,c))}${m.rink?` • Rink ${m.rink}`:''}${m.start?` • ${m.start}`:''}</div>
+   </div>
+   <div class="tv-final-side right ${winner&&String(winner)===String(m.b)?'champion':''}">
+    <div class="tv-final-name">${esc(b)}</div>
+   </div>
+  </div>
+  ${winner?`<div class="tv-final-winner">🏆 WINNER: ${esc(knockoutRefName(winner,c))}</div>`:''}
+ </div>`
+}
+
 function tvFinalsHTML(c){return tvKnockoutDrawHTML(c)}
 let tvPage=0,tvTimer=null,tvPaused=false,tvDisplayMode='auto';
 function tvModeStorageKey(c=comp()){return 'oneStopBowlsTvMode:'+(remoteTournamentCode||c?.id||'local')}
@@ -2160,6 +2205,11 @@ function tvPagesFor(c){
  if(isAggregate(c))return [
   {title:'Overall Score',body:()=>tvAggregateOverallHTML(c)},
   {title:'Rink-by-Rink Scores',body:()=>tvAggregateRinksHTML(c)}
+ ];
+ let rounds=normaliseStandardKnockout(c),finalRound=rounds.find(r=>(r[0]?.roundName||koRoundNameFromCount(r.length))==='Final');
+ let finalReady=!!(finalRound&&finalRound.length===1&&knockoutEntryReady(finalRound[0].a)&&knockoutEntryReady(finalRound[0].b));
+ if(finalReady)return [
+  {title:'Final',body:()=>tvFinalStageHTML(c)}
  ];
  if((c.settings.tournamentType||'standard')==='knockout')return [
   {title:'Current Games',body:()=>tvKnockoutSessionHTML(c)},
