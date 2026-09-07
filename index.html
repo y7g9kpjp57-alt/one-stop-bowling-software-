@@ -165,20 +165,6 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
  .tv-final-score{font-size:46px}
  .tv-final-name{font-size:28px}
 }
-
-/* Build 110: optional Simple Mode for less tech-savvy organisers */
-body.simple-mode .advanced-only{display:none!important}
-body.simple-mode .toolbar .btn,body.simple-mode .toolbar select{min-height:46px;font-size:15px}
-body.simple-mode .tabs button{font-size:15px;padding:12px 14px}
-body.simple-mode .bottom button{font-size:13px}
-.simple-mode-card{border:2px solid #bbf7d0!important;background:#f0fdf4!important}
-.simple-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
-.simple-actions .btn{min-height:56px;font-size:16px;font-weight:800}
-
-/* Build 112 — usability layer. Visual/help features only; tournament logic remains unchanged. */
-.ux-progress{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:9px 2px 12px;margin:0 0 8px}.ux-step{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 11px;white-space:nowrap;font-size:12px;font-weight:800;color:#64748b}.ux-step.done{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}.ux-step.current{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8;box-shadow:0 0 0 2px #dbeafe inset}.ux-step.problem{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.ux-step button{all:unset;cursor:pointer}.ux-next{border:2px solid #93c5fd;background:#eff6ff}.ux-next h2{margin-bottom:4px}.ux-next-action{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ux-next-action .btn.primary{font-size:16px;padding:12px 17px}.ux-legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 12px}.ux-dot{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700}.ux-dot:before{content:'';width:9px;height:9px;border-radius:50%;background:#94a3b8}.ux-dot.done:before{background:#10b981}.ux-dot.wait:before{background:#f59e0b}.ux-dot.bad:before{background:#ef4444}.ux-save-toast{position:fixed;right:14px;top:86px;z-index:80;background:#0f172a;color:#fff;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;opacity:0;transform:translateY(-6px);pointer-events:none;transition:.18s}.ux-save-toast.show{opacity:1;transform:translateY(0)}.ux-search-modal .modalbox{width:min(760px,100%);max-height:88vh;overflow:auto}.ux-search-row{padding:11px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;justify-content:space-between;align-items:center}.ux-search-row:last-child{border-bottom:0}.ux-search-row .meta{margin-top:3px}.ux-context-help{border-left:4px solid #93c5fd}.ux-context-help summary{cursor:pointer;font-weight:900}.ux-sticky{display:none}.large-text-mode{font-size:18px}.large-text-mode .btn{font-size:16px;min-height:44px}.large-text-mode input,.large-text-mode select,.large-text-mode textarea{font-size:17px;min-height:44px}.large-text-mode .meta,.large-text-mode .muted{font-size:14px}.ux-tour-highlight{outline:4px solid #38bdf8!important;outline-offset:3px!important}.ux-tour-box{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;width:min(560px,calc(100% - 28px));background:#0f172a;color:#fff;border-radius:16px;padding:16px;box-shadow:0 18px 60px #0008}.ux-tour-box h3{margin:0 0 6px}.ux-tour-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}.ux-tour-box .btn.secondary{background:#fff}.ux-finish{border:2px solid #a7f3d0;background:#ecfdf5}.ux-simple-note{font-size:13px;color:#475569;margin-top:6px}.ux-current-tournament{border:2px solid #38bdf8!important;background:#f0f9ff!important}.ux-help-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:800;cursor:pointer}
-@media(max-width:760px){.ux-progress{margin-left:-2px;margin-right:-2px}.ux-step{padding:7px 9px}.ux-sticky{display:flex;position:fixed;left:0;right:0;bottom:63px;z-index:19;background:#fff;border-top:1px solid var(--line);padding:8px 10px;gap:8px;box-shadow:0 -8px 20px #0f172a12}.ux-sticky .btn{flex:1;min-height:46px;font-size:15px}.wrap{padding-bottom:145px}.ux-save-toast{top:72px;right:8px}}
-@media print{.ux-progress,.ux-next,.ux-context-help,.ux-sticky,.ux-save-toast,.ux-tour-box{display:none!important}}
 </style>
 </head>
 <body>
@@ -196,10 +182,9 @@ body.simple-mode .bottom button{font-size:13px}
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
     <button class="btn secondary" id="helpBtn">Help / User Guide</button>
-    <button class="btn secondary" id="simpleModeBtn">Simple Mode</button>
-    <button class="btn secondary advanced-only" id="aiReportBtn">AI Tournament Report</button>
-    <button class="btn secondary advanced-only" id="exportBtn">Backup</button>
-    <label class="btn secondary advanced-only" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
+    <button class="btn secondary" id="aiReportBtn">AI Tournament Report</button>
+    <button class="btn secondary" id="exportBtn">Backup</button>
+    <label class="btn secondary" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
   </div>
   <nav class="tabs" id="tabs"></nav>
   <section id="screen"></section>
@@ -214,15 +199,14 @@ body.simple-mode .bottom button{font-size:13px}
 <details><summary>4. Set up greens & rinks</summary><div>If you are using more than one green, use <b>Split / Edit Greens & Rinks</b>. Enter the venue names and assign the groups. Rink numbers restart from 1 on each green.</div></details>
 <details><summary>5. Set the playing schedule</summary><div>Open <b>Playing Schedule</b>. Check each game has the correct time, green and rink. Use <b>Quick Team Schedule</b> if you want to check one team at a time. Print or save the schedule when ready.</div></details>
 <details><summary>6. Print scorecards</summary><div>Open <b>Scorecards</b> and print the cards required for the event. These can include teams, players, rink, time, green and number of ends.</div></details>
-<details><summary>7. Give scorers access</summary><div>Open <b>Invite / Access</b>. A scorer signs in and requests access to the tournament. Approve them as <b>Scorer</b>, then use <b>Configure Scoring</b> to give them all matches, selected matches, selected rinks or selected sessions.</div></details>
+<details><summary>7. Give scorers access</summary><div>Open <b>Invite / Access</b>. A scorer signs in and requests access to the tournament. Approve them as <b>Scorer</b> so they can enter scores without full admin rights.</div></details>
 <details><summary>8. Enter scores</summary><div>Open <b>Scores</b> and select the correct green if required. Games are shown in rink order. Use <b>Quick Current Total</b> for a live score, optional <b>end-by-end scoring</b>, or enter the <b>Final Score</b>. Save the final result when the game is complete.</div></details>
-<details><summary>9. Tables & completing the groups</summary><div>The <b>Tables</b> update automatically as final results are saved. Once every group game is final, tap <b>Complete Group Stage & Continue</b> to confirm qualifiers and move into the knockout stage. If automatic knockout balancing is enabled, the app can add the best remaining teams to reach the next standard bracket size (4, 8, 16, 32 etc.); if there are not enough entries, the spare positions become byes.</div></details>
+<details><summary>9. Tables & completing the groups</summary><div>The <b>Tables</b> update automatically as final results are saved. Once every group game is final, tap <b>Complete Group Stage & Continue</b> to confirm qualifiers and move into the knockout stage.</div></details>
 <details><summary>10. Knockout & live draws</summary><div>Open <b>Knockout</b>. You can use an automatic draw, manual selection or a live draw. Score knockout games the same way as group games. When a round is finished, use <b>Complete Round & Continue</b> to move to the next stage.</div></details>
 <details><summary>11. Fixing a mistake</summary><div>If a result is wrong, re-open the relevant stage, correct the score and complete the stage again. If later knockout rounds depend on the wrong result, the software may clear those later rounds so the correct winner can progress.</div></details>
 <details><summary>12. TV Display</summary><div>Open <b>TV Display</b> for the public screen. Use <b>Auto</b> to switch naturally from groups to knockout, or force <b>Groups</b> / <b>Knockout</b>. On iPad, use Control Centre → <b>Screen Mirroring</b> to show the display on a compatible TV.</div></details>
-<details><summary>13. Offline mode & automatic sync</summary><div>If the internet drops during a tournament, keep working normally. Scores and tournament changes are saved on the device and marked as waiting to sync. When the connection returns, One Stop Bowling Software sends the queued local version online before normal live refreshing resumes. Watch the status bar for <b>Offline</b>, <b>Unsynced</b>, <b>Syncing</b> and <b>Synced</b>.</div></details>
-<details><summary>14. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
-<details><summary>15. AI Tournament Report</summary><div>In <b>Admin</b>, tap <b>AI Tournament Report</b> at any stage of the competition. Download or copy the structured report, then attach/paste it into ChatGPT to create a tournament write-up. The report only uses results currently stored in the tournament and does not invent missing scores.</div></details><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn secondary" onclick="startUxTour(true)">Show Guided Tour</button><button class="btn secondary" onclick="restoreSafeSnapshot()">Restore Last Safe Version</button></div>
+<details><summary>13. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
+<details><summary>14. AI Tournament Report</summary><div>In <b>Admin</b>, tap <b>AI Tournament Report</b> at any stage of the competition. Download or copy the structured report, then attach/paste it into ChatGPT to create a tournament write-up. The report only uses results currently stored in the tournament and does not invent missing scores.</div></details>
 </div></div>
 <div class="modal hidden" id="authModal"><div class="modalbox">
 <h3 id="authTitle">Sign in</h3>
@@ -247,67 +231,31 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.06.112';
+const APP_VERSION='2026.09.07.93';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
-const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
-let offlineSyncBusy=false;
-function loadOfflineQueue(){try{return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY)||'{}')||{}}catch(e){return {}}}
-function saveOfflineQueue(q){try{localStorage.setItem(OFFLINE_QUEUE_KEY,JSON.stringify(q||{}))}catch(e){console.error('Offline queue save failed',e)}}
-function offlineQueueEntry(){let q=loadOfflineQueue();return remoteTournamentId?q[remoteTournamentId]||null:null}
-function offlinePendingCount(){return offlineQueueEntry()?1:0}
-function queueOfflineState(reason='Local changes waiting to sync'){
- if(!remoteTournamentId)return;
- let q=loadOfflineQueue();q[remoteTournamentId]={id:remoteTournamentId,code:remoteTournamentCode||'',title:comp()?.title||'Tournament',state:JSON.parse(JSON.stringify(db)),updatedAt:new Date().toISOString(),reason};saveOfflineQueue(q);updateConnectivityNotice();
-}
-function clearOfflineState(id=remoteTournamentId){if(!id)return;let q=loadOfflineQueue();if(q[id]){delete q[id];saveOfflineQueue(q)}updateConnectivityNotice()}
-function updateConnectivityNotice(custom=''){
- let pending=offlinePendingCount();
- if(custom){setSyncNotice(custom,!pending&&navigator.onLine);return}
- if(!navigator.onLine){setSyncNotice(`Offline • ${pending?'1 change waiting to sync':'changes save on this device'} • Build ${APP_VERSION}`,false);return}
- if(offlineSyncBusy){setSyncNotice(`Back online • syncing ${pending||1} queued change…`,false);return}
- if(pending){setSyncNotice(`Online • ${pending} unsynced change waiting • Build ${APP_VERSION}`,false);return}
- if(remoteTournamentId)setTournamentNotice();else setSyncNotice(`Online • all local changes saved • Build ${APP_VERSION}`,true)
-}
-async function flushOfflineQueue(){
- if(offlineSyncBusy||!navigator.onLine||!remoteTournamentId||!cloud||!cloudReady||!canWriteRemoteTournament())return false;
- let entry=offlineQueueEntry();if(!entry)return true;
- offlineSyncBusy=true;updateConnectivityNotice();
- try{
-  // Always push the queued local snapshot before allowing remote polling again.
-  cloudApplying=true;db=entry.state?.competitions?.length?entry.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
-  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||entry.title||'')});
-  if(error)throw error;
-  remoteLastPushAt=Date.now();clearOfflineState();setSyncNotice(`Synced • all changes saved online • Build ${APP_VERSION}`,true);setTimeout(refreshRemoteTournament,900);return true;
- }catch(e){console.error('Offline sync failed',e);setSyncNotice(`Online but sync failed • changes are still safe on this device • Build ${APP_VERSION}`,false);return false}
- finally{offlineSyncBusy=false}
-}
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
- settings:{clubName:'Your Bowls Club',tournamentType:'standard',scoringMode:'live_optional',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:6,ends:12,start:'09:00',minutes:60,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:60,knockoutMinutesManual:false,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,autoFillKnockout:true,optimise:'balanced'},
+ settings:{clubName:'Your Bowls Club',tournamentType:'standard',scoringMode:'final',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:4,ends:12,start:'09:00',minutes:80,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:80,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,optimise:'balanced'},
  pins:{admin:'0001',scorer:'0001'},teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})),fixtures:[],knockout:[],drawSeed:1
 });
 let db=loadDB();let role='public', tab='dashboard';
-setTimeout(applySimpleMode,0);
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
-function saveDB(){uxSnapshotBeforeSave();localStorage.setItem(APPKEY,JSON.stringify(db));showSavedIndicator();if(!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament()){queueOfflineState(navigator.onLine?'Saving online':'Saved offline');if(cloudReady&&navigator.onLine)pushRemoteTournament();}}
+function saveDB(){localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament())pushRemoteTournament();}
 function canWriteRemoteTournament(){let a=accessState();return !!currentUser&&a.active&&['owner','admin','scorer'].includes(remoteAccessRole)}
 async function pushRemoteTournament(){
  if(remoteSaveBusy)return false;
- if(!navigator.onLine){queueOfflineState('Saved offline');return false}
  remoteSaveBusy=true;
  try{
   let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||'')});
   if(error)throw error;
   remoteLastPushAt=Date.now();
-  clearOfflineState();
   setTournamentNotice();
   return true
  }catch(e){
   console.error('Tournament cloud save failed',e);
-  queueOfflineState('Cloud save failed');
-  setSyncNotice('Cloud save failed • 1 change waiting to sync • changes remain on this device',false);
+  setSyncNotice('Cloud save failed • changes remain on this device',false);
   return false
  }finally{remoteSaveBusy=false}
 }
@@ -321,9 +269,7 @@ function setRemoteTournament(id,code,accessRole,clubId='',clubName=''){
  localStorage.setItem('bowlsRemoteClubName',remoteClubName);
 }
 function setTournamentNotice(){
- if(!navigator.onLine){updateConnectivityNotice();return}
- if(offlineQueueEntry()){setSyncNotice(`Online • 1 unsynced change waiting • Build ${APP_VERSION}`,false);return}
- let a=accessState(),parts=['Online • synced','Live tournament'];
+ let a=accessState(),parts=['Live tournament'];
  if(remoteTournamentCode)parts.push('Code '+remoteTournamentCode);if(remoteClubName)parts.push(remoteClubName);
  if(remoteAccessRole)parts.push(remoteAccessRole==='owner'?'Organiser':remoteAccessRole[0].toUpperCase()+remoteAccessRole.slice(1));
  if(currentUser&&a.label)parts.push(a.label);
@@ -393,18 +339,14 @@ async function requestScorerAccess(){
 }
 
 async function refreshRemoteTournament(){
- if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
- if(offlineQueueEntry()){await flushOfflineQueue();if(offlineQueueEntry())return;}
+ if(!remoteTournamentCode||!cloud)return;
  if(currentUser)await refreshRemoteAccess();
  if(remoteSaveBusy||Date.now()-remoteLastPushAt<2000)return;
  // Do not redraw the scoring form while someone is typing into an input.
  // The previous polling refresh could replace the DOM mid-name and make text appear to delete itself.
  let active=document.activeElement;
  let editing=!!active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
- // Keep an expanded end-by-end scoring panel open while the scorer is using it.
- // Remote polling used to rebuild the scoring screen every 2.5 seconds and collapse <details>.
- let openLiveScoring=!!document.querySelector('details[open] [data-live-a],details[open] [data-live-b],details[open] [data-stdko-end-a],details[open] [data-stdko-end-b]');
- if(editing||openLiveScoring)return;
+ if(editing)return;
  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
  if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
  if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
@@ -555,39 +497,18 @@ async function loadTournamentMembers(){
   return `<div style="padding:10px 0;border-bottom:1px solid var(--line)">
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
       <div><b>${esc(who)}</b><div style="margin-top:5px"><span class="pill ${badgeClass}">${esc(accessText)}</span></div>
-      ${r==='scorer'?`<div class="meta" style="margin-top:5px">Can update scores only. Assigned access: <b>${esc(scorerPermissionLabel(m.user_id))}</b>.</div>`:''}
+      ${r==='scorer'?'<div class="meta" style="margin-top:5px">Can update rink scores only. No setup or admin changes.</div>':''}
       ${r==='admin'?'<div class="meta" style="margin-top:5px">Can manage tournament setup, scoring and access.</div>':''}
       ${r==='pending'?'<div class="meta" style="margin-top:5px">Approve as Scorer to allow score entry.</div>':''}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
        ${r==='pending'?`<button class="btn primary" data-member="${esc(m.user_id)}" data-mrole="scorer">Approve Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Make Admin</button>`:
-       r==='owner'?'':`${r==='scorer'?`<button class="btn primary" data-config-scorer="${esc(m.user_id)}" data-config-label="${esc(who)}">Configure Scoring</button>`:''}<button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="scorer">Set Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Set Admin</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="pending">Remove Access</button>`}
+       r==='owner'?'':`<button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="scorer">Set Scorer</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="admin">Set Admin</button><button class="btn secondary" data-member="${esc(m.user_id)}" data-mrole="pending">Remove Access</button>`}
       </div>
     </div>
   </div>`
  }).join('');
- list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}if(role==='scorer'){let st=scorerPermissionStore(comp());st[String(b.dataset.member)]=st[String(b.dataset.member)]||{mode:'all',matchIds:[],rinks:[],sessions:[]};saveDB()}await loadTournamentMembers()});
- list.querySelectorAll('[data-config-scorer]').forEach(b=>b.onclick=()=>openScorerAssignment(b.dataset.configScorer,b.dataset.configLabel||'Scorer'))
-}
-
-
-async function deleteTournamentPermanently(id,title='Tournament'){
- if(!cloud||!currentUser)return alert('Sign in before deleting a tournament.');
- // Stage 1: clear warning.
- if(!confirm(`Permanently delete "${title}"?\n\nThis will remove the tournament, scores, draw, results and access records. This cannot be undone.`))return;
- // Stage 2: typed confirmation prevents accidental taps.
- let typed=prompt(`FINAL CHECK\n\nType DELETE to permanently remove "${title}".`);
- if(typed!=='DELETE')return alert('Deletion cancelled. Nothing was removed.');
- let {error}=await cloud.rpc('bowls_delete_tournament',{p_id:id});
- if(error)return alert('Tournament was NOT deleted: '+error.message);
- if(String(remoteTournamentId)===String(id)){
-   setRemoteTournament('','','public','','');
-   let remaining=db.competitions||[];
-   if(remaining.length){db.active=remaining[0].id}else{let n=defaultComp();remaining.push(n);db.active=n.id}
-   localStorage.setItem(APPKEY,JSON.stringify(db));
- }
- alert(`"${title}" has been permanently deleted.`);
- await showMyTournaments();
+ list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}await loadTournamentMembers()})
 }
 
 async function showMyTournaments(){
@@ -620,7 +541,7 @@ async function showMyTournaments(){
  list.innerHTML=rows.map((r,i)=>{
    let c=tournamentStatePrimary(r),status=tournamentStateStatus(r),roleLabel=r.access_role==='owner'?'Organiser':(r.access_role||'Public');
    let canManage=['owner','admin'].includes(r.access_role||'');
-   return `<div class="card ${String(r.id||'')===String(remoteTournamentId||'')?'ux-current-tournament':''}" style="box-shadow:none" data-my-row="${i}">
+   return `<div class="card" style="box-shadow:none" data-my-row="${i}">
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
       <div style="min-width:220px;flex:1"><h3 style="margin-bottom:5px">${esc((c?.title||r.title||'Untitled tournament').trim())}</h3>
        <div class="meta">Code <b>${esc(r.code||'—')}</b>${r.club_name?' • Club <b>'+esc(r.club_name)+'</b>':''} • Created ${esc(tournamentCreatedLabel(r))}</div>
@@ -629,7 +550,7 @@ async function showMyTournaments(){
       <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
        <button class="btn primary" data-my-open="${i}">Open Tournament</button>
        ${canManage?`<button class="btn secondary" data-my-duplicate="${i}">Duplicate</button>`:''}
-       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button>`:''}${canManage?` <button class="btn danger" data-delete-tournament="${esc(r.id||'')}" data-delete-title="${esc(c?.title||r.title||'Tournament')}">Delete</button>`:''}
+       ${canManage&&status!=='Archived'?`<button class="btn secondary" data-my-archive="${i}">Archive</button>`:''}
       </div>
     </div>
    </div>`
@@ -637,8 +558,6 @@ async function showMyTournaments(){
  list.querySelectorAll('[data-my-open]').forEach(b=>b.onclick=()=>openSavedTournament(rows[+b.dataset.myOpen]));
  list.querySelectorAll('[data-my-duplicate]').forEach(b=>b.onclick=()=>duplicateSavedTournament(rows[+b.dataset.myDuplicate]));
  list.querySelectorAll('[data-my-archive]').forEach(b=>b.onclick=()=>archiveSavedTournament(rows[+b.dataset.myArchive]))
-
- document.querySelectorAll('[data-delete-tournament]').forEach(b=>b.onclick=()=>deleteTournamentPermanently(b.dataset.deleteTournament,b.dataset.deleteTitle||'Tournament'));
 }
 
 function isArchived(c=comp()){return !!c.archivedAt}
@@ -661,7 +580,6 @@ function competitionSummaryHTML(c=comp()){
   body+=`<h2>Results</h2><table><tr><th>Game</th><th>Team A</th><th>Score</th><th>Team B</th></tr>${(c.fixtures||[]).map(f=>`<tr><td>${f.game||''}</td><td>${esc(fixtureTeamName(f,'a',c))}</td><td>${completed(f)?`${f.scoreA} – ${f.scoreB}`:'—'}</td><td>${esc(fixtureTeamName(f,'b',c))}</td></tr>`).join('')}</table>`;
  }
  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:28px;color:#111}h1{margin-bottom:4px}.muted{color:#666}table{width:100%;border-collapse:collapse;margin:10px 0 24px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#eee}@media print{@page{size:A4;margin:12mm}}</style></head><body><h1>${title}</h1><p class="muted">Archived ${c.archivedAt?new Date(c.archivedAt).toLocaleString():''} • One Stop Bowling Software</p>${body}</body></html>`;
-
 }
 function downloadResultsSummary(c=comp()){downloadBlobFile(competitionSummaryHTML(c),'text/html',safeFileName(c.title||'competition')+'-results-summary.html')}
 async function completeAndArchive(){
@@ -847,9 +765,7 @@ function scorePatchData(data){
  }
 }
 async function pushScoreDiff(before,after){
- if(!remoteTournamentId)return true;
- if(!navigator.onLine||!cloudReady){queueOfflineState('Score changes saved offline');return false}
- if(!canWriteRemoteTournament())return true;
+ if(!(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()))return true;
  let c=comp(),ok=true;
  for(let k of Object.keys(after||{})){
   let a=before?.[k]?.data,b=after?.[k]?.data;
@@ -868,8 +784,8 @@ async function pushScoreDiff(before,after){
   });
   if(error){console.error('Score patch failed',error);ok=false}
  }
- if(ok){remoteLastPushAt=Date.now();clearOfflineState();setTournamentNotice();setTimeout(refreshRemoteTournament,700)}
- else {queueOfflineState('Score changes waiting to sync');setSyncNotice('Score saved on this device • waiting to sync online',false);}
+ if(ok){remoteLastPushAt=Date.now();setTournamentNotice();setTimeout(refreshRemoteTournament,700)}
+ else setSyncNotice('Score save failed online • retry before leaving this screen',false);
  return ok
 }
 
@@ -881,8 +797,7 @@ async function saveScoresNow(saveForm,afterSave){
  let ok=await pushScoreDiff(before,after);
  await auditScoreDiff(before,after);
  if(ok&&afterSave)afterSave();
- else if(!ok&&!navigator.onLine)setSyncNotice('Offline • score saved safely on this device • will sync when connection returns',false);
- else if(!ok)setSyncNotice('Score saved on this device • online sync is waiting to retry',false)
+ else if(!ok)alert('The score did not save online. Please try again before leaving this screen.')
 }
 async function openBestActiveTournament(){
  if(!cloud||!currentUser)return false;
@@ -898,7 +813,7 @@ async function initCloudSync(){
  try{
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   let {data:sessionData}=await cloud.auth.getSession();currentUser=sessionData?.session?.user||null;await loadCurrentProfile();
-  cloudReady=true;startNotificationRefresh();if(navigator.onLine)setTimeout(flushOfflineQueue,250);
+  cloudReady=true;startNotificationRefresh();
   let params=new URLSearchParams(location.search),code=params.get('code');
   if(code){await openTournamentByCode(code);return}
   if(remoteTournamentCode){
@@ -908,7 +823,7 @@ async function initCloudSync(){
   }
   if(currentUser){let switched=await openBestActiveTournament();if(switched)return}
   setSyncNotice('Cloud ready • no active tournament selected • Build '+APP_VERSION,true);
- }catch(e){console.error('Cloud sync failed',e);cloudReady=false;updateConnectivityNotice()}
+ }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Offline mode • cloud could not connect, but this device will keep saving locally',false)}
 }
 
 
@@ -928,13 +843,14 @@ async function showNewTournamentWizard(){
    <div class="field"><label>Organiser / club name on event</label><input id="ntClub" value="${esc(comp().settings.clubName||clubs[0]?.name||'')}"></div>
    <div class="field"><label>Format</label><select id="ntType"><option value="standard">Round Robin + Knockout</option><option value="knockout">Knockout Only</option><option value="aggregate">Team / District Match – Aggregate</option></select></div>
    <div class="field nt-normal"><label>Entries / teams</label><input id="ntTeams" inputmode="numeric" min="2" value="16"></div>
-   <div class="field nt-normal"><label>Rinks available</label><input id="ntRinks" inputmode="numeric" min="1" value="6"></div>
+   <div class="field nt-normal"><label>Rinks available</label><input id="ntRinks" inputmode="numeric" min="1" value="4"></div>
+   <div class="field nt-normal"><label>Game format</label><select id="ntGame"><option value="singles">Singles</option><option value="pairs">Pairs</option><option value="triples">Triples</option><option value="rinks" selected>Rinks / Fours</option></select></div>
    <div class="field nt-normal"><label>Ends per game</label><input id="ntEnds" inputmode="numeric" min="1" value="12"></div>
    <div class="field nt-normal"><label>Start time</label><input id="ntStart" type="time" value="09:00"></div>
-   <div class="field nt-normal"><label>Minutes per game</label><input id="ntMinutes" inputmode="numeric" min="10" value="60"></div><div class="field nt-normal"><label>Changeover before next game</label><input id="ntChangeover" inputmode="numeric" min="0" max="30" value="5"><div class="meta">e.g. 115 min game + 5 min changeover = next start 120 min later</div></div>
+   <div class="field nt-normal"><label>Minutes per game</label><input id="ntMinutes" inputmode="numeric" min="10" value="92"><div class="meta" id="ntMinutesHint">Suggested: 92 minutes (7.7 min per end × 12 ends).</div></div><div class="field nt-normal"><label>Changeover before next game</label><input id="ntChangeover" inputmode="numeric" min="0" max="30" value="5"><div class="meta">e.g. 115 min game + 5 min changeover = next start 120 min later</div></div>
    <div class="field nt-group"><label>Preferred group size</label><select id="ntGroup"><option>3</option><option selected>4</option><option>5</option><option>6</option></select></div>
    <div class="field nt-aggregate hidden"><label>Number of match rinks</label><input id="ntAggRinks" inputmode="numeric" min="1" value="6"></div>
-   <div class="field"><label>Scoring</label><div style="padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:#ecfdf5;color:#065f46;font-weight:800">End-by-End / Anytime Scoring</div><input type="hidden" id="ntScoring" value="live_optional"></div>
+   <div class="field"><label>Scoring</label><select id="ntScoring"><option value="final">Quick live totals + final score</option><option value="live_optional">Quick live totals + optional end-by-end</option></select></div>
    <div class="field nt-normal"><label>Team identification</label><select id="ntTeamIdentifier"><option value="home_away">Home / Away</option><option value="red_blue">Red / Blue (colour)</option><option value="none">Team A / Team B</option></select></div>
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn secondary" id="ntCancel">Cancel</button><button class="btn primary" id="ntCreate">Create Tournament</button></div>
@@ -942,11 +858,15 @@ async function showNewTournamentWizard(){
  document.body.appendChild(box);
  let type=document.getElementById('ntType');
  let toggle=()=>{let agg=type.value==='aggregate',std=type.value==='standard';document.querySelectorAll('.nt-normal').forEach(e=>e.classList.toggle('hidden',agg));document.querySelectorAll('.nt-group').forEach(e=>e.classList.toggle('hidden',!std));document.querySelectorAll('.nt-aggregate').forEach(e=>e.classList.toggle('hidden',!agg))};type.onchange=toggle;toggle();
+ const updateNtSuggestedTime=()=>{let game=document.getElementById('ntGame')?.value||'rinks',ends=Math.max(1,+document.getElementById('ntEnds')?.value||12),mins=suggestedGameMinutes(game,ends),rate=game==='singles'?'5.0':game==='pairs'?'6.45':game==='triples'?'7.5':'7.7',m=document.getElementById('ntMinutes'),hint=document.getElementById('ntMinutesHint');if(m)m.value=mins;if(hint)hint.textContent=`Suggested: ${mins} minutes (${rate} min per end × ${ends} ends).`};
+ document.getElementById('ntGame')?.addEventListener('change',updateNtSuggestedTime);
+ document.getElementById('ntEnds')?.addEventListener('change',updateNtSuggestedTime);
+ document.getElementById('ntEnds')?.addEventListener('input',()=>{let game=document.getElementById('ntGame')?.value||'rinks',ends=Math.max(1,+document.getElementById('ntEnds')?.value||12),rate=game==='singles'?'5.0':game==='pairs'?'6.45':game==='triples'?'7.5':'7.7',hint=document.getElementById('ntMinutesHint');if(hint)hint.textContent=`Suggested: ${suggestedGameMinutes(game,ends)} minutes (${rate} min per end × ${ends} ends).`});
  document.getElementById('ntCancel').onclick=()=>box.remove();
  document.getElementById('ntCreate').onclick=async()=>{
   let name=document.getElementById('ntName').value.trim();if(!name)return alert('Please enter a tournament name.');
-  let t=type.value,n=Math.max(2,+document.getElementById('ntTeams').value||16),r=Math.max(1,+document.getElementById('ntRinks').value||6),ends=Math.max(1,+document.getElementById('ntEnds').value||12),mins=Math.max(10,+document.getElementById('ntMinutes').value||60),changeover=Math.max(0,+document.getElementById('ntChangeover')?.value||0);
-  let c=defaultComp();c.id='comp-'+Date.now();c.title=name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode='live_optional';c.settings.teamIdentifierMode=document.getElementById('ntTeamIdentifier')?.value||'home_away';
+  let t=type.value,n=Math.max(2,+document.getElementById('ntTeams').value||16),r=Math.max(1,+document.getElementById('ntRinks').value||4),ends=Math.max(1,+document.getElementById('ntEnds').value||12),mins=Math.max(10,+document.getElementById('ntMinutes').value||80),changeover=Math.max(0,+document.getElementById('ntChangeover')?.value||0);
+  let c=defaultComp();c.id='comp-'+Date.now();c.title=name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode=document.getElementById('ntScoring').value;c.settings.gameType=document.getElementById('ntGame')?.value||'rinks';c.settings.teamIdentifierMode=document.getElementById('ntTeamIdentifier')?.value||'home_away';
   if(t==='aggregate'){c.settings.aggregateRinks=Math.max(1,+document.getElementById('ntAggRinks').value||6);c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
   else{c.settings.teamCount=n;c.settings.rinks=r;c.settings.ends=ends;c.settings.start=document.getElementById('ntStart').value||'09:00';c.settings.minutes=mins;c.settings.changeoverMinutes=changeover;c.settings.knockoutMinutes=mins;c.settings.groupSize=Math.max(3,+document.getElementById('ntGroup').value||4);c.teams=Array.from({length:n},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:[]}))}
   let selectedClub=document.getElementById('ntClubAccount')?.value||null;
@@ -1011,70 +931,11 @@ async function shareCurrentDraw(){
    if(e?.name!=='AbortError'){console.error(e);alert('Could not create the draw image. Please use Print Draw instead.')}
  }finally{if(actions)actions.style.display='flex'}
 }
-const SIMPLE_MODE_KEY='bowlsSimpleModeV1';
-function simpleModeOn(){return localStorage.getItem(SIMPLE_MODE_KEY)==='1'}
-function applySimpleMode(){
- let on=simpleModeOn();document.body.classList.toggle('simple-mode',on);
- let b=document.getElementById('simpleModeBtn');if(b){b.textContent=on?'Switch to Advanced Mode':'Simple Mode';b.classList.toggle('primary',on);b.classList.toggle('secondary',!on)}
-}
-function toggleSimpleMode(){localStorage.setItem(SIMPLE_MODE_KEY,simpleModeOn()?'0':'1');applySimpleMode();tab='dashboard';render()}
-function appendSimpleModeHome(s,c=comp()){
- if(role!=='admin'||!simpleModeOn()||tab!=='dashboard')return;
- let card=document.createElement('div');card.className='card simple-mode-card';
- card.innerHTML=`<h2 style="margin-bottom:4px">Simple Mode</h2><p class="muted" style="margin-top:0">Only the main tournament jobs are shown. Nothing has been deleted — use <b>Switch to Advanced Mode</b> whenever you need the full controls.</p><div class="simple-actions"><button class="btn primary" data-simple-tab="builder">⚙ Set Up Tournament</button><button class="btn primary" data-simple-tab="teams">👥 Add Players / Teams</button><button class="btn primary" data-simple-tab="draw">🎲 Create Draw</button><button class="btn primary" data-simple-tab="${scoringHomeTab(c)}">⚡ Enter Scores</button><button class="btn primary" data-simple-tab="tables">▤ View Results</button><button class="btn primary" data-simple-tab="knockout">🏆 Finals</button></div>`;
- s.insertAdjacentElement('afterbegin',card);card.querySelectorAll('[data-simple-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.simpleTab;render()})
-}
-
 function scoringHomeTab(c=comp()){
  let knockoutOnly=(c.settings?.tournamentType||'standard')==='knockout';
  let groupStageComplete=!!c.stageFlow?.groupCompleteAt;
  let hasKnockout=Array.isArray(c.knockout)&&c.knockout.length>0;
  return (knockoutOnly||(groupStageComplete&&hasKnockout))?'knockout':'quick'
-}
-
-// Build 93: flexible per-scorer assignments.
-function scorerPermissionStore(c=comp()){c.scorerPermissions=c.scorerPermissions||{};return c.scorerPermissions}
-function scorerPermissionFor(userId=currentUser?.id,c=comp()){
- if(!userId)return {mode:'all',matchIds:[],rinks:[],sessions:[]};
- return scorerPermissionStore(c)[String(userId)]||{mode:'all',matchIds:[],rinks:[],sessions:[]}
-}
-function scorerCanScoreItem(item,c=comp(),userId=currentUser?.id){
- if(role!=='scorer')return true;
- let p=scorerPermissionFor(userId,c),mode=p.mode||'all';if(mode==='all')return true;
- if(mode==='matches')return (p.matchIds||[]).map(String).includes(String(item?.id));
- if(mode==='rinks')return (p.rinks||[]).map(Number).includes(Number(item?.rink||fixtureLocalRink(item,c)));
- if(mode==='sessions')return (p.sessions||[]).map(Number).includes(Number(item?.session));
- return true
-}
-function scorerPermissionLabel(userId,c=comp()){
- let p=scorerPermissionFor(userId,c),mode=p.mode||'all';
- if(mode==='matches')return `${(p.matchIds||[]).length} selected match${(p.matchIds||[]).length===1?'':'es'}`;
- if(mode==='rinks')return `Rink${(p.rinks||[]).length===1?'':'s'} ${(p.rinks||[]).join(', ')||'none'}`;
- if(mode==='sessions')return `Session${(p.sessions||[]).length===1?'':'s'} ${(p.sessions||[]).join(', ')||'none'}`;
- return 'All matches'
-}
-function openScorerAssignment(userId,label='Scorer'){
- let c=comp(),p=scorerPermissionFor(userId,c),fixtures=c.fixtures||[],ko=(c.knockout||[]).flat();
- document.getElementById('scorerAssignModal')?.remove();let box=document.createElement('div');box.className='modal';box.id='scorerAssignModal';
- let matchRows=[...fixtures.map(f=>({id:f.id,label:`Group ${f.group||''} • ${f.start||''} • Rink ${fixtureLocalRink(f,c)} • ${fixtureTeamName(f,'a',c)} v ${fixtureTeamName(f,'b',c)}`})),...ko.map(m=>({id:m.id,label:`${m.roundName||'Knockout'} • ${m.start||''} • Rink ${m.rink||'—'} • ${knockoutRefName(m.a,c)} v ${knockoutRefName(m.b,c)}`}))];
- let rinks=[...new Set([...fixtures.map(f=>fixtureLocalRink(f,c)),...ko.map(m=>+m.rink||0)].filter(Boolean))].sort((a,b)=>a-b),sessions=[...new Set(fixtures.map(f=>+f.session||0).filter(Boolean))].sort((a,b)=>a-b);
- box.innerHTML=`<div class="modalbox" style="width:min(760px,100%);max-height:92vh;overflow:auto"><div style="display:flex;justify-content:space-between;gap:10px"><div><h2 style="margin:0">Scoring Access</h2><p class="muted" style="margin:5px 0 0">${esc(label)}</p></div><button class="btn secondary" id="closeScorerAssign">Close</button></div>
- <div class="field" style="margin-top:14px"><label>Access</label><select id="scorerAssignMode"><option value="all">All matches</option><option value="matches">Selected matches</option><option value="rinks">Selected rinks</option><option value="sessions">Selected sessions</option></select></div>
- <div id="assignMatches" style="margin-top:12px">${matchRows.length?matchRows.map(x=>`<label style="display:block;padding:8px;border-bottom:1px solid var(--line)"><input type="checkbox" data-assign-match="${esc(String(x.id))}" ${(p.matchIds||[]).map(String).includes(String(x.id))?'checked':''}> ${esc(x.label)}</label>`).join(''):'<p class="muted">No matches created yet.</p>'}</div>
- <div id="assignRinks" style="margin-top:12px">${rinks.map(n=>`<label style="display:inline-block;margin:5px 12px 5px 0"><input type="checkbox" data-assign-rink="${n}" ${(p.rinks||[]).map(Number).includes(n)?'checked':''}> Rink ${n}</label>`).join('')||'<p class="muted">No rinks available yet.</p>'}</div>
- <div id="assignSessions" style="margin-top:12px">${sessions.map(n=>`<label style="display:inline-block;margin:5px 12px 5px 0"><input type="checkbox" data-assign-session="${n}" ${(p.sessions||[]).map(Number).includes(n)?'checked':''}> Session ${n}</label>`).join('')||'<p class="muted">No group sessions available yet.</p>'}</div>
- <button class="btn primary" id="saveScorerAssign" style="width:100%;margin-top:14px">Save Scorer Access</button></div>`;
- document.body.appendChild(box);let mode=document.getElementById('scorerAssignMode');mode.value=p.mode||'all';
- const toggle=()=>{document.getElementById('assignMatches').classList.toggle('hidden',mode.value!=='matches');document.getElementById('assignRinks').classList.toggle('hidden',mode.value!=='rinks');document.getElementById('assignSessions').classList.toggle('hidden',mode.value!=='sessions')};mode.onchange=toggle;toggle();
- document.getElementById('closeScorerAssign').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
- document.getElementById('saveScorerAssign').onclick=()=>{let store=scorerPermissionStore(c);store[String(userId)]={mode:mode.value,matchIds:[...document.querySelectorAll('[data-assign-match]:checked')].map(x=>x.dataset.assignMatch),rinks:[...document.querySelectorAll('[data-assign-rink]:checked')].map(x=>+x.dataset.assignRink),sessions:[...document.querySelectorAll('[data-assign-session]:checked')].map(x=>+x.dataset.assignSession)};saveDB();box.remove();loadTournamentMembers();alert('Scorer access updated ✓')}
-}
-function scorerResultConfirmation(item,c=comp(),isKo=false){
- if(role!=='scorer'||!completed(item))return;
- let a=isKo?knockoutRefName(item.a,c):fixtureTeamName(item,'a',c),b=isKo?knockoutRefName(item.b,c):fixtureTeamName(item,'b',c),msg=`Result confirmed ✓\n\n${a} ${item.scoreA} – ${item.scoreB} ${b}`;
- if(isKo){let w=koWinner(item);if(w){let rounds=(c.settings?.tournamentType||'standard')==='knockout'?(c.knockout||[]):normaliseStandardKnockout(c),flat=rounds.flat(),last=flat.length&&String(flat[flat.length-1]?.id)===String(item.id)&&rounds[rounds.length-1]?.length===1;msg+=last?`\n\n🏆 Tournament winner: ${knockoutRefName(w,c)}`:`\n\n${knockoutRefName(w,c)} progresses to the next round`}}
- else if(allGroupGamesComplete(c))msg+='\n\nAll group results are now complete.';else msg+='\n\nGroup tables updated.';
- alert(msg)
 }
 function tabsFor(){
  if(role==='public')return [['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];
@@ -1083,7 +944,6 @@ function tabsFor(){
   return ko?[['knockout','Knockout Scores','🏆'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['quick','Group Scores','⚡']]:[['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['knockout','Knockout','🏆']]
  }
  let ko=scoringHomeTab()==='knockout';
- if(simpleModeOn())return ko?[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['knockout','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆']]:[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['quick','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆']];
  if(ko)return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['knockout','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['admin','Admin','🔐']];
  return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]
 }
@@ -1124,7 +984,6 @@ function wireGlobalToolbar(){
  let mt=document.getElementById('myTournamentsBtn');if(mt)mt.onclick=showMyTournaments;
  let oc=document.getElementById('openCodeBtn');if(oc)oc.onclick=()=>openTournamentByCode();
  let ar=document.getElementById('aiReportBtn');if(ar){ar.style.display=role==='admin'?'':'none';ar.onclick=openAiTournamentReport}
- let sm=document.getElementById('simpleModeBtn');if(sm){sm.style.display=role==='admin'?'':'none';sm.onclick=toggleSimpleMode}applySimpleMode();
 }
 
 function applyArchivedReadOnly(s,c){
@@ -1133,108 +992,10 @@ function applyArchivedReadOnly(s,c){
  s.querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);
  s.querySelectorAll('button').forEach(btn=>{let t=(btn.textContent||'').toLowerCase();if(!t.includes('print')&&!t.includes('pdf')&&!t.includes('view'))btn.disabled=true});
 }
-const SCORING_UI_KEY='bowlsScoringUiStateV1';
-function captureScoringUiState(){
- try{
-  let state={tab,role,scrollY:window.scrollY||0,open:[...document.querySelectorAll('details[data-score-panel][open]')].map(d=>d.dataset.scorePanel).filter(Boolean)};
-  let sp=document.getElementById('sessionPick'),vp=document.getElementById('venuePick');
-  if(sp)state.session=sp.value;if(vp)state.venue=vp.value;
-  sessionStorage.setItem(SCORING_UI_KEY,JSON.stringify(state));return state
- }catch(e){return null}
+function render(){renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+ wireGlobalToolbar();
 }
-function restoreScoringUiState(state=null){
- try{
-  if(!state)state=JSON.parse(sessionStorage.getItem(SCORING_UI_KEY)||'null');
-  if(!state||state.tab!==tab)return;
-  (state.open||[]).forEach(id=>{let d=document.querySelector(`details[data-score-panel="${CSS.escape(String(id))}"]`);if(d)d.open=true});
-  document.querySelectorAll('details[data-score-panel]').forEach(d=>d.addEventListener('toggle',()=>captureScoringUiState()));
-  if(Number.isFinite(+state.scrollY))requestAnimationFrame(()=>window.scrollTo(0,+state.scrollY||0))
- }catch(e){}
-}
-function undoLastLiveEnd(obj,c=comp()){
- if(!obj)return false;
- if(obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null){alert('Quick Current Total is active for this game. Clear that checkpoint first before using Undo Last End.');return false}
- let arr=liveEntries(obj),idx=-1;
- for(let i=arr.length-1;i>=0;i--){let e=arr[i];if(e&&((e.a!==''&&e.a!=null)||(e.b!==''&&e.b!=null))){idx=i;break}}
- if(idx<0){alert('There is no entered end to undo.');return false}
- arr[idx]={a:'',b:''};obj.liveEnds=arr;
- if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
- saveDB();render();return true
-}
-function render(){captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
- wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
-}
-
-const UX_LARGE_TEXT_KEY='bowlsLargeTextV1',UX_TOUR_KEY='bowlsUxTourSeenV1',UX_SNAPSHOT_KEY='bowlsSafeSnapshotV1',UX_SNAPSHOT_AT='bowlsSafeSnapshotAtV1';
-let uxSavedTimer=null,uxTourIndex=0;
-function showSavedIndicator(){
- let el=document.getElementById('uxSavedToast');if(!el){el=document.createElement('div');el.id='uxSavedToast';el.className='ux-save-toast';document.body.appendChild(el)}
- el.textContent=navigator.onLine?(remoteTournamentId?'Saved ✓':'Saved on this device ✓'):'Saved offline ✓';el.classList.add('show');clearTimeout(uxSavedTimer);uxSavedTimer=setTimeout(()=>el.classList.remove('show'),1300)
-}
-function uxSnapshotBeforeSave(){
- try{let old=localStorage.getItem(APPKEY);if(!old)return;let now=Date.now(),last=+localStorage.getItem(UX_SNAPSHOT_AT)||0;if(now-last<45000)return;localStorage.setItem(UX_SNAPSHOT_KEY,old);localStorage.setItem(UX_SNAPSHOT_AT,String(now))}catch(e){}
-}
-function restoreSafeSnapshot(){
- try{let raw=localStorage.getItem(UX_SNAPSHOT_KEY);if(!raw)return alert('There is no earlier safe version on this device yet.');let snap=JSON.parse(raw);if(!snap?.competitions?.length)return alert('The saved recovery version is not valid.');if(!confirm('Restore the previous safe version saved on this device? Your current local version will be replaced.'))return;db=snap;localStorage.setItem(APPKEY,JSON.stringify(db));render();alert('Previous safe version restored ✓')}catch(e){alert('Could not restore the safe version.')}
-}
-function uxStageInfo(c=comp()){
- let type=c.settings?.tournamentType||'standard',teams=(c.teams||[]).filter(t=>String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())),groups=[...new Set((c.teams||[]).map(t=>t.group).filter(Boolean))],fixtures=c.fixtures||[],groupDone=fixtures.length&&fixtures.every(completed),ko=(c.knockout||[]).flat(),koDone=ko.length&&ko.every(completed);
- if(type==='aggregate')return [{id:'builder',label:'Setup',done:!!c.title},{id:'teams',label:'Rinks',done:true},{id:'quick',label:'Scoring',done:aggregateTotals(c).complete===aggregateTotals(c).total},{id:'dashboard',label:'Finished',done:aggregateTotals(c).complete===aggregateTotals(c).total}];
- if(type==='knockout')return [{id:'builder',label:'Setup',done:!!c.title},{id:'teams',label:'Entries',done:teams.length>=2},{id:'knockout',label:'Draw',done:ko.length>0},{id:'knockout',label:'Scoring',done:koDone},{id:'dashboard',label:'Finished',done:koDone}];
- return [{id:'builder',label:'Setup',done:!!c.title&&c.settings?.rinks>0},{id:'teams',label:'Entries',done:teams.length>=2},{id:'draw',label:'Groups',done:groups.length>0},{id:'schedule',label:'Schedule',done:fixtures.length>0},{id:'quick',label:'Scoring',done:!!groupDone},{id:'knockout',label:'Knockout',done:ko.length>0&&koDone},{id:'dashboard',label:'Finished',done:ko.length?!!koDone:!!groupDone}]
-}
-function uxNextAction(c=comp()){
- if(c.archivedAt)return {tab:'dashboard',title:'Tournament archived',text:'This tournament is safely archived and is now view only.',button:'View Results'};
- let type=c.settings?.tournamentType||'standard',named=(c.teams||[]).filter(t=>String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())),fixtures=c.fixtures||[],groupDone=fixtures.length&&fixtures.every(completed),ko=(c.knockout||[]).flat();
- if(!String(c.title||'').trim())return {tab:'builder',title:'Start with the tournament setup',text:'Give the tournament a name and check the basic playing settings.',button:'Set Up Tournament'};
- if(named.length<2)return {tab:'teams',title:'Add the players or teams',text:'Enter the names taking part. You can come back and edit them later.',button:'Add Players / Teams'};
- if(type==='aggregate')return {tab:'quick',title:'Enter the rink scores',text:'The match is ready for scoring.',button:'Enter Scores'};
- if(type==='knockout'){
-  if(!ko.length)return {tab:'knockout',title:'Create the knockout draw',text:'Your entries are ready. Create the first knockout round.',button:'Create Knockout'};
-  if(!ko.every(completed))return {tab:'knockout',title:'Continue entering knockout scores',text:`${ko.filter(completed).length} of ${ko.length} knockout games are final.`,button:'Enter Scores'};
-  return {tab:'dashboard',title:'Tournament complete',text:'All knockout games are complete. Results are ready to share or print.',button:'View Summary'}
- }
- if(!(c.teams||[]).some(t=>t.group))return {tab:'draw',title:'Create the group draw',text:'Your entries are ready. Put them into groups next.',button:'Create Draw'};
- if(!fixtures.length)return {tab:'schedule',title:'Create the playing schedule',text:'Groups are ready. Create the games, times and rinks.',button:'Create Schedule'};
- if(!groupDone)return {tab:'quick',title:'Enter the remaining scores',text:`${fixtures.filter(completed).length} of ${fixtures.length} group games are complete.`,button:'Enter Scores'};
- if(!c.stageFlow?.groupCompleteAt)return {tab:'tables',title:'Confirm the group stage',text:'All group scores are entered. Check the tables and confirm the qualifiers.',button:'Check Tables'};
- if(!ko.length)return {tab:'knockout',title:'Create the knockout',text:'The qualifiers are ready for the knockout stage.',button:'Create Knockout'};
- if(!ko.every(completed))return {tab:'knockout',title:'Continue the knockout',text:`${ko.filter(completed).length} of ${ko.length} knockout games are final.`,button:'Enter Knockout Scores'};
- return {tab:'dashboard',title:'Tournament complete',text:'All games are complete. You can now share results, print them or archive the tournament.',button:'Finish Tournament'}
-}
-function uxContextHelp(tabName=tab){
- let map={dashboard:['Home','This is your tournament overview. The blue “What do I do next?” card points you to the next job.'],builder:['Setup','Set the tournament format, entries, rinks, ends and timings. Quick Start keeps the choices simple.'],teams:['Players / Teams','Enter the names taking part. You can edit names at any time before the draw.'],draw:['Draw','Create or adjust the groups. Check the preview before moving on.'],schedule:['Rinks & Schedule','Set which rink and time each game uses. Rinks are the number of games that can be played at once.'],quick:['Enter Scores','Open the match, enter the score end by end, then confirm the final result. Green means finished; amber means still waiting.'],fixtures:['Fixtures','Use this list to find who is playing, where and when.'],tables:['Results & Tables','Tables update automatically from confirmed final scores. Check them before completing the group stage.'],scorecards:['Scorecards','Print the cards needed for the competition. Singles cards allow extra ends for 21-up games.'],knockout:['Finals / Knockout','Create the knockout draw, enter scores and progress winners through each round.'],admin:['Admin','Tournament access, backups, archive and account controls are here.']};return map[tabName]||['Help','Use the main buttons on this screen. Your tournament saves automatically.']
-}
-function openUxSearch(){
- document.getElementById('uxSearchModal')?.remove();let c=comp(),qbox=document.createElement('div');qbox.className='modal ux-search-modal';qbox.id='uxSearchModal';qbox.innerHTML=`<div class="modalbox"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Find a player, team or match</h2><p class="muted" style="margin:4px 0 0">Search the current tournament.</p></div><button class="btn secondary" id="uxSearchClose">Close</button></div><input id="uxSearchInput" placeholder="Start typing a name…" style="margin-top:12px;text-align:left;letter-spacing:0;font-size:18px"><div id="uxSearchResults" style="margin-top:8px"></div></div>`;document.body.appendChild(qbox);
- let input=document.getElementById('uxSearchInput'),out=document.getElementById('uxSearchResults');
- function run(){let q=input.value.trim().toLowerCase();if(q.length<2){out.innerHTML='<p class="muted">Type at least 2 letters.</p>';return}let rows=[];(c.teams||[]).forEach(t=>{let players=Object.values(t.players||{}).join(' '),hay=(t.name+' '+players).toLowerCase();if(hay.includes(q))rows.push({tab:'teams',title:t.name||'Unnamed entry',meta:`${t.group?'Group '+t.group+' • ':''}${players||'Player / team entry'}`})});(c.fixtures||[]).forEach(f=>{let a=fixtureTeamName(f,'a',c),b=fixtureTeamName(f,'b',c),hay=(a+' '+b).toLowerCase();if(hay.includes(q))rows.push({tab:completed(f)?'fixtures':'quick',title:`${a} v ${b}`,meta:`${completed(f)?'Final '+f.scoreA+'–'+f.scoreB:'Not final'} • ${f.start||'Time TBC'} • ${fixtureVenue(f,c)} • Rink ${fixtureLocalRink(f,c)}`})});(c.knockout||[]).flat().forEach(m=>{let a=knockoutRefName(m.a,c),b=knockoutRefName(m.b,c);if((a+' '+b).toLowerCase().includes(q))rows.push({tab:'knockout',title:`${a} v ${b}`,meta:`${m.roundName||'Knockout'} • ${completed(m)?'Final '+m.scoreA+'–'+m.scoreB:'Not final'} • Rink ${m.rink||'—'}`})});rows=rows.slice(0,30);out.innerHTML=rows.length?rows.map((r,i)=>`<div class="ux-search-row"><div><b>${esc(r.title)}</b><div class="meta">${esc(r.meta)}</div></div><button class="btn secondary" data-ux-result="${i}">Open</button></div>`).join(''):'<p class="muted">No matching player, team or match found.</p>';out.querySelectorAll('[data-ux-result]').forEach(b=>b.onclick=()=>{let r=rows[+b.dataset.uxResult];tab=r.tab;qbox.remove();render()})}
- input.oninput=run;document.getElementById('uxSearchClose').onclick=()=>qbox.remove();qbox.onclick=e=>{if(e.target===qbox)qbox.remove()};setTimeout(()=>input.focus(),50)
-}
-function toggleLargeText(){let on=localStorage.getItem(UX_LARGE_TEXT_KEY)==='1';localStorage.setItem(UX_LARGE_TEXT_KEY,on?'0':'1');applyLargeText();}
-function applyLargeText(){let on=localStorage.getItem(UX_LARGE_TEXT_KEY)==='1';document.body.classList.toggle('large-text-mode',on);let b=document.getElementById('uxLargeTextBtn');if(b)b.textContent=on?'Normal Text':'Larger Text'}
-function ensureUxToolbar(){
- let tb=document.querySelector('.toolbar');if(!tb)return;if(!document.getElementById('uxSearchBtn')){let b=document.createElement('button');b.id='uxSearchBtn';b.className='btn secondary';b.textContent='🔎 Find';b.onclick=openUxSearch;tb.appendChild(b)}if(!document.getElementById('uxLargeTextBtn')){let b=document.createElement('button');b.id='uxLargeTextBtn';b.className='btn secondary';b.onclick=toggleLargeText;tb.appendChild(b)}applyLargeText()
-}
-function uxProgressStrip(s,c){if(role!=='admin'||tab==='admin')return;let stages=uxStageInfo(c),firstIncomplete=stages.findIndex(x=>!x.done);let currentIdx=Math.max(0,firstIncomplete<0?stages.length-1:firstIncomplete),wrap=document.createElement('div');wrap.className='ux-progress noPrint';wrap.innerHTML=stages.map((x,i)=>`<span class="ux-step ${x.done?'done':i===currentIdx?'current':''}"><button data-ux-stage="${esc(x.id)}">${x.done?'✓ ':i===currentIdx?'→ ':''}${esc(x.label)}</button></span>`).join('');s.prepend(wrap);wrap.querySelectorAll('[data-ux-stage]').forEach(b=>b.onclick=()=>{tab=b.dataset.uxStage;render()})}
-function uxNextCard(s,c){if(role!=='admin'||tab!=='dashboard')return;let n=uxNextAction(c),card=document.createElement('div');card.className='card ux-next';card.innerHTML=`<h2>What do I do next?</h2><h3 style="margin:8px 0 4px">${esc(n.title)}</h3><p class="muted" style="margin:0">${esc(n.text)}</p><div class="ux-next-action"><button class="btn primary" id="uxNextButton">${esc(n.button)} →</button>${localStorage.getItem(UX_SNAPSHOT_KEY)?'<button class="btn secondary" id="uxRestoreSafe">Restore Last Safe Version</button>':''}</div><div class="ux-simple-note">Your tournament saves automatically. You can always go back to an earlier screen.</div>`;let progress=s.querySelector('.ux-progress');if(progress)progress.insertAdjacentElement('afterend',card);else s.prepend(card);card.querySelector('#uxNextButton').onclick=()=>{tab=n.tab;render()};card.querySelector('#uxRestoreSafe')?.addEventListener('click',restoreSafeSnapshot)}
-function uxContextCard(s){if(tab==='dashboard')return;let [title,body]=uxContextHelp(tab),card=document.createElement('details');card.className='card ux-context-help noPrint';card.innerHTML=`<summary>❓ Help with ${esc(title)}</summary><p class="muted">${esc(body)}</p><button class="btn secondary" id="uxFullGuide">Open Full User Guide</button>`;s.appendChild(card);card.querySelector('#uxFullGuide').onclick=()=>document.getElementById('helpModal')?.classList.remove('hidden')}
-function uxStickyAction(c){document.getElementById('uxSticky')?.remove();if(role!=='admin')return;let n=uxNextAction(c),bar=document.createElement('div');bar.id='uxSticky';bar.className='ux-sticky noPrint';bar.innerHTML=`<button class="btn primary" id="uxStickyPrimary">${esc(n.button)}</button><button class="btn secondary" id="uxStickyFind">🔎 Find</button>`;document.body.appendChild(bar);bar.querySelector('#uxStickyPrimary').onclick=()=>{tab=n.tab;render()};bar.querySelector('#uxStickyFind').onclick=openUxSearch}
-function uxStatusLegend(s){if(!['quick','knockout','fixtures'].includes(tab))return;let el=document.createElement('div');el.className='ux-legend noPrint';el.innerHTML='<span class="ux-dot done">Finished</span><span class="ux-dot wait">Waiting / in progress</span><span class="ux-dot bad">Needs attention</span>';s.prepend(el)}
-function uxFinished(c){let type=c.settings?.tournamentType||'standard';if(c.archivedAt)return false;if(type==='aggregate')return aggregateTotals(c).complete===aggregateTotals(c).total;if(type==='knockout'){let a=(c.knockout||[]).flat();return a.length>0&&a.every(completed)}let k=(c.knockout||[]).flat();if(k.length)return k.every(completed);return (c.fixtures||[]).length>0&&(c.fixtures||[]).every(completed)}
-function uxFinishCard(s,c){if(role!=='admin'||tab!=='dashboard'||!uxFinished(c))return;let card=document.createElement('div');card.className='card ux-finish';card.innerHTML=`<h2>🏆 Competition finished</h2><p>All currently scheduled games have final scores. Your results are ready to check, print, share or archive.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-ux-finish-tab="tables">View Results</button><button class="btn secondary" data-ux-finish-tab="scorecards">Scorecards / Print</button><button class="btn secondary" id="uxFinishReport">AI / Facebook Report</button><button class="btn success" data-ux-finish-tab="admin">Archive Tournament</button></div>`;s.prepend(card);card.querySelectorAll('[data-ux-finish-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.uxFinishTab;render()});card.querySelector('#uxFinishReport').onclick=openAiTournamentReport}
-function createDemoTournament(){
- if(!confirm('Create a separate practice tournament? Your current tournament will not be changed.'))return;let d=defaultComp();d.title='Practice Tournament';d.settings.format='pairs';d.settings.rinks=2;d.settings.ends=6;d.settings.minutes=40;d.teams=(d.teams||[]).slice(0,8);['Anderson','Brown','Campbell','Davidson','Fraser','Grant','Mackay','Stewart'].forEach((n,i)=>{if(d.teams[i])d.teams[i].name=n});db.competitions.push(d);db.active=d.id;saveDB();tab='builder';render();alert('Practice Tournament created. Try anything you like — it is separate from your real tournament.')
-}
-function uxDemoCard(s,c){if(role!=='admin'||tab!=='dashboard')return;if((c.fixtures||[]).length||(c.teams||[]).some(t=>!/^Team\s+\d+$/i.test(String(t.name||''))))return;let card=document.createElement('div');card.className='card noPrint';card.innerHTML='<h3>New to the software?</h3><p class="muted">Try a separate sample tournament without changing this one.</p><button class="btn secondary" id="uxDemoBtn">Try a Practice Tournament</button>';s.appendChild(card);card.querySelector('#uxDemoBtn').onclick=createDemoTournament}
-function startUxTour(force=false){
- if(role!=='admin')return;if(!force&&localStorage.getItem(UX_TOUR_KEY)==='1')return;let steps=[{sel:'#newTournamentBtn',title:'Create or continue',text:'Start a new tournament here. Your saved tournaments are under My Tournaments.'},{sel:'#simpleModeBtn',title:'Simple Mode',text:'Simple Mode hides the technical options. You can switch back at any time.'},{sel:'#tabs',title:'Tournament steps',text:'These tabs take you through setup, entries, draw, scoring and results.'},{sel:'#syncNotice',title:'Your work is safe',text:'This bar tells you whether the tournament is online, offline or waiting to sync.'}];uxTourIndex=0;document.getElementById('uxTourBox')?.remove();function show(){document.querySelector('.ux-tour-highlight')?.classList.remove('ux-tour-highlight');let st=steps[uxTourIndex],target=document.querySelector(st.sel);if(target){target.classList.add('ux-tour-highlight');target.scrollIntoView({block:'nearest'})}let box=document.getElementById('uxTourBox');if(!box){box=document.createElement('div');box.id='uxTourBox';box.className='ux-tour-box';document.body.appendChild(box)}box.innerHTML=`<h3>${esc(st.title)}</h3><div>${esc(st.text)}</div><div class="ux-tour-actions"><button class="btn secondary" id="uxTourSkip">Skip</button><button class="btn primary" id="uxTourNext">${uxTourIndex===steps.length-1?'Finish':'Next'}</button></div>`;box.querySelector('#uxTourSkip').onclick=finish;box.querySelector('#uxTourNext').onclick=()=>{if(uxTourIndex>=steps.length-1)finish();else{uxTourIndex++;show()}}}function finish(){document.querySelector('.ux-tour-highlight')?.classList.remove('ux-tour-highlight');document.getElementById('uxTourBox')?.remove();localStorage.setItem(UX_TOUR_KEY,'1')}show()
-}
-function appendUXLayer(s,c=comp()){
- ensureUxToolbar();uxProgressStrip(s,c);uxNextCard(s,c);uxStatusLegend(s);uxContextCard(s);uxStickyAction(c);uxFinishCard(s,c);uxDemoCard(s,c);
- if(role==='admin'&&tab==='dashboard'&&!localStorage.getItem(UX_TOUR_KEY))setTimeout(()=>startUxTour(false),450)
-}
-function completed(f){let ok=Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!=='';if(!ok)return false;if(isSingles(comp()))return Math.max(+f.scoreA,+f.scoreB)>=21&&(+f.scoreA)!==(+f.scoreB);return true}
+function completed(f){return Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!==''}
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
 function ensureAggregate(c=comp()){let x=c.settings,n=Math.max(1,+x.aggregateRinks||6);c.aggregateScores=c.aggregateScores||[];while(c.aggregateScores.length<n)c.aggregateScores.push({rink:c.aggregateScores.length+1,scoreA:'',scoreB:'',skipA:'',skipB:''});c.aggregateScores=c.aggregateScores.slice(0,n);c.aggregateScores.forEach((r,i)=>{r.rink=i+1;r.skipA=r.skipA||'';r.skipB=r.skipB||''});return c.aggregateScores}
 function aggregateTotals(c=comp()){let rows=ensureAggregate(c),a=0,b=0,complete=0;rows.forEach(r=>{let s=currentScore(r);if(completed(r))complete++;a+=s.a;b+=s.b});return {a,b,complete,total:rows.length}}
@@ -1275,60 +1036,21 @@ function standings(c=comp()){
 }
 
 
-function baseQualifiers(c=comp()){
+function qualifiers(c=comp()){
  let st=standings(c),groups=Object.keys(st).filter(g=>g).sort();
  if(!groups.length)return [];
  let mode=c.settings?.qualify||'winner_best_runner',best=Math.max(0,+c.settings?.bestRunners||0),out=[];
- groups.forEach(g=>{let rows=st[g]||[];if(rows[0])out.push({...rows[0],group:g,pos:1,qualificationType:'automatic'})});
+ groups.forEach(g=>{let rows=st[g]||[];if(rows[0])out.push({...rows[0],group:g,pos:1})});
  if(mode==='top2'){
-  groups.forEach(g=>{let rows=st[g]||[];if(rows[1])out.push({...rows[1],group:g,pos:2,qualificationType:'automatic'})});
+  groups.forEach(g=>{let rows=st[g]||[];if(rows[1])out.push({...rows[1],group:g,pos:2})});
  }else if(mode==='winner_best_runner'&&best>0){
-  let runners=groups.map(g=>{let r=(st[g]||[])[1];return r?{...r,group:g,pos:2,qualificationType:'best-runner'}:null}).filter(Boolean);
+  let runners=groups.map(g=>{let r=(st[g]||[])[1];return r?{...r,group:g,pos:2}:null}).filter(Boolean);
   runners.sort((a,b)=>compareStandingRows(c,a,b));
   out.push(...runners.slice(0,best));
  }
  return out;
 }
-function nextKnockoutSize(n){let size=2;while(size<n)size*=2;return size}
-function qualifiers(c=comp()){
- let out=baseQualifiers(c),auto=c.settings?.autoFillKnockout!==false;
- if(!auto||out.length<2)return out;
- let target=nextKnockoutSize(out.length);
- if(target===out.length)return out;
- let st=standings(c),used=new Set(out.map(x=>String(x.id))),remaining=[];
- Object.entries(st).forEach(([g,rows])=>rows.forEach((r,i)=>{if(!used.has(String(r.id)))remaining.push({...r,group:g,pos:i+1,qualificationType:'bracket-fill'})}));
- remaining.sort((a,b)=>compareStandingRows(c,a,b));
- let need=Math.max(0,target-out.length),added=remaining.slice(0,need);
- added.forEach(x=>x.autoFilled=true);
- return out.concat(added);
-}
-function knockoutQualificationInfo(c=comp()){
- let base=baseQualifiers(c),q=qualifiers(c),target=nextKnockoutSize(Math.max(2,base.length)),added=q.filter(x=>x.autoFilled),byes=Math.max(0,target-q.length);
- return {baseCount:base.length,total:q.length,target,addedCount:added.length,byes,added};
-}
-function buildKnockoutFirstRound(q){
- let size=nextKnockoutSize(Math.max(2,q.length)),byes=Math.max(0,size-q.length),teams=[...q],matches=[];
- // Give byes to the first qualifiers/seeds, then pair the rest while trying to avoid same-group rematches.
- for(let i=0;i<byes&&teams.length;i++){let a=teams.shift();matches.push({a:a?.id||null,b:null,scoreA:'',scoreB:'',sameGroupRematch:false,groupA:a?.group||null,groupB:null})}
- while(teams.length){
-  let a=teams.shift(),pick=teams.findIndex(x=>!a?.group||!x?.group||x.group!==a.group);if(pick<0)pick=0;
-  let b=teams.length?teams.splice(pick,1)[0]:null;
-  matches.push({a:a?.id||null,b:b?.id||null,scoreA:'',scoreB:'',sameGroupRematch:!!(a&&b&&a.group===b.group),groupA:a?.group||null,groupB:b?.group||null})
- }
- while(matches.length<size/2)matches.push({a:null,b:null,scoreA:'',scoreB:'',sameGroupRematch:false,groupA:null,groupB:null});
- return matches;
-}
 function liveEntries(obj){obj.liveEnds=obj.liveEnds||[];return obj.liveEnds}
-function isSingles(c=comp()){return c?.settings?.gameType==='singles'}
-function scoringEnds(c=comp()){return isSingles(c)?45:Math.max(1,+c?.settings?.ends||12)}
-function singlesTarget(c=comp()){return isSingles(c)?21:null}
-function autoCompleteSinglesFromLive(obj,c=comp()){
- if(!isSingles(c)||!obj||completed(obj))return false;
- let ls=liveScore(obj);
- if(ls.a<21&&ls.b<21)return false;
- if(ls.a===ls.b)return false;
- obj.scoreA=ls.a;obj.scoreB=ls.b;obj.singlesAutoFinal=true;return true
-}
 function liveScore(obj){
  if(obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null){
   return {a:Math.max(0,+obj.liveTotalA||0),b:Math.max(0,+obj.liveTotalB||0),count:Math.max(0,+obj.liveEndsPlayed||0),manual:true}
@@ -1361,7 +1083,7 @@ function wireLiveTotalButtons(saveNow){
  document.querySelectorAll('[data-apply-live-total]').forEach(btn=>btn.onclick=()=>saveNow());
 }
 
-function scoringLabel(c=comp()){return 'End-by-End / Anytime Scoring'}
+function scoringLabel(c=comp()){return (c.settings.scoringMode||'final')==='live_optional'?'Quick live totals + end-by-end optional':'Quick live totals + final score'}
 function currentScore(obj){
  let l=liveScore(obj),hasCheckpoint=obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null;
  let hasEnds=(obj.liveEnds||[]).some(e=>e&&((e.a!==''&&e.a!=null)||(e.b!==''&&e.b!=null)));
@@ -1383,28 +1105,16 @@ function queueLiveAutoSave(saveForm,delay=450){
  },delay)
 }
 function renderBuilder(s){
- let c=comp(),x=c.settings;x.scoringMode='live_optional';x.tournamentType=x.tournamentType||'standard';x.optimise=x.optimise||'balanced';x.qualify=x.qualify||'winner_best_runner';x.bestRunners=Number.isFinite(+x.bestRunners)?+x.bestRunners:4;x.autoFillKnockout=x.autoFillKnockout!==false;x.day1TargetFinish=x.day1TargetFinish||'21:00';x.day2Start=x.day2Start||'09:00';x.changeoverMinutes=Number.isFinite(+x.changeoverMinutes)?Math.max(0,+x.changeoverMinutes):5;x.lunchEnabled=!!x.lunchEnabled;x.lunchStart=x.lunchStart||'13:00';x.lunchMinutes=Number.isFinite(+x.lunchMinutes)?Math.max(0,+x.lunchMinutes):45;
+ let c=comp(),x=c.settings;x.scoringMode=x.scoringMode||'final';x.tournamentType=x.tournamentType||'standard';x.optimise=x.optimise||'balanced';x.qualify=x.qualify||'winner_best_runner';x.bestRunners=Number.isFinite(+x.bestRunners)?+x.bestRunners:4;x.day1TargetFinish=x.day1TargetFinish||'21:00';x.day2Start=x.day2Start||'09:00';x.changeoverMinutes=Number.isFinite(+x.changeoverMinutes)?Math.max(0,+x.changeoverMinutes):5;x.lunchEnabled=!!x.lunchEnabled;x.lunchStart=x.lunchStart||'13:00';x.lunchMinutes=Number.isFinite(+x.lunchMinutes)?Math.max(0,+x.lunchMinutes):45;
  let agg=x.tournamentType==='aggregate',koOnly=x.tournamentType==='knockout';
- s.innerHTML=`<div class="card"><h2>Tournament Setup</h2><p class="muted">End-by-end / anytime scoring is always enabled. Scores can be updated during the game, with the final result confirmed when the match is complete.</p>
- <div class="card" style="box-shadow:none;border:2px solid #bfdbfe;background:#eff6ff;margin-bottom:14px">
-  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0 0 4px">⚡ Quick Start</h3><p class="muted" style="margin:0">Enter the basics here. The full setup remains available below for anything more detailed.</p></div><span class="pill done">Simple setup</span></div>
-  <div class="formgrid" style="margin-top:12px">
-   <div class="field"><label>Game format</label><select id="qsGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select></div>
-   <div class="field"><label>Entries</label><input id="qsTeams" type="number" min="2" max="200" value="${x.teamCount||16}"></div>
-   <div class="field"><label>Ends</label><input id="qsEnds" type="number" min="1" max="40" value="${x.ends||12}" ${x.gameType==='singles'?'disabled':''}><div id="qsEndsHelp" class="meta">${x.gameType==='singles'?'Singles is first to 21 shots.':'Used to calculate the recommendation.'}</div></div>
-   <div class="field"><label>Available rinks</label><input id="qsRinks" type="number" min="1" max="30" value="${x.rinks||6}"></div>
-   <div class="field"><label>Start time</label><input id="qsStart" type="time" value="${x.start||'09:00'}"></div>
-   <div class="field"><label>Your minutes per game</label><input id="qsMinutes" type="number" min="10" max="240" value="${x.minutes||60}"><div class="meta">Kept unless you choose to use the recommendation.</div><div id="qsRecommendedTime" class="oknotice" style="margin-top:8px;padding:8px"></div></div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" class="btn primary" id="applyQuickStart">Apply Quick Start</button><button type="button" class="btn success" id="applyQuickRecommended">Apply + Use Recommended Time</button></div>
- </div>
+ s.innerHTML=`<div class="card"><h2>Tournament Setup</h2><p class="muted">Live scoring is optional. You can always skip end-by-end updates and enter the final score only.</p>
  <div class="formgrid">
   <div class="field"><label>Competition name</label><input id="bTitle" value="${esc(c.title)}"></div>
   <div class="field"><label>Club / organiser</label><input id="bClub" value="${esc(x.clubName||'')}"></div>
   <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly)?'selected':''}>Round Robin + Knockout</option><option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
-  <div class="field"><label>Scoring mode</label><div style="padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:#ecfdf5;color:#065f46;font-weight:800">End-by-End / Anytime Scoring</div><input type="hidden" id="bScoring" value="live_optional"></div>
-  <div class="field"><label>Game format</label><select id="bGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select><div class="meta">Singles is available when required, but other formats remain the normal tournament setup.</div></div>
-  <div class="field" id="endsSetupField"><label id="bEndsLabel">${x.gameType==='singles'?'Singles scoring':'Ends'}</label><div id="singles21Box" class="${x.gameType==='singles'?'oknotice':'hidden'}" style="padding:10px;margin:0"><b>First to 21 shots</b><div class="meta">No fixed number of ends. The scorer has 45 end rows available and the game is recognised as complete once a player reaches 21 or more shots.</div></div><input id="bEnds" class="${x.gameType==='singles'?'hidden':''}" type="number" min="1" max="40" value="${x.ends||12}"><div id="endsTimeHelp" class="meta ${x.gameType==='singles'?'hidden':''}">Recommended game time: 6 min 46 sec per end, rounded to the nearest 5 minutes. Your selected game time only changes if you use the recommended setup.</div></div>
+  <div class="field"><label>Scoring mode</label><select id="bScoring"><option value="final" ${x.scoringMode==='final'?'selected':''}>Final Score Only</option><option value="live_optional" ${x.scoringMode==='live_optional'?'selected':''}>Live End-by-End + Final Score</option></select></div>
+  <div class="field"><label>Game format</label><select id="bGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select></div>
+  <div class="field"><label>Ends</label><input id="bEnds" type="number" min="1" max="40" value="${x.ends||12}"></div>
  </div>
  <div id="aggSetup" class="${agg?'':'hidden'}" style="margin-top:12px"><div class="formgrid">
   <div class="field"><label>Side A</label><input id="bSideA" value="${esc(x.aggregateSideA||'District A')}"></div>
@@ -1414,15 +1124,14 @@ function renderBuilder(s){
  <div id="stdSetup" class="${agg?'hidden':''}" style="margin-top:12px"><div id="koOnlyNote" class="${koOnly?'oknotice notice':'hidden'}"><b>Knockout Only:</b> enter teams, available rinks, start time and knockout game length. The app will calculate preliminary games, byes and the full bracket automatically.</div><div class="formgrid">
   <div class="field"><label>Teams / entries</label><input id="bTeams" type="number" min="2" max="200" value="${x.teamCount||16}"></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Preferred group size</label><input id="bGroup" type="number" min="3" max="12" value="${x.groupSize||4}"></div>
-  <div class="field"><label>Available rinks</label><input id="bRinks" type="number" min="1" max="30" value="${x.rinks||6}"></div>
+  <div class="field"><label>Available rinks</label><input id="bRinks" type="number" min="1" max="30" value="${x.rinks||4}"></div>
   <div class="field"><label>Start time</label><input id="bStart" type="time" value="${x.start||'09:00'}"></div>
-  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Minutes per game</label><input id="bMinutes" type="number" min="10" max="240" value="${x.minutes||60}"></div><div class="field"><label>Changeover between games</label><input id="bChangeover" type="number" min="0" max="30" value="${x.changeoverMinutes??5}"><div class="meta">Added after each game before the next session starts.</div></div><div class="field"><label>Lunch break</label><select id="bLunchEnabled"><option value="no" ${!x.lunchEnabled?'selected':''}>No lunch break</option><option value="yes" ${x.lunchEnabled?'selected':''}>Use lunch break</option></select><div class="meta">Stops a new session being scheduled through lunch.</div></div><div class="field"><label>Lunch starts</label><input id="bLunchStart" type="time" value="${x.lunchStart||'13:00'}"></div><div class="field"><label>Lunch duration (minutes)</label><input id="bLunchMinutes" type="number" min="5" max="180" step="5" value="${x.lunchMinutes??45}"></div>
-  <div class="field"><label>Knockout minutes</label><input id="bKoMinutes" type="number" min="10" max="240" value="${x.knockoutMinutes||x.minutes||60}" data-manual="${x.knockoutMinutesManual?'1':'0'}"></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Minutes per game</label><input id="bMinutes" type="number" min="10" max="240" value="${x.minutes||80}"><div class="meta" id="bMinutesHint">Suggested from game format and ends.</div></div><div class="field"><label>Changeover between games</label><input id="bChangeover" type="number" min="0" max="30" value="${x.changeoverMinutes??5}"><div class="meta">Added after each game before the next session starts.</div></div><div class="field"><label>Lunch break</label><select id="bLunchEnabled"><option value="no" ${!x.lunchEnabled?'selected':''}>No lunch break</option><option value="yes" ${x.lunchEnabled?'selected':''}>Use lunch break</option></select><div class="meta">Stops a new session being scheduled through lunch.</div></div><div class="field"><label>Lunch starts</label><input id="bLunchStart" type="time" value="${x.lunchStart||'13:00'}"></div><div class="field"><label>Lunch duration (minutes)</label><input id="bLunchMinutes" type="number" min="5" max="180" step="5" value="${x.lunchMinutes??45}"></div>
+  <div class="field"><label>Knockout minutes</label><input id="bKoMinutes" type="number" min="10" max="240" value="${x.knockoutMinutes||80}"></div>
   <div class="field"><label>Team identification on scoring</label><select id="bTeamIdentifier"><option value="home_away" ${(x.teamIdentifierMode||'home_away')==='home_away'?'selected':''}>Home / Away</option><option value="red_blue" ${x.teamIdentifierMode==='red_blue'?'selected':''}>Red / Blue (colour)</option><option value="none" ${x.teamIdentifierMode==='none'?'selected':''}>Team A / Team B</option></select></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Draw method</label><select id="bDraw"><option value="auto" ${x.drawMethod!=='manual'?'selected':''}>Automatic</option><option value="manual" ${x.drawMethod==='manual'?'selected':''}>Manual live draw</option></select></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Qualification</label><select id="bQualify"><option value="winners" ${x.qualify==='winners'?'selected':''}>Group winners only</option><option value="top2" ${x.qualify==='top2'?'selected':''}>Top 2 from each group</option><option value="winner_best_runner" ${x.qualify==='winner_best_runner'?'selected':''}>Winners + best runners-up</option></select></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Best runners-up</label><input id="bBestRunners" type="number" min="0" max="32" value="${x.bestRunners||0}"></div>
-  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Automatic knockout balancing</label><select id="bAutoFillKo"><option value="yes" ${x.autoFillKnockout!==false?'selected':''}>Yes — fill up to next bracket</option><option value="no" ${x.autoFillKnockout===false?'selected':''}>No — use qualifiers only</option></select><div class="meta">Adds the best remaining teams to reach 4, 8, 16, 32 etc. If there are not enough entries, the remaining positions become byes.</div></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Tournament days</label><select id="bEvent"><option value="same_day" ${x.eventFormat!=='two_day'?'selected':''}>Groups & knockouts same day</option><option value="two_day" ${x.eventFormat==='two_day'?'selected':''}>Groups Day 1 / Knockouts Day 2</option></select></div>
   <div class="field"><label>Target final finish</label><input id="bTarget" type="time" value="${x.targetFinish||'21:00'}"></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Planner priority</label><select id="bOptimise"><option value="balanced" ${x.optimise==='balanced'?'selected':''}>Balanced</option><option value="shortest" ${x.optimise==='shortest'?'selected':''}>Shortest Day</option><option value="games" ${x.optimise==='games'?'selected':''}>Most Games</option></select></div>
@@ -1432,12 +1141,12 @@ function renderBuilder(s){
    <div class="field"><label>Day 2 knockout start</label><input id="bDay2Start" type="time" value="${x.day2Start}"></div>
  </div></div>
  <div class="card" style="box-shadow:none;margin-top:14px;border:2px solid #bae6fd;background:#f0f9ff">
-  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin-bottom:4px">Recommended Setup</h3><p class="muted" style="margin:0">Prioritises your preferred group size and sensible, even groups first. Knockout fit, rinks and finish time are considered after the group structure.</p></div><span class="pill wait" id="plannerStatus">Calculating…</span></div>
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin-bottom:4px">Recommended Setup</h3><p class="muted" style="margin:0">Prioritises practical groups of 4, then checks rinks, game times, qualification and target finish.</p></div><span class="pill wait" id="plannerStatus">Calculating…</span></div>
   <div id="plannerResult" style="margin-top:12px"></div>
   <button class="btn success" id="useRecommendation" type="button">Use Recommended Setup</button>
  </div>
  </div>
- <div class="notice" style="margin-top:12px"><b>Anytime scoring:</b> update the score end-by-end whenever you wish. You can still confirm the final result directly when the match is complete.</div>
+ <div class="notice" style="margin-top:12px"><b>Connection-friendly:</b> even when live scoring is enabled, no end-by-end entry is mandatory. Final scores can always be entered directly.</div>
  <button class="btn primary" id="saveBuilder">Save Setup</button></div>`;
  let type=document.getElementById('bType'),eventSel=document.getElementById('bEvent');
  type.onchange=()=>{let isAgg=type.value==='aggregate',isKo=type.value==='knockout',oldType=x.tournamentType||'standard';
@@ -1459,108 +1168,36 @@ function renderBuilder(s){
  }
  updatePlanner()};
  eventSel.onchange=()=>{document.getElementById('twoDaySetup').classList.toggle('hidden',type.value==='knockout'||eventSel.value!=='two_day');updatePlanner()};
+ const applySuggestedGameTime=()=>{let game=document.getElementById('bGame')?.value||'rinks',ends=Math.max(1,+document.getElementById('bEnds')?.value||12),mins=suggestedGameMinutes(game,ends),m=document.getElementById('bMinutes'),km=document.getElementById('bKoMinutes'),hint=document.getElementById('bMinutesHint');if(m)m.value=mins;if(km)km.value=mins;if(hint)hint.textContent=`Suggested: ${mins} minutes (${game==='singles'?'5.0':game==='pairs'?'6.45':game==='triples'?'7.5':'7.7'} min per end × ${ends} ends).`;updatePlanner()};
+ document.getElementById('bGame')?.addEventListener('change',applySuggestedGameTime);
+ document.getElementById('bEnds')?.addEventListener('change',applySuggestedGameTime);
+ document.getElementById('bEnds')?.addEventListener('input',()=>{let game=document.getElementById('bGame')?.value||'rinks',ends=Math.max(1,+document.getElementById('bEnds')?.value||12),hint=document.getElementById('bMinutesHint');if(hint)hint.textContent=`Suggested: ${suggestedGameMinutes(game,ends)} minutes (${game==='singles'?'5.0':game==='pairs'?'6.45':game==='triples'?'7.5':'7.7'} min per end × ${ends} ends).`});
  const plannerValues=()=>({
-  n:Math.max(2,+document.getElementById('bTeams').value||16),ends:Math.max(1,+document.getElementById('bEnds')?.value||12),preferredGroup:Math.max(3,+document.getElementById('bGroup')?.value||4),r:Math.max(1,+document.getElementById('bRinks').value||6),m:Math.max(10,+document.getElementById('bMinutes').value||60),km:Math.max(10,+document.getElementById('bKoMinutes').value||+document.getElementById('bMinutes').value||60),koManual:document.getElementById('bKoMinutes')?.dataset.manual==='1',buffer:Math.max(0,+document.getElementById('bChangeover')?.value||0),lunchEnabled:document.getElementById('bLunchEnabled')?.value==='yes',lunchStart:document.getElementById('bLunchStart')?.value||'13:00',lunchMinutes:Math.max(0,+document.getElementById('bLunchMinutes')?.value||0),start:document.getElementById('bStart').value||'09:00',target:document.getElementById('bTarget').value||'21:00',qualify:document.getElementById('bQualify').value,best:Math.max(0,+document.getElementById('bBestRunners').value||0),autoFill:document.getElementById('bAutoFillKo')?.value!=='no',mode:document.getElementById('bOptimise').value,event:eventSel.value,day1:document.getElementById('bDay1Target').value||'21:00',day2:document.getElementById('bDay2Start').value||'09:00'
+  n:Math.max(2,+document.getElementById('bTeams').value||16),r:Math.max(1,+document.getElementById('bRinks').value||4),m:Math.max(10,+document.getElementById('bMinutes').value||80),km:Math.max(10,+document.getElementById('bKoMinutes').value||80),buffer:Math.max(0,+document.getElementById('bChangeover')?.value||0),lunchEnabled:document.getElementById('bLunchEnabled')?.value==='yes',lunchStart:document.getElementById('bLunchStart')?.value||'13:00',lunchMinutes:Math.max(0,+document.getElementById('bLunchMinutes')?.value||0),start:document.getElementById('bStart').value||'09:00',target:document.getElementById('bTarget').value||'21:00',qualify:document.getElementById('bQualify').value,best:Math.max(0,+document.getElementById('bBestRunners').value||0),mode:document.getElementById('bOptimise').value,event:eventSel.value,day1:document.getElementById('bDay1Target').value||'21:00',day2:document.getElementById('bDay2Start').value||'09:00'
  });
  let latestRec=null;
  function updatePlanner(){
   let box=document.getElementById('plannerResult'),status=document.getElementById('plannerStatus'),use=document.getElementById('useRecommendation');if(!box||!status||!use)return;
   if(type.value==='aggregate'){box.innerHTML='<p class="muted">The tournament planner is for tournament formats. Aggregate district matches use the number of rinks selected above.</p>';status.textContent='Not required';status.className='pill wait';use.disabled=true;return}
-  if(type.value==='knockout'){let v=plannerValues(),kp=knockoutOnlyPlan(v.n,v.r,v.km+v.buffer,v.start),path=kp.rounds.map(r=>r.name).join(' → '),recommendedGameMinutes=Math.max(10,Math.round((v.ends*406/60)/5)*5);latestRec={knockout:true,plan:kp};use.disabled=true;status.textContent='✓ Bracket calculated';status.className='pill done';box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>Recommended minutes per game:</b> ${recommendedGameMinutes} minutes <span class="muted">(${v.ends} ends × 6 min 46 sec per end)</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${kp.mainSize}</b><span>Main draw size</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Preliminary games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes to main draw</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Estimated final finish</span></div></div><p><b>Recommended format:</b> ${kp.prelimGames?`${kp.prelimGames} preliminary game${kp.prelimGames===1?'':'s'} involving ${kp.prelimTeams} teams, with ${kp.byes} bye${kp.byes===1?'':'s'} into the main draw.`:`Straight ${kp.mainSize}-team knockout — no preliminary round or byes required.`}</p><p><b>Knockout path:</b> ${path}</p><p class="muted">The automatic draw randomly selects which teams play in the preliminary round and which receive byes.</p>`;return}
-  let v=plannerValues(),rec=suggestedGroup(v.n,v.r,v.m+v.buffer,v.km+v.buffer,v.start,v.target,v.qualify,v.best,v.mode,v.event,v.day1,v.day2,v.preferredGroup),p=rec.p;latestRec=rec;use.disabled=false;
+  if(type.value==='knockout'){let v=plannerValues(),kp=knockoutOnlyPlan(v.n,v.r,v.km+v.buffer,v.start),path=kp.rounds.map(r=>r.name).join(' → ');latestRec={knockout:true,plan:kp};use.disabled=true;status.textContent='✓ Bracket calculated';status.className='pill done';box.innerHTML=`<div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${kp.mainSize}</b><span>Main draw size</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Preliminary games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes to main draw</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Estimated final finish</span></div></div><p><b>Recommended format:</b> ${kp.prelimGames?`${kp.prelimGames} preliminary game${kp.prelimGames===1?'':'s'} involving ${kp.prelimTeams} teams, with ${kp.byes} bye${kp.byes===1?'':'s'} into the main draw.`:`Straight ${kp.mainSize}-team knockout — no preliminary round or byes required.`}</p><p><b>Knockout path:</b> ${path}</p><p class="muted">The automatic draw randomly selects which teams play in the preliminary round and which receive byes.</p>`;return}
+  let v=plannerValues(),rec=suggestedGroup(v.n,v.r,v.m+v.buffer,v.km+v.buffer,v.start,v.target,v.qualify,v.best,v.mode,v.event,v.day1,v.day2),p=rec.p;latestRec=rec;use.disabled=false;
   let ok=!!(p.onTime&&p.day1OnTime),tight=ok&&p.minutesToTarget<60,statusText=ok?(tight?'⚠ Tight':'✓ Comfortable'):'✕ Not achievable',statusClass=ok&&!tight?'done':'wait';status.textContent=statusText;status.className='pill '+statusClass;
-  let groupText=p.sizes.map((z,i)=>`Group ${String.fromCharCode(65+i)}: ${z}`).join(' • ');
-  let groupCounts={};p.sizes.forEach(z=>groupCounts[z]=(groupCounts[z]||0)+1);
-  let groupSummaryParts=Object.entries(groupCounts).sort((a,b)=>+b[0]-+a[0]).map(([size,count])=>`${count} group${count===1?'':'s'} of ${size}`);
-  let groupSummary=`${p.sizes.length} group${p.sizes.length===1?'':'s'}: ${groupSummaryParts.join(' and ')}`;
-  let koText=(p.koRounds||[]).map(r=>r.name).join(' → ')||'No knockout';
-  let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`;
-  let singles=document.getElementById('bGame')?.value==='singles',recommendedGameMinutes=singles?v.m:Math.max(10,Math.round((v.ends*406/60)/5)*5);
-  box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>${singles?'Singles planning allowance':'Recommended minutes per game'}:</b> ${recommendedGameMinutes} minutes <span class="muted">${singles?'(Singles is first to 21 shots; keep or manually adjust the planning time.)':`(${v.ends} ends × 6 min 46 sec per end)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p><div class="${cleanKo?'oknotice':'notice'}"><b>Knockout fit:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
- }
- let endsInput=document.getElementById('bEnds'),gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes'),gameTypeInput=document.getElementById('bGame');
- const recommendedMinutesFromEnds=(ends)=>Math.max(10,Math.round(((Math.max(1,+ends||1)*406/60)/5))*5);
- const syncSinglesSetup=()=>{let single=gameTypeInput?.value==='singles',box=document.getElementById('singles21Box'),help=document.getElementById('endsTimeHelp'),label=document.getElementById('bEndsLabel');if(box)box.classList.toggle('hidden',!single);if(endsInput)endsInput.classList.toggle('hidden',single);if(help)help.classList.toggle('hidden',single);if(label)label.textContent=single?'Singles scoring':'Ends';updatePlanner()};
- if(gameTypeInput)gameTypeInput.addEventListener('change',syncSinglesSetup);
- if(endsInput){
-  endsInput.addEventListener('input',()=>{updatePlanner()});
- }
- if(gameMinutesInput&&koMinutesInput){
-  gameMinutesInput.addEventListener('input',()=>{if(koMinutesInput.dataset.manual!=='1'){koMinutesInput.value=gameMinutesInput.value;updatePlanner()}});
-  koMinutesInput.addEventListener('input',()=>{koMinutesInput.dataset.manual='1';updatePlanner()});
+  let groupText=p.sizes.map((z,i)=>`Group ${String.fromCharCode(65+i)}: ${z}`).join(' • '),koText=(p.koRounds||[]).map(r=>r.name).join(' → ')||'No knockout';
+  box.innerHTML=`<div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
- document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}updatePlanner()};
- const updateQuickRecommendedTime=()=>{let single=document.getElementById('qsGame')?.value==='singles',qe=Math.max(1,+document.getElementById('qsEnds')?.value||12),out=document.getElementById('qsRecommendedTime');if(!out)return;if(single){out.innerHTML='<b>Recommended time:</b> use your chosen planning time for Singles <span class="muted">(first to 21 shots)</span>';return}let recM=recommendedMinutesFromEnds(qe);out.innerHTML=`<b>Recommended time:</b> ${recM} minutes <span class="muted">(${qe} ends × 6 min 46 sec, rounded to nearest 5)</span>`};
- const syncQuickStartSingles=()=>{let single=document.getElementById('qsGame')?.value==='singles',qe=document.getElementById('qsEnds'),qh=document.getElementById('qsEndsHelp');if(qe)qe.disabled=single;if(qh)qh.textContent=single?'Singles is first to 21 shots.':'Used to calculate the recommendation.';updateQuickRecommendedTime()};
- let qsGame=document.getElementById('qsGame');if(qsGame)qsGame.onchange=syncQuickStartSingles;let qsEnds=document.getElementById('qsEnds');if(qsEnds)qsEnds.addEventListener('input',updateQuickRecommendedTime);syncQuickStartSingles();
- const applyQuickStart=(useRecommended=false)=>{
-  let qg=document.getElementById('qsGame')?.value||'pairs',qn=Math.max(2,+document.getElementById('qsTeams')?.value||16),qe=Math.max(1,+document.getElementById('qsEnds')?.value||12),qr=Math.max(1,+document.getElementById('qsRinks')?.value||6),qs=document.getElementById('qsStart')?.value||'09:00',qm=Math.max(10,+document.getElementById('qsMinutes')?.value||60);
-  document.getElementById('bGame').value=qg;document.getElementById('bTeams').value=qn;document.getElementById('bEnds').value=qe;document.getElementById('bRinks').value=qr;document.getElementById('bStart').value=qs;document.getElementById('bMinutes').value=qm;
-  if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=qm;syncSinglesSetup();updatePlanner();
-  if(useRecommended&&qg!=='singles'){let recM=recommendedMinutesFromEnds(qe);document.getElementById('bMinutes').value=recM;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=recM;document.getElementById('qsMinutes').value=recM;updatePlanner()}
-  document.getElementById('plannerResult')?.scrollIntoView({behavior:'smooth',block:'center'});
- };
- document.getElementById('applyQuickStart').onclick=()=>applyQuickStart(false);document.getElementById('applyQuickRecommended').onclick=()=>applyQuickStart(true);
-
+ document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;updatePlanner()};
  document.getElementById('saveBuilder').onclick=()=>{
-  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
+  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode=document.getElementById('bScoring').value;x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
   if(type.value==='aggregate'){x.aggregateSideA=document.getElementById('bSideA').value.trim()||'Side A';x.aggregateSideB=document.getElementById('bSideB').value.trim()||'Side B';x.aggregateRinks=Math.max(1,+document.getElementById('bAggRinks').value||6);ensureAggregate(c)}
-  else {let v=plannerValues(),oldCount=c.teams.length,oldGroup=+x.groupSize||4,oldDraw=x.drawMethod;x.teamCount=v.n;x.groupSize=Math.max(3,+document.getElementById('bGroup').value||4);x.rinks=v.r;x.start=v.start;x.minutes=v.m;x.changeoverMinutes=v.buffer;x.lunchEnabled=v.lunchEnabled;x.lunchStart=v.lunchStart;x.lunchMinutes=v.lunchMinutes;x.knockoutMinutes=v.koManual?v.km:v.m;x.knockoutMinutesManual=v.koManual;x.teamIdentifierMode=document.getElementById('bTeamIdentifier')?.value||'home_away';x.drawMethod=document.getElementById('bDraw').value;x.eventFormat=v.event;x.targetFinish=v.target;x.optimise=v.mode;x.qualify=v.qualify;x.bestRunners=v.best;x.autoFillKnockout=v.autoFill;x.day1TargetFinish=v.day1;x.day2Start=v.day2;
+  else {let v=plannerValues(),oldCount=c.teams.length,oldGroup=+x.groupSize||4,oldDraw=x.drawMethod;x.teamCount=v.n;x.groupSize=Math.max(3,+document.getElementById('bGroup').value||4);x.rinks=v.r;x.start=v.start;x.minutes=v.m;x.changeoverMinutes=v.buffer;x.lunchEnabled=v.lunchEnabled;x.lunchStart=v.lunchStart;x.lunchMinutes=v.lunchMinutes;x.knockoutMinutes=v.km;x.teamIdentifierMode=document.getElementById('bTeamIdentifier')?.value||'home_away';x.drawMethod=document.getElementById('bDraw').value;x.eventFormat=v.event;x.targetFinish=v.target;x.optimise=v.mode;x.qualify=v.qualify;x.bestRunners=v.best;x.day1TargetFinish=v.day1;x.day2Start=v.day2;
    if(oldCount<x.teamCount){for(let i=oldCount;i<x.teamCount;i++)c.teams.push({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})}else if(oldCount>x.teamCount)c.teams=c.teams.slice(0,x.teamCount);
    if(oldCount!==x.teamCount||oldGroup!==x.groupSize||oldDraw!==x.drawMethod||oldTournamentType!==x.tournamentType){c.teams.forEach(t=>t.group='');c.fixtures=[];c.knockout=[];c.knockoutByes=[];c.manualHistory=[];c.manualDrawConfirmed=false}else if(c.fixtures?.length){c.fixtures.forEach(f=>f.start=sessionStartTime(c,+f.session||1))}
   }
   saveDB();render()
  };
- syncSinglesSetup();
-}
-
-function scorerNextMatch(c=comp()){
- let useKo=scoringHomeTab(c)==='knockout'||(c.settings?.tournamentType||'standard')==='knockout';
- if(useKo){
-  let rounds=(c.settings?.tournamentType||'standard')==='knockout'?(c.knockout||[]):normaliseStandardKnockout(c),all=rounds.flat().filter(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&!completed(m)&&scorerCanScoreItem(m,c));
-  all.sort((a,b)=>(currentScore(b).live?1:0)-(currentScore(a).live?1:0)||String(a.start||'99:99').localeCompare(String(b.start||'99:99'))||(+a.rink||99)-(+b.rink||99));
-  let m=all[0];return m?{type:'ko',item:m,a:knockoutRefName(m.a,c),b:knockoutRefName(m.b,c),rink:m.rink||'—',venue:knockoutVenueName(m,c)||'',start:m.start||'',label:m.roundName||m.label||'Knockout'}:null
- }
- let all=(c.fixtures||[]).filter(f=>!completed(f)&&scorerCanScoreItem(f,c));
- all.sort((a,b)=>(currentScore(b).live?1:0)-(currentScore(a).live?1:0)||(+a.session||99)-(+b.session||99)||fixtureLocalRink(a,c)-fixtureLocalRink(b,c));
- let f=all[0];return f?{type:'group',item:f,a:fixtureTeamName(f,'a',c),b:fixtureTeamName(f,'b',c),rink:fixtureLocalRink(f,c),venue:fixtureVenue(f,c)||'',start:f.start||'',label:`Session ${f.session||'—'} • Group ${f.group||'—'}`}:null
-}
-function appendScorerNextMatchCard(s,c=comp()){
- if(role!=='scorer'||!['quick','knockout'].includes(tab)||!s)return;
- let n=scorerNextMatch(c);if(!n)return;
- let cs=currentScore(n.item),card=document.createElement('div');card.className='card';card.id='nextMatchCard';card.style.cssText='border:2px solid #38bdf8;background:#f0f9ff';
- card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><div class="meta" style="font-weight:900;color:#0369a1">YOUR NEXT MATCH</div><h2 style="margin:3px 0 5px">${esc(n.a)} v ${esc(n.b)}</h2><div>${esc(n.label)} • ${n.venue?esc(n.venue)+' • ':''}Rink ${esc(n.rink)}${n.start?' • '+esc(n.start):''}</div>${cs.live?`<div class="oknotice notice" style="margin:8px 0 0"><b>In progress:</b> ${cs.a}–${cs.b}${cs.ends?` after ${cs.ends} ends`:''}</div>`:''}</div><button type="button" class="btn primary" id="openNextMatchBtn">Score Match</button></div>`;
- s.prepend(card);document.getElementById('openNextMatchBtn').onclick=()=>{
-  if(n.type==='group'){sessionStorage.setItem('bowlsScoreSession:'+c.id,String(n.item.session||1));let v=fixtureVenue(n.item,c);if(v)sessionStorage.setItem('bowlsScoreVenue:'+c.id,v);tab='quick'}else tab='knockout';
-  render();setTimeout(()=>{let d=document.querySelector(`[data-score-panel="${CSS.escape(String(n.item.id))}"]`);if(d){d.open=true;(d.closest('.card')||d).scrollIntoView({behavior:'smooth',block:'start'})}},80)
- };
-}
-function tournamentHealth(c=comp()){
- let issues=[],good=[];
- let names=(c.teams||[]).map(t=>(t.name||'').trim()).filter(Boolean),dupes=[...new Set(names.filter((n,i)=>names.findIndex(x=>x.toLowerCase()===n.toLowerCase())!==i))];
- if(dupes.length)issues.push(`Duplicate team/player names: ${dupes.join(', ')}`);else good.push('No duplicate entry names');
- if((c.teams||[]).some(t=>!(t.name||'').trim()||/^Team \d+$/i.test((t.name||'').trim())))issues.push('Some entries still have blank or placeholder names');else good.push('Entry names look complete');
- if(!isAggregate(c)&&(c.settings?.tournamentType||'standard')==='standard'){
-  let ungrouped=(c.teams||[]).filter(t=>!t.group).length;if(ungrouped)issues.push(`${ungrouped} entr${ungrouped===1?'y is':'ies are'} not assigned to a group`);else if(c.teams?.length)good.push('All entries are assigned to groups');
-  if(!(c.fixtures||[]).length)issues.push('No group fixtures have been generated');else good.push(`${c.fixtures.length} group fixtures generated`);
- }
- let matches=isAggregate(c)?ensureAggregate(c):((c.settings?.tournamentType||'standard')==='knockout'?(c.knockout||[]).flat():[...(c.fixtures||[]),...(c.knockout||[]).flat()]);
- let missingRink=matches.filter(m=>m&&!completed(m)&&m.a!=null&&m.b!=null&&!(+m.rink>0)).length;if(missingRink)issues.push(`${missingRink} playable match${missingRink===1?'':'es'} without a rink`);else if(matches.length)good.push('Playable matches have rink allocations');
- let live=matches.filter(m=>m&&!completed(m)&&currentScore(m).live).length;if(live)good.push(`${live} match${live===1?' is':'es are'} currently in progress`);
- let incomplete=matches.filter(m=>m&&m.a!=null&&m.b!=null&&!completed(m)).length;if(incomplete)good.push(`${incomplete} match${incomplete===1?'':'es'} still to complete`);else if(matches.length)good.push('All currently generated matches are complete');
- let pending=offlineQueueEntry();if(pending)issues.push('This device has an unsynced offline change waiting');else good.push('No unsynced offline changes on this device');
- return {issues,good,status:issues.length?'attention':'good'}
-}
-function openTournamentHealthCheck(){
- let c=comp(),h=tournamentHealth(c);document.getElementById('healthCheckModal')?.remove();let box=document.createElement('div');box.className='modal';box.id='healthCheckModal';
- box.innerHTML=`<div class="modalbox" style="width:min(680px,100%);max-height:90vh;overflow:auto"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><h2 style="margin:0">Tournament Health Check</h2><p class="muted" style="margin:5px 0 0">Checks the tournament for common setup, scoring and sync problems.</p></div><button class="btn secondary" id="closeHealthCheck">Close</button></div><div class="${h.issues.length?'notice':'oknotice notice'}" style="margin-top:14px"><b>${h.issues.length?`${h.issues.length} item${h.issues.length===1?'':'s'} need attention`:'Everything checked looks good ✓'}</b></div>${h.issues.length?`<h3>Needs attention</h3>${h.issues.map(x=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)">⚠️ ${esc(x)}</div>`).join('')}`:''}<h3>Checks passed</h3>${h.good.map(x=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)">✅ ${esc(x)}</div>`).join('')}</div>`;
- document.body.appendChild(box);document.getElementById('closeHealthCheck').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()}
-}
-function appendHealthCheckCard(s,c=comp()){
- if(role!=='admin'||tab!=='dashboard'||!s||document.getElementById('healthCheckCard'))return;let h=tournamentHealth(c),card=document.createElement('div');card.className='card';card.id='healthCheckCard';
- card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0 0 4px">🩺 Tournament Health Check</h3><p class="muted" style="margin:0">${h.issues.length?`${h.issues.length} item${h.issues.length===1?'':'s'} may need attention.`:'No obvious problems found.'}</p></div><button class="btn ${h.issues.length?'primary':'success'}" id="runHealthCheck">Run Health Check</button></div>`;s.appendChild(card);document.getElementById('runHealthCheck').onclick=openTournamentHealthCheck
+ updatePlanner();
 }
 function renderDashboard(s){
  let c=comp();
@@ -1674,7 +1311,7 @@ function generateDraw(){
  c.drawSeed=(+c.drawSeed||0)+1;c.fixtures=[];c.knockout=[];c.manualHistory=[];c.manualDrawConfirmed=false;saveDB();return true
 }
 function sessionInterval(c=comp()){let x=c.settings||{};return Math.max(1,(+x.minutes||80)+Math.max(0,+x.changeoverMinutes||0))}
-function knockoutInterval(c=comp()){let x=c.settings||{};return Math.max(1,(+x.knockoutMinutes||+x.minutes||60)+Math.max(0,+x.changeoverMinutes||0))}
+function knockoutInterval(c=comp()){let x=c.settings||{};return Math.max(1,(+x.knockoutMinutes||+x.minutes||80)+Math.max(0,+x.changeoverMinutes||0))}
 function lunchWindow(c=comp()){
  let x=c?.settings||{};if(!x.lunchEnabled||!(+x.lunchMinutes>0))return null;
  let start=minutesOfDay(x.lunchStart||'13:00'),end=start+Math.max(0,+x.lunchMinutes||0);return {start,end};
@@ -1725,39 +1362,22 @@ function fullTournamentPlan(n,groupSize,rinks,minutes,koMinutes,start,target,qua
  }
  let gp=planFor(n,groupSize,rinks,minutes,start),q=Math.min(n,qualifierCount(gp.sizes.length,qualify,bestRunners)),ko=knockoutPlan(q,rinks,koMinutes,day2Start),groupFinishMin=minutesOfDay(gp.finish),day1TargetMin=minutesOfDay(day1Target),finalMin=minutesOfDay(ko.finish),targetMin=minutesOfDay(target);if(groupFinishMin<minutesOfDay(start))groupFinishMin+=1440;if(day1TargetMin<minutesOfDay(start))day1TargetMin+=1440;if(finalMin<minutesOfDay(day2Start))finalMin+=1440;if(targetMin<minutesOfDay(day2Start))targetMin+=1440;return {...gp,groupGames:gp.games,groupSessions:gp.sessions,groupFinish:gp.finish,qualifiers:q,bracketSize:ko.bracketSize,koRounds:ko.rounds,koSessions:ko.sessions,finalFinish:ko.finish,totalSessions:gp.sessions+ko.sessions,onTime:finalMin<=targetMin,overBy:Math.max(0,finalMin-targetMin),minutesToTarget:targetMin-finalMin,day1OnTime:groupFinishMin<=day1TargetMin,day1OverBy:Math.max(0,groupFinishMin-day1TargetMin),eventFormat:'two_day'};
 }
-function isStandardKnockoutSize(q){return q>=2&&(q&(q-1))===0}
-function nextStandardKnockoutSize(q){let s=2;while(s<Math.max(2,q))s*=2;return s}
-function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00',preferredGroup=4){
- let candidates=[];preferredGroup=Math.max(3,Math.min(12,+preferredGroup||4));
+function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00'){
+ let candidates=[];
  for(let g=3;g<=Math.min(8,n);g++){
-  let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start),min=Math.min(...p.sizes),max=Math.max(...p.sizes),avg=n/p.sizes.length;
+  let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start),min=Math.min(...p.sizes),avg=n/p.sizes.length;
   if(min<3&&n>=3)continue;
-  let imbalance=max-min,latePenalty=(p.onTime&&p.day1OnTime)?0:50000+p.overBy*100+p.day1OverBy*100;
-  // Build 98: organiser-first planning. The preferred group size and a sensible/even split
-  // take priority over forcing a neat knockout bracket.
-  let sweetOutside=p.sizes.reduce((sum,z)=>sum+(z<4?(4-z)*2:(z>5?(z-5):0)),0);
-  let allSweet=p.sizes.every(z=>z>=4&&z<=5);
-  let allPractical=p.sizes.every(z=>z>=4&&z<=6);
-  let structureClass=allSweet?0:allPractical?1:2;
-  let preferredDistance=p.sizes.reduce((sum,z)=>{
-    // With a preference of 4, a group of 5 is still a very good fit; likewise 5/4.
-    let d=Math.abs(z-preferredGroup);if((preferredGroup===4&&z===5)||(preferredGroup===5&&z===4))d=.25;
-    return sum+d;
-  },0);
-  let structurePenalty=sweetOutside*22000+preferredDistance*6000;
-  let evenPenalty=imbalance*2400;
-  let q=Math.min(n,p.qualifiers),next=nextStandardKnockoutSize(q),clean=isStandardKnockoutSize(q);
-  let bracketFill=clean?0:Math.max(0,next-q);
-  // Knockout fit is deliberately secondary to the group structure.
-  let bracketPenalty=clean?-1200:bracketFill*900;
-  let extraGamesPenalty=Math.max(0,p.groupGames-(n*2.4))*8;
+  let imbalance=Math.max(...p.sizes)-Math.min(...p.sizes),latePenalty=(p.onTime&&p.day1OnTime)?0:50000+p.overBy*100+p.day1OverBy*100;
+  let fourGroupPenalty=Math.abs(avg-4)*4000;
+  let exactFourBonus=(p.sizes.length&&p.sizes.every(z=>z===4))?-12000:0;
+  let extraGamesPenalty=Math.max(0,p.groupGames-(n*1.5))*20;
   let score;
-  if(mode==='shortest')score=structurePenalty+evenPenalty+latePenalty+p.totalSessions*850+(100-p.util)*2+bracketPenalty;
-  else if(mode==='games')score=structurePenalty+evenPenalty+latePenalty-p.groupGames*250+p.totalSessions*10+(100-p.util)+bracketPenalty;
-  else score=structurePenalty+evenPenalty+latePenalty+extraGamesPenalty+(100-p.util)*.4+p.totalSessions*2+p.backToBack*.5+bracketPenalty;
-  candidates.push({g,p,score,structureClass,preferredDistance,cleanBracket:clean,bracketFill,practical:allPractical,sweet:allSweet});
+  if(mode==='shortest')score=latePenalty+p.totalSessions*1000+(100-p.util)*2+imbalance*20+Math.abs(avg-4);
+  else if(mode==='games')score=latePenalty-p.groupGames*1000+p.totalSessions*10+(100-p.util)+imbalance*20;
+  else score=latePenalty+fourGroupPenalty+exactFourBonus+extraGamesPenalty+imbalance*200+(100-p.util)*.25+p.totalSessions*.3+p.backToBack*.2;
+  candidates.push({g,p,score});
  }
- return candidates.sort((a,b)=>a.structureClass-b.structureClass||a.preferredDistance-b.preferredDistance||a.score-b.score||Number(b.cleanBracket)-Number(a.cleanBracket)||a.bracketFill-b.bracketFill||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
+ return candidates.sort((a,b)=>a.score-b.score||Number(b.p.onTime&&b.p.day1OnTime)-Number(a.p.onTime&&a.p.day1OnTime)||Math.abs((a.p.sizes.reduce((x,y)=>x+y,0)/a.p.sizes.length)-4)-Math.abs((b.p.sizes.reduce((x,y)=>x+y,0)/b.p.sizes.length)-4)||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
 }
 function knockoutOnlyPlan(n,rinks,minutes,start){
  n=Math.max(2,+n||2);rinks=Math.max(1,+rinks||1);minutes=Math.max(10,+minutes||80);
@@ -1798,10 +1418,11 @@ function advanceKnockoutOnly(c=comp()){
  (c.knockout||[]).forEach((round,ri)=>{if(ri===0)return;round.forEach(m=>{m.a=knockoutSourceResolved(m.sourceA,c);m.b=knockoutSourceResolved(m.sourceB,c)})});
 }
 function knockoutEntryReady(v){return v!=null&&!/^Winner\s+/i.test(String(v))}
-function suggestedGroup(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00',preferredGroup=4){return groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode,eventFormat,day1Target,day2Start,preferredGroup)[0]||{g:Math.max(3,Math.min(preferredGroup||4,n)),p:fullTournamentPlan(n,Math.max(3,Math.min(preferredGroup||4,n)),rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start)}}
+function suggestedGroup(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00'){return groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode,eventFormat,day1Target,day2Start)[0]||{g:Math.max(3,Math.min(4,n)),p:fullTournamentPlan(n,Math.max(3,Math.min(4,n)),rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start)}}
 function generateTournament(){generateDraw();generateFixtures()}
 function roundRobin(teams){let list=[...teams];if(list.length%2)list.push(null);let n=list.length,rounds=[];for(let r=0;r<n-1;r++){let games=[];for(let i=0;i<n/2;i++){let a=list[i],b=list[n-1-i];if(a&&b)games.push([a,b])}rounds.push(games);list=[list[0],list[n-1],...list.slice(1,n-1)]}return rounds}
 function addMinutes(t,m){let [h,mi]=t.split(':').map(Number),tot=h*60+mi+m;return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0')}
+function suggestedGameMinutes(gameType,ends){let rates={singles:5,pairs:6.45,triples:7.5,rinks:7.7},rate=rates[gameType]||7.7;return Math.max(10,Math.round((Math.max(1,+ends||1))*rate))}
 function teamName(id,c=comp()){if(id&&typeof id==='object')return id.name||teamName(id.id,c);let v=String(id??'');let t=c.teams.find(t=>String(t.id)===v)||c.teams.find(t=>String(t.name)===v);if(t)return t.name;if(/^t\d+$/i.test(v)){let n=parseInt(v.replace(/\D/g,''),10);return c.teams[n-1]?.name||v}if(/^\d+$/.test(v)){let n=parseInt(v,10);return c.teams[n-1]?.name||v}return v||'TBC'}
 function fixtureTeamName(f,side,c=comp()){let id=side==='a'?f.a:f.b,stored=side==='a'?f.nameA:f.nameB,v=String(id??''),found=c.teams.find(t=>String(t.id)===v)||c.teams.find(t=>String(t.name)===v);if(found)return found.name;if(stored)return stored;return teamName(id,c)||'TBC'}
 function renderTeams(s){
@@ -1991,7 +1612,7 @@ function printPlayingSchedule(){let c=comp(),fs=c.fixtures;if(!fs.length)return;
 function prepareScorecardPrint(){
  let g=document.getElementById('cardsGrid');if(!g)return;
  g.classList.remove('print-4','print-6','print-8');
- let ends=scoringEnds(comp());
+ let ends=Math.max(1,+comp().settings.ends||12);
  g.classList.add(ends<=12?'print-8':ends<=18?'print-6':'print-4');
  setTimeout(()=>window.print(),50);
 }
@@ -2015,9 +1636,9 @@ function sideBadge(side,c=comp()){
 }
 function scorecardCard(f,blank=false,reverse=false){let c=comp(),x=c.settings,positions=playerPositions(x.gameType||'rinks'),baseA=blank?'____________________':fixtureTeamName(f,'a',c),baseB=blank?'____________________':fixtureTeamName(f,'b',c),a=reverse?baseB:baseA,b=reverse?baseA:baseB,rink=blank?'_____':(f.rink??'_____'),game=blank?'_____':(f.game??f.label??'_____'),grp=blank?'_____':(f.group??f.roundName??'_____'),start=blank?'_____':(f.start??'_____'),origTeamA=c.teams.find(t=>String(t.id)===String(f.a)),origTeamB=c.teams.find(t=>String(t.id)===String(f.b)),teamA=reverse?origTeamB:origTeamA,teamB=reverse?origTeamA:origTeamB;
  let playerRows=positions.map((p,i)=>{let pa=blank?'':(teamA?.players?.[i]||''),pb=blank?'':(teamB?.players?.[i]||'');return `<div>${pa?esc(pa):'&nbsp;'}</div><div class="pos">${esc(p)}</div><div>${pb?esc(pb):'&nbsp;'}</div>`}).join('');
- let endRows=Array.from({length:scoringEnds(c)},(_,i)=>`<tr><td class="shot"></td><td class="running"></td><td class="endnum">${i+1}</td><td class="shot"></td><td class="running"></td></tr>`).join('');
+ let endRows=Array.from({length:x.ends},(_,i)=>`<tr><td class="shot"></td><td class="running"></td><td class="endnum">${i+1}</td><td class="shot"></td><td class="running"></td></tr>`).join('');
  let baseSi=matchSideInfo(c),si=reverse?{...baseSi,a:baseSi.b,b:baseSi.a,aLong:baseSi.bLong,bLong:baseSi.aLong,aStyle:baseSi.bStyle,bStyle:baseSi.aStyle}:baseSi;
- return `<div class="scorecard"><div class="scorecard-title">${esc(x.clubName||'Your Bowls Club')}</div><div class="scorecard-info"><div><b>Competition:</b> ${esc(c.title)}</div><div><b>Date:</b> __________________</div><div><b>Group / Game:</b> ${grp} / ${game}</div><div><b>Rink No:</b> ${rink}</div><div><b>Start:</b> ${start}</div><div><b>Format:</b> ${esc((x.gameType||'rinks').replace(/^./,m=>m.toUpperCase()))}${isSingles(c)?' • First to 21':''}</div></div><div class="scorecard-vs"><span style="font-weight:900;${si.aStyle};padding:2px 6px;border-radius:5px">${esc(si.aLong)}</span> ${esc(a)} &nbsp; vs &nbsp; <span style="font-weight:900;${si.bStyle};padding:2px 6px;border-radius:5px">${esc(si.bLong)}</span> ${esc(b)}</div><div class="player-lines">${playerRows}</div><table class="score-table"><thead><tr><th>SHOTS</th><th>TOTAL</th><th>ENDS</th><th>SHOTS</th><th>TOTAL</th></tr></thead><tbody>${endRows}</tbody></table><div class="scorecard-total"><div>TOTAL __________</div><div style="text-align:right">TOTAL __________</div></div><div class="scorecard-foot">One Stop Bowling Software • Traditional bowls scorecard</div></div>`}
+ return `<div class="scorecard"><div class="scorecard-title">${esc(x.clubName||'Your Bowls Club')}</div><div class="scorecard-info"><div><b>Competition:</b> ${esc(c.title)}</div><div><b>Date:</b> __________________</div><div><b>Group / Game:</b> ${grp} / ${game}</div><div><b>Rink No:</b> ${rink}</div><div><b>Start:</b> ${start}</div><div><b>Format:</b> ${esc((x.gameType||'rinks').replace(/^./,m=>m.toUpperCase()))}</div></div><div class="scorecard-vs"><span style="font-weight:900;${si.aStyle};padding:2px 6px;border-radius:5px">${esc(si.aLong)}</span> ${esc(a)} &nbsp; vs &nbsp; <span style="font-weight:900;${si.bStyle};padding:2px 6px;border-radius:5px">${esc(si.bLong)}</span> ${esc(b)}</div><div class="player-lines">${playerRows}</div><table class="score-table"><thead><tr><th>SHOTS</th><th>TOTAL</th><th>ENDS</th><th>SHOTS</th><th>TOTAL</th></tr></thead><tbody>${endRows}</tbody></table><div class="scorecard-total"><div>TOTAL __________</div><div style="text-align:right">TOTAL __________</div></div><div class="scorecard-foot">One Stop Bowling Software • Traditional bowls scorecard</div></div>`}
 function renderScorecards(s){let c=comp(),tt=(c.settings.tournamentType||'standard');if(isAggregate(c)){s.innerHTML='<div class="card"><h2>Scorecards</h2><p>Aggregate team-match scorecards will use one card per rink. Individual rink scoring is available now from Scores.</p></div>';return}
  let fs=tt==='knockout'?(c.knockout||[]).flat().map(m=>({...m,game:m.label||'',group:m.roundName||'Knockout'})):c.fixtures;
  if(!fs.length){s.innerHTML=`<div class="card"><h2>Scorecards</h2><p>${tt==='knockout'?'Generate the knockout draw first.':'Generate the draw and rink schedule first.'}</p></div>`;return}
@@ -2035,7 +1656,7 @@ function renderFixtures(s){
 function renderQuick(s){
  let c=comp();
  if(scoringHomeTab(c)==='knockout'){tab='knockout';render();return}
- let x=c.settings;x.scoringMode='live_optional';let live=true;
+ let x=c.settings,live=(x.scoringMode||'final')==='live_optional';
  if(scheduleVenueNames(c).length>1){(c.fixtures||[]).forEach(f=>{f.rink=fixtureLocalRink(f,c)})}
  if(remoteTournamentId&&remoteTournamentCode&&!['owner','admin','scorer'].includes(remoteAccessRole||'')){
   let signed=!!currentUser,pending=remoteAccessRole==='pending';
@@ -2072,7 +1693,7 @@ function renderQuick(s){
   }
 
   let visibleRows=role==='scorer'?rows.filter(r=>r.rink===assigned):rows;
-  s.innerHTML=`<div class="card"><h2>Aggregate Match Scoring</h2><p class="muted">${live?'End-by-end / anytime scoring is enabled. Scores auto-save as they are entered.':'Enter each final rink score.'}</p>
+  s.innerHTML=`<div class="card"><h2>Aggregate Match Scoring</h2><p class="muted">${live?'Live end-by-end scoring is available but optional. Scores auto-save as they are entered.':'Enter each final rink score.'}</p>
   <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;text-align:center;align-items:center;margin:16px 0"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div id="aggLiveTotalA" style="font-size:38px;font-weight:900">${t.a}</div></div><b style="font-size:24px">–</b><div><b>${esc(x.aggregateSideB||'Side B')}</b><div id="aggLiveTotalB" style="font-size:38px;font-weight:900">${t.b}</div></div></div>
   ${role==='scorer'?`<div class="oknotice" style="display:flex;gap:10px;align-items:center;justify-content:space-between"><div><b>YOU ARE SCORING RINK ${assigned}</b><div class="meta">Check the rink and skip names before entering a score.</div></div><button class="btn secondary" id="changeAssignedRink">Change Rink</button></div>`:''}
   ${visibleRows.map(r=>{let ls=liveScore(r);return `<div class="card" style="box-shadow:none;border:2px solid ${role==='scorer'?'#0369a1':'var(--line)'}"><div style="text-align:center;margin-bottom:12px"><div style="font-size:30px;font-weight:900">RINK ${r.rink}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-top:8px"><div><b>${esc(x.aggregateSideA||'Side A')}</b>${r.skipA?`<div class="meta">Skip: <b>${esc(r.skipA)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div><b>v</b><div><b>${esc(x.aggregateSideB||'Side B')}</b>${r.skipB?`<div class="meta">Skip: <b>${esc(r.skipB)}</b></div>`:'<div class="meta">Skip not entered</div>'}</div></div></div><div class="notice" style="margin-bottom:10px;background:#f8fafc"><b>Rink line-up:</b> ${esc(r.skipA||'TBC')} v ${esc(r.skipB||'TBC')}${role==='admin'?`<div class="meta">Change these names in Teams → Team Match Rink Line-up.</div>`:''}</div>${liveCheckpointFields(r,'agg-'+r.rink,x.aggregateSideA||'Side A',x.aggregateSideB||'Side B',x.ends||21)}${live?`<details><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(x.aggregateSideA||'Side A')}</th><th>${esc(x.aggregateSideB||'Side B')}</th></tr></thead><tbody>${Array.from({length:x.ends||21},(_,i)=>{let e=liveEntries(r)[i]||{a:'',b:''};return `<tr><td><b>${i+1}</b></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="agg-${r.rink}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="agg-${r.rink}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div><b>${esc(x.aggregateSideA||'Side A')}</b><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-agg-a="${r.rink}" value="${r.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-agg-b="${r.rink}" value="${r.scoreB}"><div class="away"><b>${esc(x.aggregateSideB||'Side B')}</b><div class="meta">Final score</div></div></div></div>`}).join('')}
@@ -2110,32 +1731,30 @@ function renderQuick(s){
  if((x.tournamentType||'standard')==='knockout'){
   advanceKnockoutOnly(c);let rounds=c.knockout||[];if(!rounds.length){s.innerHTML='<div class="card"><h2>Knockout Scoring</h2><p>Generate the knockout draw first.</p></div>';return}
   let activeRoundIndex=rounds.findIndex(round=>round.some(m=>knockoutEntryReady(m.a)&&knockoutEntryReady(m.b)&&!completed(m)));if(activeRoundIndex<0)activeRoundIndex=rounds.length-1;
-  let round=rounds[activeRoundIndex],roundName=round[0]?.roundName||('Round '+(activeRoundIndex+1));if(role==='scorer')round=round.filter(m=>scorerCanScoreItem(m,c));
-  s.innerHTML=`<div class="card"><h2>${esc(roundName)} Scoring</h2><p class="muted">${live?'End-by-end / anytime scoring is enabled and auto-saves. Confirm the final score to advance the winner.':'Enter the final score to advance the winner.'}</p>${round.map(m=>{let ready=knockoutEntryReady(m.a)&&knockoutEntryReady(m.b),ls=liveScore(m);return `<div class="card" style="box-shadow:none"><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center"><div>${sideBadge('a',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(knockoutRefName(m.a,c))}</div></div><b>v</b><div>${sideBadge('b',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(knockoutRefName(m.b,c))}</div></div></div><div class="meta" style="text-align:center;margin-top:5px">${esc(m.label||'')} • ${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div>${!ready?'<div class="notice" style="margin-top:10px">Waiting for earlier round result.</div>':`${liveCheckpointFields(m,m.id,knockoutRefName(m.a,c),knockoutRefName(m.b,c),scoringEnds(c,m))}${live?`<details data-score-panel="${m.id}" style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(knockoutRefName(m.a,c))}</th><th>${esc(knockoutRefName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:scoringEnds(c,m)},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details><button type="button" class="btn secondary" style="margin-top:8px" data-undo-live="${m.id}">Undo Last End</button>`:''}<div class="scoreline"><div>${sideBadge('a',c)}<div><b>${esc(knockoutRefName(m.a,c))}</b></div><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-ko-a="${m.id}" value="${m.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-ko-b="${m.id}" value="${m.scoreB}"><div class="away">${sideBadge('b',c)}<div><b>${esc(knockoutRefName(m.b,c))}</b></div><div class="meta">Final score</div></div></div>`}</div>`}).join('')}<button class="btn primary" style="width:100%;margin-top:12px" id="saveKoScores">Save Scores</button></div>`;
-  const persistKo=()=>{round.forEach(m=>{if(!knockoutEntryReady(m.a)||!knockoutEntryReady(m.b))return;let a=document.querySelector(`[data-ko-a="${m.id}"]`),b=document.querySelector(`[data-ko-b="${m.id}"]`);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);persistLiveCheckpoint(m,m.id);if(live){m.liveEnds=Array.from({length:scoringEnds(c,m)},(_,i)=>{let la=document.querySelector(`[data-live-a="${m.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${m.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}});autoCompleteSinglesFromLive(m,c)}});advanceKnockoutOnly(c)};
-  const koAuto=()=>queueLiveAutoSave(persistKo);document.querySelectorAll('[data-undo-live]').forEach(btn=>btn.onclick=()=>{let m=round.find(x=>String(x.id)===String(btn.dataset.undoLive));if(m)undoLastLiveEnd(m,c)});attachBowlsEndRules(document,koAuto);document.querySelectorAll('[data-ko-a],[data-ko-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',koAuto));wireLiveTotalButtons(()=>saveScoresNow(persistKo,()=>render()));document.getElementById('saveKoScores').onclick=()=>saveScoresNow(persistKo,()=>{let done=round.filter(completed);if(role==='scorer'&&done.length===1)scorerResultConfirmation(done[0],c,true);render()});return
+  let round=rounds[activeRoundIndex],roundName=round[0]?.roundName||('Round '+(activeRoundIndex+1));
+  s.innerHTML=`<div class="card"><h2>${esc(roundName)} Scoring</h2><p class="muted">${live?'Live end-by-end scoring is optional and auto-saves. Enter a final score to advance the winner.':'Enter the final score to advance the winner.'}</p>${round.map(m=>{let ready=knockoutEntryReady(m.a)&&knockoutEntryReady(m.b),ls=liveScore(m);return `<div class="card" style="box-shadow:none"><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center"><div>${sideBadge('a',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(knockoutRefName(m.a,c))}</div></div><b>v</b><div>${sideBadge('b',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(knockoutRefName(m.b,c))}</div></div></div><div class="meta" style="text-align:center;margin-top:5px">${esc(m.label||'')} • ${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div>${!ready?'<div class="notice" style="margin-top:10px">Waiting for earlier round result.</div>':`${liveCheckpointFields(m,m.id,knockoutRefName(m.a,c),knockoutRefName(m.b,c),x.ends||12)}${live?`<details style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(knockoutRefName(m.a,c))}</th><th>${esc(knockoutRefName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div>${sideBadge('a',c)}<div><b>${esc(knockoutRefName(m.a,c))}</b></div><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-ko-a="${m.id}" value="${m.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-ko-b="${m.id}" value="${m.scoreB}"><div class="away">${sideBadge('b',c)}<div><b>${esc(knockoutRefName(m.b,c))}</b></div><div class="meta">Final score</div></div></div>`}</div>`}).join('')}<button class="btn primary" style="width:100%;margin-top:12px" id="saveKoScores">Save Scores</button></div>`;
+  const persistKo=()=>{round.forEach(m=>{if(!knockoutEntryReady(m.a)||!knockoutEntryReady(m.b))return;let a=document.querySelector(`[data-ko-a="${m.id}"]`),b=document.querySelector(`[data-ko-b="${m.id}"]`);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);persistLiveCheckpoint(m,m.id);if(live){m.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${m.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${m.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}});advanceKnockoutOnly(c)};
+  const koAuto=()=>queueLiveAutoSave(persistKo);attachBowlsEndRules(document,koAuto);document.querySelectorAll('[data-ko-a],[data-ko-b],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',koAuto));wireLiveTotalButtons(()=>saveScoresNow(persistKo,()=>render()));document.getElementById('saveKoScores').onclick=()=>saveScoresNow(persistKo,()=>render());return
  }
  let fs=c.fixtures;if(!fs.length){s.innerHTML='<div class="card"><h2>Quick Score</h2><p>No fixtures generated yet.</p></div>';return}
  let venues=[...new Set([...scheduleVenueNames(c),...fs.map(f=>fixtureVenue(f,c))].filter(Boolean))],session=Math.min(...fs.filter(f=>!completed(f)).map(f=>f.session).concat([Math.max(...fs.map(f=>f.session))]));
- let sessionKey='bowlsScoreSession:'+c.id,storedSession=+sessionStorage.getItem(sessionKey)||0;if(storedSession&&fs.some(f=>+f.session===storedSession))session=storedSession;
  let venueKey='bowlsScoreVenue:'+c.id,storedVenue=sessionStorage.getItem(venueKey)||'';if(storedVenue&&!venues.includes(storedVenue))storedVenue='';
- s.innerHTML=`<div class="card"><h2>Quick Score</h2><p class="muted">${live?'End-by-end / anytime scoring is enabled. Update scores throughout the game and confirm the final result when complete.':'Enter the final result for each game.'}${venues.length>1?' Select the green first so identical rink numbers at different greens stay separate.':''}</p><div class="toolbar">${venues.length>1?`<div style="min-width:160px;flex:1"><label style="display:block;font-size:12px;font-weight:800;margin-bottom:4px">Green / Venue</label><select id="venuePick" style="width:100%"><option value="">${role==='scorer'?'Choose green…':'All greens'}</option>${venues.map(v=>`<option value="${esc(v)}" ${v===storedVenue?'selected':''}>${esc(v)}</option>`).join('')}</select></div>`:''}<div style="min-width:160px;flex:1"><label style="display:block;font-size:12px;font-weight:800;margin-bottom:4px">Session</label><select id="sessionPick" style="width:100%">${[...new Set(fs.map(f=>f.session))].map(n=>`<option ${n===session?'selected':''} value="${n}">Session ${n} • ${fs.find(f=>f.session===n).start}</option>`).join('')}</select></div></div><div id="scoreList"></div></div>`;
- let draw=()=>{let n=+document.getElementById('sessionPick').value,v=document.getElementById('venuePick')?.value||'';sessionStorage.setItem(sessionKey,String(n));if(v)sessionStorage.setItem(venueKey,v);else sessionStorage.removeItem(venueKey);let visible=fs.filter(f=>f.session===n&&(!v||fixtureVenue(f,c)===v)&&scorerCanScoreItem(f,c)).sort((a,b)=>{let va=fixtureVenue(a,c),vb=fixtureVenue(b,c);return va.localeCompare(vb)||fixtureLocalRink(a,c)-fixtureLocalRink(b,c)||(+a.game||0)-(+b.game||0)});if(role==='scorer'&&venues.length>1&&!v){document.getElementById('scoreList').innerHTML='<div class="notice"><b>Select your green first.</b><br>This prevents Rink 1 at one green being confused with Rink 1 at the other green.</div>';return}
- document.getElementById('scoreList').innerHTML=(visible.length?visible.map(f=>{let ls=liveScore(f),venue=fixtureVenue(f,c);return `<div class="card" style="box-shadow:none"><div style="font-weight:900;text-align:center;margin-bottom:8px;font-size:17px">${esc(venue)} • RINK ${fixtureLocalRink(f,c)}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center"><div>${sideBadge('a',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(fixtureTeamName(f,'a',c))}</div></div><b>v</b><div>${sideBadge('b',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(fixtureTeamName(f,'b',c))}</div></div></div><div class="meta" style="text-align:center;margin-top:5px">${esc(venue)} • Group ${f.group} • Rink ${fixtureLocalRink(f,c)} • Game ${f.game}</div>${liveCheckpointFields(f,f.id,fixtureTeamName(f,'a',c),fixtureTeamName(f,'b',c),scoringEnds(c,f))}${live?`<details data-score-panel="${f.id}" style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(fixtureTeamName(f,'a',c))}</th><th>${esc(fixtureTeamName(f,'b',c))}</th></tr></thead><tbody>${Array.from({length:scoringEnds(c,f)},(_,i)=>{let e=liveEntries(f)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${f.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${f.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details><button type="button" class="btn secondary" style="margin-top:8px" data-undo-live="${f.id}">Undo Last End</button>`:''}<div class="scoreline"><div>${sideBadge('a',c)}<div><b>${esc(fixtureTeamName(f,'a',c))}</b></div><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-sa="${f.id}" value="${f.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-sb="${f.id}" value="${f.scoreB}"><div class="away">${sideBadge('b',c)}<div><b>${esc(fixtureTeamName(f,'b',c))}</b></div><div class="meta">Final score</div></div></div><button type="button" class="btn primary" style="width:100%;margin-top:10px" data-save-fixture="${f.id}">Save This Score</button><div class="meta" style="text-align:center;margin-top:5px" data-save-status="${f.id}"></div></div>`}).join(''):'<div class="notice">No games are allocated to this green in the selected session.</div>')+`<button class="btn primary" style="width:100%;margin-top:12px" id="saveScores">Save Scores</button>`;
-  const persistSessionForm=()=>{visible.forEach(f=>{let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);f.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);f.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);persistLiveCheckpoint(f,f.id);if(live){f.liveEnds=Array.from({length:scoringEnds(c,f)},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}});autoCompleteSinglesFromLive(f,c)}})};
+ s.innerHTML=`<div class="card"><h2>Quick Score</h2><p class="muted">${live?'Live end-by-end is optional. Update ends when convenient, or simply enter the final score.':'Enter the final result for each game.'}${venues.length>1?' Select the green first so identical rink numbers at different greens stay separate.':''}</p><div class="toolbar">${venues.length>1?`<div style="min-width:160px;flex:1"><label style="display:block;font-size:12px;font-weight:800;margin-bottom:4px">Green / Venue</label><select id="venuePick" style="width:100%"><option value="">${role==='scorer'?'Choose green…':'All greens'}</option>${venues.map(v=>`<option value="${esc(v)}" ${v===storedVenue?'selected':''}>${esc(v)}</option>`).join('')}</select></div>`:''}<div style="min-width:160px;flex:1"><label style="display:block;font-size:12px;font-weight:800;margin-bottom:4px">Session</label><select id="sessionPick" style="width:100%">${[...new Set(fs.map(f=>f.session))].map(n=>`<option ${n===session?'selected':''} value="${n}">Session ${n} • ${fs.find(f=>f.session===n).start}</option>`).join('')}</select></div></div><div id="scoreList"></div></div>`;
+ let draw=()=>{let n=+document.getElementById('sessionPick').value,v=document.getElementById('venuePick')?.value||'';if(v)sessionStorage.setItem(venueKey,v);else sessionStorage.removeItem(venueKey);let visible=fs.filter(f=>f.session===n&&(!v||fixtureVenue(f,c)===v)).sort((a,b)=>{let va=fixtureVenue(a,c),vb=fixtureVenue(b,c);return va.localeCompare(vb)||fixtureLocalRink(a,c)-fixtureLocalRink(b,c)||(+a.game||0)-(+b.game||0)});if(role==='scorer'&&venues.length>1&&!v){document.getElementById('scoreList').innerHTML='<div class="notice"><b>Select your green first.</b><br>This prevents Rink 1 at one green being confused with Rink 1 at the other green.</div>';return}
+ document.getElementById('scoreList').innerHTML=(visible.length?visible.map(f=>{let ls=liveScore(f),venue=fixtureVenue(f,c);return `<div class="card" style="box-shadow:none"><div style="font-weight:900;text-align:center;margin-bottom:8px;font-size:17px">${esc(venue)} • RINK ${fixtureLocalRink(f,c)}</div><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center"><div>${sideBadge('a',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(fixtureTeamName(f,'a',c))}</div></div><b>v</b><div>${sideBadge('b',c)}<div style="font-size:18px;font-weight:900;margin-top:5px">${esc(fixtureTeamName(f,'b',c))}</div></div></div><div class="meta" style="text-align:center;margin-top:5px">${esc(venue)} • Group ${f.group} • Rink ${fixtureLocalRink(f,c)} • Game ${f.game}</div>${liveCheckpointFields(f,f.id,fixtureTeamName(f,'a',c),fixtureTeamName(f,'b',c),x.ends||12)}${live?`<details style="margin-top:10px"><summary><b>End-by-end scoring</b> ${ls.count&&!ls.manual?`— ${ls.a}–${ls.b} after ${ls.count}`:''}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(fixtureTeamName(f,'a',c))}</th><th>${esc(fixtureTeamName(f,'b',c))}</th></tr></thead><tbody>${Array.from({length:x.ends||12},(_,i)=>{let e=liveEntries(f)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-live-a="${f.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-live-b="${f.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details>`:''}<div class="scoreline"><div>${sideBadge('a',c)}<div><b>${esc(fixtureTeamName(f,'a',c))}</b></div><div class="meta">Final score</div></div><input inputmode="numeric" min="0" data-sa="${f.id}" value="${f.scoreA}"><b>–</b><input inputmode="numeric" min="0" data-sb="${f.id}" value="${f.scoreB}"><div class="away">${sideBadge('b',c)}<div><b>${esc(fixtureTeamName(f,'b',c))}</b></div><div class="meta">Final score</div></div></div><button type="button" class="btn primary" style="width:100%;margin-top:10px" data-save-fixture="${f.id}">Save This Score</button><div class="meta" style="text-align:center;margin-top:5px" data-save-status="${f.id}"></div></div>`}).join(''):'<div class="notice">No games are allocated to this green in the selected session.</div>')+`<button class="btn primary" style="width:100%;margin-top:12px" id="saveScores">Save Scores</button>`;
+  const persistSessionForm=()=>{visible.forEach(f=>{let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);f.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);f.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);persistLiveCheckpoint(f,f.id);if(live){f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}})};
   const sessionAutoSave=()=>queueLiveAutoSave(persistSessionForm);
   attachBowlsEndRules(document.getElementById('scoreList'),sessionAutoSave);
   document.querySelectorAll('[data-sa],[data-sb],[data-live-total-a],[data-live-total-b],[data-live-total-ends]').forEach(inp=>inp.addEventListener('input',sessionAutoSave));wireLiveTotalButtons(()=>saveScoresNow(persistSessionForm,()=>render()));
-  document.querySelectorAll('[data-undo-live]').forEach(btn=>btn.onclick=()=>{let f=visible.find(x=>String(x.id)===String(btn.dataset.undoLive));if(f)undoLastLiveEnd(f,c)});
   document.querySelectorAll('[data-save-fixture]').forEach(btn=>btn.onclick=async()=>{
    let id=btn.getAttribute('data-save-fixture'),f=visible.find(x=>String(x.id)===String(id));if(!f)return;
    let before=scoreAuditSnapshot();
    let a=document.querySelector(`[data-sa="${f.id}"]`),b=document.querySelector(`[data-sb="${f.id}"]`);
    f.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);f.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);persistLiveCheckpoint(f,f.id);
-   if(live){f.liveEnds=Array.from({length:scoringEnds(c,f)},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}});autoCompleteSinglesFromLive(f,c)}
+   if(live){f.liveEnds=Array.from({length:x.ends||12},(_,i)=>{let la=document.querySelector(`[data-live-a="${f.id}-${i}"]`),lb=document.querySelector(`[data-live-b="${f.id}-${i}"]`);return {a:la?.value===''?'':Math.max(0,+la.value||0),b:lb?.value===''?'':Math.max(0,+lb.value||0)}})}
    let after=scoreAuditSnapshot();localStorage.setItem(APPKEY,JSON.stringify(db));btn.disabled=true;btn.textContent='Saving…';
    let ok=await pushScoreDiff(before,after);await auditScoreDiff(before,after);let st=document.querySelector(`[data-save-status="${f.id}"]`);
-   if(ok){btn.textContent='Saved ✓';if(st)st.textContent='This game is saved';if(completed(f))scorerResultConfirmation(f,c,false);setTimeout(()=>{btn.disabled=false;btn.textContent='Save This Score'},1800)}
+   if(ok){btn.textContent='Saved ✓';if(st)st.textContent='This game is saved';setTimeout(()=>{btn.disabled=false;btn.textContent='Save This Score'},1800)}
    else{btn.disabled=false;btn.textContent='Save This Score';if(st)st.textContent='Save failed — please try again'}
   });
   let saveBtn=document.getElementById('saveScores');if(saveBtn)saveBtn.onclick=()=>saveScoresNow(persistSessionForm,()=>render())
@@ -2309,28 +1928,28 @@ function openLiveKnockoutDraw(roundIndex){
  }
 }
 function persistStandardKnockoutEnds(m,matchId){
- let max=scoringEnds(comp()),hasAny=false;
+ let max=Math.max(1,+comp().settings?.ends||12),hasAny=false;
  m.liveEnds=Array.from({length:max},(_,i)=>{let a=document.querySelector(`[data-stdko-end-a="${matchId}-${i}"]`),b=document.querySelector(`[data-stdko-end-b="${matchId}-${i}"]`);if(!a&&!b)return liveEntries(m)[i]||{a:'',b:''};let av=a?.value===''?'':Math.max(0,+a?.value||0),bv=b?.value===''?'':Math.max(0,+b?.value||0);if(av!==''||bv!=='')hasAny=true;return {a:av,b:bv}});
  if(hasAny){m.liveTotalA='';m.liveTotalB='';m.liveEndsPlayed=''}
 }
 function saveStandardKnockoutLive(matchId){
- let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;let before=scoreAuditSnapshot(c);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);let singlesDone=autoCompleteSinglesFromLive(m,c);if(singlesDone)advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);render()
+ let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;let before=scoreAuditSnapshot(c);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);render()
 }
 function knockoutPrintHTML(c=comp()){
  let rounds=c.knockout||[],title=(c.title||'Knockout Draw').trim()||'Knockout Draw',club=(c.settings?.clubName||remoteClubName||'').trim();
- let details=[club,`${c.teams?.length||0} teams`,isSingles(c)?'Singles • First to 21':(c.settings?.ends?`${c.settings.ends} ends`:'') ].filter(Boolean).join(' • ');
+ let details=[club,`${c.teams?.length||0} teams`,c.settings?.ends?`${c.settings.ends} ends`:'' ].filter(Boolean).join(' • ');
  let columns=rounds.map(round=>`<section class="round"><h2>${esc(round[0]?.roundName||koRoundNameFromCount(round.length))}</h2>${round.map(m=>{let w=completed(m)?koWinner(m):null,an=knockoutRefName(m.a,c)||'BYE',bn=knockoutRefName(m.b,c)||'BYE';return `<div class="pmatch ${completed(m)?'complete':''}"><div class="team ${w&&String(w)===String(m.a)?'winner':''}">${esc(an)}${w&&String(w)===String(m.a)?' <span class="winmark">✓ WINNER</span>':''}</div><div class="team ${w&&String(w)===String(m.b)?'winner':''}">${esc(bn)}${w&&String(w)===String(m.b)?' <span class="winmark">✓ WINNER</span>':''}</div><div class="meta">${esc(knockoutVenueName(m,c))} • ${esc(m.start||'Time TBC')} • Rink ${esc(String(m.rink||'—'))}${completed(m)?` • <b>Final ${m.scoreA}–${m.scoreB}</b>`:''}</div></div>`}).join('')}</section>`).join('');
  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)} - Knockout Draw</title><style>@page{size:A3 landscape;margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:0}h1{text-align:center;font-size:28px;margin:0 0 4px}.sub{text-align:center;margin:0 0 18px;color:#444;font-size:13px}.br{display:flex;gap:18px;align-items:flex-start}.round{flex:1;min-width:0}.round h2{text-align:center;font-size:18px;border-bottom:2px solid #111;padding-bottom:5px}.pmatch{border:1.5px solid #555;margin:0 0 14px;break-inside:avoid}.team{padding:7px 8px;font-weight:700;border-bottom:1px solid #aaa;min-height:18px}.team:nth-child(2){border-bottom:0}.team.winner{background:#e8f7ed;border-left:5px solid #16803b;font-weight:900}.winmark{float:right;font-size:10px;color:#166534;letter-spacing:.03em}.meta{font-size:10px;color:#555;background:#f2f2f2;padding:5px 7px;border-top:1px solid #aaa}footer{margin-top:14px;text-align:center;font-size:9px;color:#666}@media print{button{display:none}}</style></head><body><h1>${esc(title)}</h1><div class="sub">${esc(details)} • Knockout Draw</div><div class="br">${columns}</div><footer>Generated by One Stop Bowling Software</footer><script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`
 }
 function printKnockoutDraw(){let c=comp();if(!c.knockout?.length)return alert('Generate the knockout draw first.');let w=window.open('','_blank');if(!w)return alert('Please allow pop-ups to print the knockout draw.');w.document.open();w.document.write(knockoutPrintHTML(c));w.document.close()}
 function saveStandardKnockoutMatch(matchId){
- let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;if(role==='scorer'&&!scorerCanScoreItem(m,c))return alert('This match is not assigned to your scorer access.');let before=scoreAuditSnapshot(c),a=document.querySelector(`[data-stdko-a="${matchId}"]`),b=document.querySelector(`[data-stdko-b="${matchId}"]`);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(isSingles(c)&&completed(m)&&Math.max(+m.scoreA||0,+m.scoreB||0)<21)return alert('Singles is first to 21 shots. The winning score must be at least 21.');if(completed(m)&&(+m.scoreA)===(+m.scoreB))return alert('A knockout game cannot finish as a draw. Enter the tie-break/final result.');advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);if(completed(m))scorerResultConfirmation(m,c,true);render()
+ let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;let before=scoreAuditSnapshot(c),a=document.querySelector(`[data-stdko-a="${matchId}"]`),b=document.querySelector(`[data-stdko-b="${matchId}"]`);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(completed(m)&&(+m.scoreA)===(+m.scoreB))return alert('A knockout game cannot finish as a draw. Enter the tie-break/final result.');advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);render()
 }
 function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('Not enough qualifiers yet.');return}let matches=buildKnockoutFirstRound(q);matches.forEach((m,i)=>{m.id=`sko1_${i+1}`;m.label=`R1-${i+1}`;m.roundName=koRoundNameFromCount(matches.length);m.venue=knockoutVenueOptions(c)[0]||'Main Green';m.rink=i%Math.max(1,+c.settings.rinks||1)+1});c.knockout=[matches];c.knockoutLiveDrawRound='';c.knockoutLiveDrawDone={};advanceStandardKnockout(c);saveDB();render()}
 function publicKnockoutHTML(c){
  let rounds=(c.settings.tournamentType||'standard')==='knockout'?(c.knockout||[]):normaliseStandardKnockout(c);
  if(!rounds.length)return `<div class="card"><h2>Knockout</h2><p class="muted">The knockout draw has not been created yet.</p></div>`;
- return `<div class="card"><h2>Live Knockout Scores</h2><p class="muted">Live and final scores update automatically. Public View is read-only.</p></div>${rounds.map((round,ri)=>`<div class="card"><h2>${esc(round[0]?.roundName||koRoundNameFromCount(round.length))}</h2><div style="display:grid;gap:10px">${round.map(m=>{let cs=currentScore(m),done=completed(m),a=knockoutRefName(m.a,c),b=knockoutRefName(m.b,c),score=done?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'vs',status=done?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} end${cs.ends===1?'':'s'}`:'LIVE'):(m.start||'Scheduled');return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff"><div><b style="font-size:18px">${esc(a||'TBC')}</b><div class="meta">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div></div><div style="text-align:center;min-width:92px"><div style="font-size:28px;font-weight:900">${score}</div><div class="pill ${done?'done':cs.live?'wait':''}">${status}</div></div><div style="text-align:right"><b style="font-size:18px">${esc(b||'TBC')}</b></div></div>`}).join('')}</div></div>`).join('')}`;
+ return `<div class="card"><h2>Live Knockout Scores</h2><p class="muted">Live and final scores update automatically. Public View is read-only.</p></div>${rounds.map((round,ri)=>`<div class="card"><h2>${esc(round[0]?.roundName||koRoundNameFromCount(round.length))}</h2><div style="display:grid;gap:10px">${round.map(m=>{let cs=currentScore(m),done=completed(m),a=knockoutRefName(m.a,c),b=knockoutRefName(m.b,c),score=done?`${m.scoreA} – ${m.scoreB}`:cs.live?`${cs.a} – ${cs.b}`:'vs',status=done?'FINAL':cs.live?(cs.ends?`LIVE • ${cs.ends} ends`:'LIVE'):(m.start||'Scheduled');return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff"><div><b style="font-size:18px">${esc(a||'TBC')}</b><div class="meta">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div></div><div style="text-align:center;min-width:92px"><div style="font-size:28px;font-weight:900">${score}</div><div class="pill ${done?'done':cs.live?'wait':''}">${status}</div></div><div style="text-align:right"><b style="font-size:18px">${esc(b||'TBC')}</b></div></div>`}).join('')}</div></div>`).join('')}`;
 }
 
 function compactCompletedKnockoutRoundHTML(round,ri,c){
@@ -2344,11 +1963,11 @@ function compactCompletedKnockoutRoundHTML(round,ri,c){
  </details></div>`;
 }
 function activeKnockoutRoundHTML(round,ri,c){
- let rn=round[0]?.roundName||koRoundNameFromCount(round.length),shown=role==='scorer'?round.filter(m=>scorerCanScoreItem(m,c)):round;
- return `<div class="round ko-current-round"><h3>${esc(rn)} <span class="pill wait">Current scoring</span></h3>${shown.length?shown.map(m=>{
+ let rn=round[0]?.roundName||koRoundNameFromCount(round.length);
+ return `<div class="round ko-current-round"><h3>${esc(rn)} <span class="pill wait">Current scoring</span></h3>${round.map(m=>{
   let w=koWinner(m),ready=m.a&&m.b;
-  return `<div class="match"><div><b>${esc(m.a?teamName(m.a,c):'BYE')}</b></div><div><b>${esc(m.b?teamName(m.b,c):'BYE')}</b></div><div class="qual">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div>${ready?`<div><div class="ko-sticky-match"><div><b>${esc(teamName(m.a,c))}</b></div><div class="ko-sticky-v">v</div><div style="text-align:right"><b>${esc(teamName(m.b,c))}</b></div></div>${liveCheckpointFields(m,m.id,teamName(m.a,c),teamName(m.b,c),scoringEnds(c))}<details style="margin:0 0 10px"><summary><b>End-by-end / anytime scoring</b>${(()=>{let ls=liveScore(m);return ls.count&&!ls.manual?` — ${ls.a}–${ls.b} after ${ls.count} end${ls.count===1?'':'s'}`:''})()}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(teamName(m.a,c))}</th><th>${esc(teamName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:scoringEnds(c,m)},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-stdko-end-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-stdko-end-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details><button type="button" class="btn secondary" style="width:100%;margin:0 0 8px" data-save-stdko-live="${m.id}">Save Live / End-by-End Score</button><div class="ko-final-score"><div class="ko-final-side"><label>${esc(teamName(m.a,c))}</label><input inputmode="numeric" min="0" data-stdko-a="${m.id}" value="${m.scoreA}"></div><b class="ko-final-dash">–</b><div class="ko-final-side"><label>${esc(teamName(m.b,c))}</label><input inputmode="numeric" min="0" data-stdko-b="${m.id}" value="${m.scoreB}"></div></div><button type="button" class="btn primary" style="width:100%;margin-top:8px" data-save-stdko="${m.id}">${completed(m)?'Update Score':'Save Score'}</button></div>`:`<div class="qual">${w?`Advances: ${esc(teamName(w,c))}`:'Bye / waiting'}</div>`}${completed(m)?`<div class="qual"><b>Winner:</b> ${esc(teamName(w,c))}</div>`:''}</div>`
- }).join(''):'<div class="notice">No matches in this round are assigned to you.</div>'}</div>`;
+  return `<div class="match"><div><b>${esc(m.a?teamName(m.a,c):'BYE')}</b></div><div><b>${esc(m.b?teamName(m.b,c):'BYE')}</b></div><div class="qual">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div>${ready?`<div><div class="ko-sticky-match"><div><b>${esc(teamName(m.a,c))}</b></div><div class="ko-sticky-v">v</div><div style="text-align:right"><b>${esc(teamName(m.b,c))}</b></div></div>${liveCheckpointFields(m,m.id,teamName(m.a,c),teamName(m.b,c),c.settings.ends||12)}<details style="margin:0 0 10px"><summary><b>End-by-end scoring (optional)</b>${(()=>{let ls=liveScore(m);return ls.count&&!ls.manual?` — ${ls.a}–${ls.b} after ${ls.count} end${ls.count===1?'':'s'}`:''})()}</summary><div class="tablewrap" style="margin-top:8px"><table style="min-width:420px"><thead><tr><th>End</th><th>${esc(teamName(m.a,c))}</th><th>${esc(teamName(m.b,c))}</th></tr></thead><tbody>${Array.from({length:c.settings.ends||12},(_,i)=>{let e=liveEntries(m)[i]||{a:'',b:''};return `<tr><td>${i+1}</td><td><input style="width:70px" inputmode="numeric" min="0" data-stdko-end-a="${m.id}-${i}" value="${e.a??''}"></td><td><input style="width:70px" inputmode="numeric" min="0" data-stdko-end-b="${m.id}-${i}" value="${e.b??''}"></td></tr>`}).join('')}</tbody></table></div></details><button type="button" class="btn secondary" style="width:100%;margin:0 0 8px" data-save-stdko-live="${m.id}">Save Live / End-by-End Score</button><div class="ko-final-score"><div class="ko-final-side"><label>${esc(teamName(m.a,c))}</label><input inputmode="numeric" min="0" data-stdko-a="${m.id}" value="${m.scoreA}"></div><b class="ko-final-dash">–</b><div class="ko-final-side"><label>${esc(teamName(m.b,c))}</label><input inputmode="numeric" min="0" data-stdko-b="${m.id}" value="${m.scoreB}"></div></div><button type="button" class="btn primary" style="width:100%;margin-top:8px" data-save-stdko="${m.id}">${completed(m)?'Update Score':'Save Score'}</button></div>`:`<div class="qual">${w?`Advances: ${esc(teamName(w,c))}`:'Bye / waiting'}</div>`}${completed(m)?`<div class="qual"><b>Winner:</b> ${esc(teamName(w,c))}</div>`:''}</div>`
+ }).join('')}</div>`;
 }
 
 function renderKnockout(s){
@@ -2365,12 +1984,12 @@ function renderKnockout(s){
  if((c.settings.tournamentType||'standard')==='knockout'){
   let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,knockoutInterval(c),c.settings.start);s.innerHTML=`<div class="card"><h2>Knockout Format</h2><div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Prelim games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Est. final</span></div></div>${!c.knockout?.length&&role==='admin'?'<button class="btn primary" id="genKoOnly2" style="margin-top:12px">Generate Knockout Draw</button>':''}${c.knockout?.length&&role==='admin'?'<button class="btn secondary" id="editKoOnlySchedule" style="margin-top:12px;margin-left:8px">Times / Greens / Rinks</button>':''}${c.knockout?.length?'<button class="btn secondary" id="printKoOnly" style="margin-top:12px;margin-left:8px">Print / Save PDF</button>':''}</div>${c.knockout?.length?`<div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${esc(round[0]?.roundName||('Round '+(ri+1)))}</h3>${round.map(m=>`<div class="match"><div>${esc(knockoutRefName(m.a,c))}</div><div>${esc(knockoutRefName(m.b,c))}</div><div class="qual">${esc(knockoutVenueName(m,c))} • ${m.start||'Time TBC'} • Rink ${m.rink||'—'}</div></div>`).join('')}</div>`).join('')}</div>`:''}`;let b=document.getElementById('genKoOnly2');if(b)b.onclick=()=>{generateKnockoutOnlyDraw();render()};let e=document.getElementById('editKoOnlySchedule');if(e)e.onclick=openKnockoutScheduleEditor;let p=document.getElementById('printKoOnly');if(p)p.onclick=printKnockoutDraw;return
  }
- advanceStandardKnockout(c);let rounds=normaliseStandardKnockout(c),q=qualifiers(),qInfo=knockoutQualificationInfo(c),first=rounds[0]||[],rematches=first.filter(m=>m.a&&m.b&&m.sameGroupRematch).length;
+ advanceStandardKnockout(c);let rounds=normaliseStandardKnockout(c),q=qualifiers(),first=rounds[0]||[],rematches=first.filter(m=>m.a&&m.b&&m.sameGroupRematch).length;
  let sf=ensureStageFlow(c),stagePanel=rounds.length?`<div class="card"><h2>Knockout Stage Progress</h2><p class="muted">When every result in a round is final, confirm the round is complete. If a mistake is found later, re-open that round and the app will safely clear later rounds before rebuilding them.</p><div style="display:grid;gap:8px">${rounds.map((round,ri)=>{let rn=round[0]?.roundName||koRoundNameFromCount(round.length),ready=standardRoundComplete(round),marked=!!sf.roundsComplete[String(ri)];return `<div class="notice" style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><b>${esc(rn)}</b><div class="meta">${marked?'Completed ✓':ready?'All results entered — ready to complete':'Waiting for final results'}</div></div>${role==='admin'?(marked?`<button class="btn secondary" data-reopen-ko-round="${ri}">Re-open ${esc(rn)}</button>`:`<button class="btn success" data-complete-ko-round="${ri}" ${ready?'':'disabled'}>Complete ${esc(rn)} & Continue</button>`):''}</div>`}).join('')}</div></div>`:'';
  let liveTarget=c.knockoutLiveDrawRound||'';
  let liveOptions=['','Quarter-finals','Semi-finals','Final'];
  let pendingLive=-1;for(let i=1;i<rounds.length+1;i++){let prev=rounds[i-1];if(prev&&standardRoundComplete(prev)){let nm=koRoundNameFromCount(Math.ceil(standardRoundWinners(prev).length/2));if(nm===liveTarget&&!rounds[i]){pendingLive=i;break}}}
- s.innerHTML=`<div class="card"><h2>Knockout</h2><p class="muted">Traditional bracket view. Enter each result and the winner progresses automatically, unless you have selected a live draw for a later round.</p><div>${q.map((x,i)=>`<span class="pill ${x.autoFilled?'done':'wait'}" style="margin:3px">${i+1}. ${esc(x.name)} <span class="qual">(${x.group}${x.pos}${x.autoFilled?' • best remaining':''})</span></span>`).join('')||'No qualifiers yet.'}</div>${qInfo.baseCount>=2&&c.settings?.autoFillKnockout!==false&&qInfo.target!==qInfo.baseCount?`<div class="oknotice notice" style="margin-top:12px"><b>Automatic bracket balancing:</b> ${qInfo.baseCount} normal qualifier${qInfo.baseCount===1?'':'s'} → ${qInfo.target}-position knockout. ${qInfo.addedCount?`${qInfo.addedCount} best remaining team${qInfo.addedCount===1?'':'s'} added.`:''}${qInfo.byes?` ${qInfo.byes} bye${qInfo.byes===1?'':'s'} required because only ${qInfo.total} teams are available.`:''}</div>`:''}${role==='admin'?`<div class="ko-controls"><button class="btn primary" id="genKO">Automatic Knockout</button><button class="btn secondary" id="manualKO">Select Knockout Manually</button>${rounds.length?'<button class="btn secondary" id="editKoSchedule">Times / Greens / Rinks</button>':''}${rounds.length?'<button class="btn secondary" id="printKoDraw">Print / Save PDF</button>':''}</div><div class="field" style="max-width:320px;margin-top:12px"><label>Live draw at a later stage</label><select id="liveKoRound">${liveOptions.map(v=>`<option value="${v}" ${v===liveTarget?'selected':''}>${v||'No live draw — automatic progression'}</option>`).join('')}</select></div>`:''}${rounds.length?`<div class="${rematches?'notice':'oknotice notice'}" style="margin-top:12px"><b>First-round group protection:</b> ${rematches?`${rematches} same-group rematch${rematches===1?'':'es'} could not be avoided.`:'No same-group rematches in the first knockout round.'}</div>`:''}${pendingLive>=0&&role==='admin'?`<button class="btn success" id="openLiveKo" style="width:100%;margin-top:10px">Start ${esc(liveTarget)} Live Draw</button>`:''}</div>${stagePanel}${rounds.length?`<div class="card"><div class="ko-focus-note"><b>Scoring focus:</b> completed rounds are minimised below. Tap an old round if you need to see its results.</div><div class="bracket ko-focused-bracket">${(()=>{let current=rounds.findIndex(r=>!standardRoundComplete(r));if(current<0)current=Math.max(0,rounds.length-1);return rounds.map((round,ri)=>ri<current&&standardRoundComplete(round)?compactCompletedKnockoutRoundHTML(round,ri,c):activeKnockoutRoundHTML(round,ri,c)).join('')})()}</div></div>`:''}`;
+ s.innerHTML=`<div class="card"><h2>Knockout</h2><p class="muted">Traditional bracket view. Enter each result and the winner progresses automatically, unless you have selected a live draw for a later round.</p><div>${q.map((x,i)=>`<span class="pill wait" style="margin:3px">${i+1}. ${esc(x.name)} <span class="qual">(${x.group}${x.pos})</span></span>`).join('')||'No qualifiers yet.'}</div>${role==='admin'?`<div class="ko-controls"><button class="btn primary" id="genKO">Automatic Knockout</button><button class="btn secondary" id="manualKO">Select Knockout Manually</button>${rounds.length?'<button class="btn secondary" id="editKoSchedule">Times / Greens / Rinks</button>':''}${rounds.length?'<button class="btn secondary" id="printKoDraw">Print / Save PDF</button>':''}</div><div class="field" style="max-width:320px;margin-top:12px"><label>Live draw at a later stage</label><select id="liveKoRound">${liveOptions.map(v=>`<option value="${v}" ${v===liveTarget?'selected':''}>${v||'No live draw — automatic progression'}</option>`).join('')}</select></div>`:''}${rounds.length?`<div class="${rematches?'notice':'oknotice notice'}" style="margin-top:12px"><b>First-round group protection:</b> ${rematches?`${rematches} same-group rematch${rematches===1?'':'es'} could not be avoided.`:'No same-group rematches in the first knockout round.'}</div>`:''}${pendingLive>=0&&role==='admin'?`<button class="btn success" id="openLiveKo" style="width:100%;margin-top:10px">Start ${esc(liveTarget)} Live Draw</button>`:''}</div>${stagePanel}${rounds.length?`<div class="card"><div class="ko-focus-note"><b>Scoring focus:</b> completed rounds are minimised below. Tap an old round if you need to see its results.</div><div class="bracket ko-focused-bracket">${(()=>{let current=rounds.findIndex(r=>!standardRoundComplete(r));if(current<0)current=Math.max(0,rounds.length-1);return rounds.map((round,ri)=>ri<current&&standardRoundComplete(round)?compactCompletedKnockoutRoundHTML(round,ri,c):activeKnockoutRoundHTML(round,ri,c)).join('')})()}</div></div>`:''}`;
  if(role==='admin'&&document.getElementById('genKO'))document.getElementById('genKO').onclick=generateKnockout;if(role==='admin'&&document.getElementById('manualKO'))document.getElementById('manualKO').onclick=openManualKnockoutSelection;let eks=document.getElementById('editKoSchedule');if(eks)eks.onclick=openKnockoutScheduleEditor;let pk=document.getElementById('printKoDraw');if(pk)pk.onclick=printKnockoutDraw;document.querySelectorAll('[data-save-stdko-live]').forEach(b=>b.onclick=()=>saveStandardKnockoutLive(b.dataset.saveStdkoLive));
  let sel=document.getElementById('liveKoRound');if(sel)sel.onchange=()=>{c.knockoutLiveDrawRound=sel.value;c.knockoutLiveDrawDone={};if(sel.value){let idx=liveDrawTargetIndex(c);if(idx>=0&&c.knockout[idx]&&!c.knockout[idx].some(completed))c.knockout=c.knockout.slice(0,idx)}advanceStandardKnockout(c);saveDB();render()};
  let ld=document.getElementById('openLiveKo');if(ld)ld.onclick=()=>openLiveKnockoutDraw(pendingLive);
@@ -2825,7 +2444,6 @@ function startTv(){
  },20000);
  if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
-window.addEventListener('offline',()=>updateConnectivityNotice());window.addEventListener('online',()=>{updateConnectivityNotice('Back online • checking for unsynced changes…');setTimeout(flushOfflineQueue,300)});
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});}
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial)});}
 </script>
 </body></html>
