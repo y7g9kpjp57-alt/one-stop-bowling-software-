@@ -208,7 +208,7 @@ body.simple-mode .bottom button{font-size:13px}
 <div class="modal hidden" id="helpModal"><div class="helpbox">
 <div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><h2>One Stop Bowling Software – User Guide</h2><p class="muted" style="margin:0">Quick help for setting up and running a competition.</p></div><button class="btn secondary" id="helpClose">Close</button></div>
 <div class="help-quick"><b>Competition day – quick order</b><div class="help-steps"><span>Teams</span><span>Draw</span><span>Greens</span><span>Schedule</span><span>Scorecards</span><span>Scores</span><span>Tables</span><span>Knockout</span><span>TV Display</span></div></div>
-<details open><summary>1. Sign in & create a tournament</summary><div>Sign in, then tap <b>+ New Tournament</b>. Choose the club, tournament name, format, teams, groups, rinks, ends, start time, game length, changeover and qualifying format.</div></details>
+<details open><summary>1. Sign in & create a tournament</summary><div>Sign in, then tap <b>+ New Tournament</b>. Enter the tournament name, club/organiser, format and number of entries. Complete the detailed playing settings once under <b>Setup</b>.</div></details>
 <details><summary>2. Add teams</summary><div>Open <b>Teams</b> and enter the team/player names. Add individual player names too if you want them printed on scorecards.</div></details>
 <details><summary>3. Create the draw</summary><div>Open <b>Draw</b> and create the group draw. The software can place teams automatically, or you can adjust them manually.</div></details>
 <details><summary>4. Set up greens & rinks</summary><div>If you are using more than one green, use <b>Split / Edit Greens & Rinks</b>. Enter the venue names and assign the groups. Rink numbers restart from 1 on each green.</div></details>
@@ -247,7 +247,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.07.115';
+const APP_VERSION='2026.09.07.116';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -927,28 +927,20 @@ async function showNewTournamentWizard(){
    ${clubs.length?`<div class="field"><label>Club account</label><select id="ntClubAccount">${currentAppRole==='owner'?'<option value="">Personal / no club</option>':''}${clubs.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${x.access_active?'':' (access expired)'}</option>`).join('')}</select></div>`:''}
    <div class="field"><label>Organiser / club name on event</label><input id="ntClub" value="${esc(comp().settings.clubName||clubs[0]?.name||'')}"></div>
    <div class="field"><label>Format</label><select id="ntType"><option value="standard">Round Robin + Knockout</option><option value="knockout">Knockout Only</option><option value="aggregate">Team / District Match – Aggregate</option></select></div>
-   <div class="field nt-normal"><label>Entries / teams</label><input id="ntTeams" inputmode="numeric" min="2" value="16"></div>
-   <div class="field nt-normal"><label>Rinks available</label><input id="ntRinks" inputmode="numeric" min="1" value="6"></div>
-   <div class="field nt-normal"><label>Ends per game</label><input id="ntEnds" inputmode="numeric" min="1" value="12"></div>
-   <div class="field nt-normal"><label>Start time</label><input id="ntStart" type="time" value="09:00"></div>
-   <div class="field nt-normal"><label>Minutes per game</label><input id="ntMinutes" inputmode="numeric" min="10" value="85"></div><div class="field nt-normal"><label>Changeover before next game</label><input id="ntChangeover" inputmode="numeric" min="0" max="30" value="5"><div class="meta">e.g. 115 min game + 5 min changeover = next start 120 min later</div></div>
-   <div class="field nt-group"><label>Preferred group size</label><select id="ntGroup"><option>3</option><option selected>4</option><option>5</option><option>6</option></select></div>
-   <div class="field nt-aggregate hidden"><label>Number of match rinks</label><input id="ntAggRinks" inputmode="numeric" min="1" value="6"></div>
-   <div class="field"><label>Scoring</label><div style="padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:#ecfdf5;color:#065f46;font-weight:800">End-by-End / Anytime Scoring</div><input type="hidden" id="ntScoring" value="live_optional"></div>
-   <div class="field nt-normal"><label>Team identification</label><select id="ntTeamIdentifier"><option value="home_away">Home / Away</option><option value="red_blue">Red / Blue (colour)</option><option value="none">Team A / Team B</option></select></div>
+   <div class="field" id="ntEntriesField"><label>Entries / teams</label><input id="ntTeams" inputmode="numeric" min="2" value="16"></div>
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn secondary" id="ntCancel">Cancel</button><button class="btn primary" id="ntCreate">Create Tournament</button></div>
  </div>`;
  document.body.appendChild(box);
  let type=document.getElementById('ntType');
- let toggle=()=>{let agg=type.value==='aggregate',std=type.value==='standard';document.querySelectorAll('.nt-normal').forEach(e=>e.classList.toggle('hidden',agg));document.querySelectorAll('.nt-group').forEach(e=>e.classList.toggle('hidden',!std));document.querySelectorAll('.nt-aggregate').forEach(e=>e.classList.toggle('hidden',!agg))};type.onchange=toggle;toggle();
+ let toggle=()=>{let agg=type.value==='aggregate',entries=document.getElementById('ntEntriesField');if(entries)entries.classList.toggle('hidden',agg)};type.onchange=toggle;toggle();
  document.getElementById('ntCancel').onclick=()=>box.remove();
  document.getElementById('ntCreate').onclick=async()=>{
   let name=document.getElementById('ntName').value.trim();if(!name)return alert('Please enter a tournament name.');
-  let t=type.value,n=Math.max(2,+document.getElementById('ntTeams').value||16),r=Math.max(1,+document.getElementById('ntRinks').value||6),ends=Math.max(1,+document.getElementById('ntEnds').value||12),mins=Math.max(10,+document.getElementById('ntMinutes').value||60),changeover=Math.max(0,+document.getElementById('ntChangeover')?.value||0);
-  let c=defaultComp();c.id='comp-'+Date.now();c.title=name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode='live_optional';c.settings.teamIdentifierMode=document.getElementById('ntTeamIdentifier')?.value||'home_away';
-  if(t==='aggregate'){c.settings.aggregateRinks=Math.max(1,+document.getElementById('ntAggRinks').value||6);c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
-  else{c.settings.teamCount=n;c.settings.rinks=r;c.settings.ends=ends;c.settings.start=document.getElementById('ntStart').value||'09:00';c.settings.minutes=mins;c.settings.changeoverMinutes=changeover;c.settings.knockoutMinutes=mins;c.settings.groupSize=Math.max(3,+document.getElementById('ntGroup').value||4);c.teams=Array.from({length:n},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:[]}))}
+  let t=type.value,n=Math.max(2,+document.getElementById('ntTeams')?.value||16);
+  let c=defaultComp();c.id='comp-'+Date.now();c.title=name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode='live_optional';
+  if(t==='aggregate'){c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
+  else{c.settings.teamCount=n;c.teams=Array.from({length:n},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:[]}))}
   let selectedClub=document.getElementById('ntClubAccount')?.value||null;
   if(currentAppRole!=='owner'&&!selectedClub&&clubs.length===1)selectedClub=clubs[0].id;
   if(currentAppRole!=='owner'&&!selectedClub)return alert('Your account has Club Admin access, but no club was selected. Please choose your club.');
@@ -961,7 +953,7 @@ async function showNewTournamentWizard(){
   let club=clubs.find(x=>x.id===row.club_id);
   setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'');
   box.remove();role='admin';tab='builder';startRemoteRefresh();render();
-  alert('Tournament created.\\n\\nClub: '+(club?.name||c.settings.clubName||'Club')+'\\nTournament code: '+row.code)
+  alert('Tournament created ✓\\n\\nClub: '+(club?.name||c.settings.clubName||'Club')+'\\nTournament code: '+row.code+'\\n\\nNext step: complete Tournament Setup.')
  };
 }
 async function duplicateCurrentTournament(){
