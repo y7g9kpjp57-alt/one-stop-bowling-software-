@@ -247,7 +247,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.07.119';
+const APP_VERSION='2026.09.07.120';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1489,9 +1489,9 @@ function updatePlanner(){
   let groupSummaryParts=Object.entries(groupCounts).sort((a,b)=>+b[0]-+a[0]).map(([size,count])=>`${count} group${count===1?'':'s'} of ${size}`);
   let groupSummary=`${p.sizes.length} group${p.sizes.length===1?'':'s'}: ${groupSummaryParts.join(' and ')}`;
   let koText=(p.koRounds||[]).map(r=>r.name).join(' → ')||'No knockout';
-  let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`;
+  let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=rec.dayLast8?`Day-tournament target: ${p.sizes.length} group winners + ${rec.recommendedBest} best runner${rec.recommendedBest===1?'':'s'} = 8 qualifiers for a straight quarter-final.`:(cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`);
   let selectedGame=document.getElementById('bGame')?.value||'rinks',singles=selectedGame==='singles',recommendedGameMinutes=suggestedGameMinutes(selectedGame,v.ends);
-  box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>${singles?'Singles planning allowance':'Recommended minutes per game'}:</b> ${recommendedGameMinutes} minutes <span class="muted">${`(${v.ends} ends × ${suggestedGameRate(selectedGame)} min per end, rounded up to nearest 5)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p>${v.lunchEnabled?`<p class="oknotice"><b>Lunch included:</b> ${v.lunchStart} for ${v.lunchMinutes} minutes. Finish estimates have been adjusted.</p>`:''}<div class="${cleanKo?'oknotice':'notice'}"><b>Knockout fit:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
+  box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>${singles?'Singles planning allowance':'Recommended minutes per game'}:</b> ${recommendedGameMinutes} minutes <span class="muted">${`(${v.ends} ends × ${suggestedGameRate(selectedGame)} min per end, rounded up to nearest 5)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p>${v.lunchEnabled?`<p class="oknotice"><b>Lunch included:</b> ${v.lunchStart} for ${v.lunchMinutes} minutes. Finish estimates have been adjusted.</p>`:''}<div class="${cleanKo||rec.dayLast8?'oknotice':'notice'}"><b>${rec.dayLast8?'Same-day knockout recommendation':'Knockout fit'}:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
  let endsInput=document.getElementById('bEnds'),gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes'),gameTypeInput=document.getElementById('bGame');
  const recommendedMinutesFromEnds=(ends,gameType=(document.getElementById('bGame')?.value||'rinks'))=>suggestedGameMinutes(gameType,ends);
@@ -1519,7 +1519,7 @@ function updatePlanner(){
  updateSetupRecommendedTime();
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
- document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}updatePlanner()};
+ document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}updatePlanner()};
 
  document.getElementById('saveBuilder').onclick=()=>{
   let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
@@ -1755,17 +1755,21 @@ function nextStandardKnockoutSize(q){let s=2;while(s<Math.max(2,q))s*=2;return s
 function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00',preferredGroup=4,lunchEnabled=false,lunchStart='13:00',lunchMinutes=0){
  let candidates=[];preferredGroup=Math.max(3,Math.min(12,+preferredGroup||4));
  for(let g=3;g<=Math.min(8,n);g++){
-  let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start,lunchEnabled,lunchStart,lunchMinutes),min=Math.min(...p.sizes),max=Math.max(...p.sizes),avg=n/p.sizes.length;
+  let previewSizes=balancedSizes(n,g),groupCount=previewSizes.length;
+  // Build 120: for a one-day event with a substantial field, prefer to leave the groups
+  // with exactly 8 qualifiers wherever the number of groups makes that practical.
+  let dayLast8=eventFormat!=='two_day'&&n>=16&&groupCount<=8;
+  let recQualify=dayLast8?'winner_best_runner':qualify;
+  let recBest=dayLast8?Math.max(0,8-groupCount):bestRunners;
+  let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,recQualify,recBest,eventFormat,day1Target,day2Start,lunchEnabled,lunchStart,lunchMinutes),
+      min=Math.min(...p.sizes),max=Math.max(...p.sizes),avg=n/p.sizes.length;
   if(min<3&&n>=3)continue;
   let imbalance=max-min,latePenalty=(p.onTime&&p.day1OnTime)?0:50000+p.overBy*100+p.day1OverBy*100;
-  // Build 98: organiser-first planning. The preferred group size and a sensible/even split
-  // take priority over forcing a neat knockout bracket.
   let sweetOutside=p.sizes.reduce((sum,z)=>sum+(z<4?(4-z)*2:(z>5?(z-5):0)),0);
   let allSweet=p.sizes.every(z=>z>=4&&z<=5);
   let allPractical=p.sizes.every(z=>z>=4&&z<=6);
   let structureClass=allSweet?0:allPractical?1:2;
   let preferredDistance=p.sizes.reduce((sum,z)=>{
-    // With a preference of 4, a group of 5 is still a very good fit; likewise 5/4.
     let d=Math.abs(z-preferredGroup);if((preferredGroup===4&&z===5)||(preferredGroup===5&&z===4))d=.25;
     return sum+d;
   },0);
@@ -1773,14 +1777,15 @@ function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners
   let evenPenalty=imbalance*2400;
   let q=Math.min(n,p.qualifiers),next=nextStandardKnockoutSize(q),clean=isStandardKnockoutSize(q);
   let bracketFill=clean?0:Math.max(0,next-q);
-  // Knockout fit is deliberately secondary to the group structure.
+  // For same-day events, a clean Last 8 is strongly preferred over drifting into a Last 16.
+  let last8Penalty=(eventFormat!=='two_day'&&n>=16)?(q===8?-12000:(q>8?18000:6000)):0;
   let bracketPenalty=clean?-1200:bracketFill*900;
   let extraGamesPenalty=Math.max(0,p.groupGames-(n*2.4))*8;
   let score;
-  if(mode==='shortest')score=structurePenalty+evenPenalty+latePenalty+p.totalSessions*850+(100-p.util)*2+bracketPenalty;
-  else if(mode==='games')score=structurePenalty+evenPenalty+latePenalty-p.groupGames*250+p.totalSessions*10+(100-p.util)+bracketPenalty;
-  else score=structurePenalty+evenPenalty+latePenalty+extraGamesPenalty+(100-p.util)*.4+p.totalSessions*2+p.backToBack*.5+bracketPenalty;
-  candidates.push({g,p,score,structureClass,preferredDistance,cleanBracket:clean,bracketFill,practical:allPractical,sweet:allSweet});
+  if(mode==='shortest')score=structurePenalty+evenPenalty+latePenalty+p.totalSessions*850+(100-p.util)*2+bracketPenalty+last8Penalty;
+  else if(mode==='games')score=structurePenalty+evenPenalty+latePenalty-p.groupGames*250+p.totalSessions*10+(100-p.util)+bracketPenalty+last8Penalty;
+  else score=structurePenalty+evenPenalty+latePenalty+extraGamesPenalty+(100-p.util)*.4+p.totalSessions*2+p.backToBack*.5+bracketPenalty+last8Penalty;
+  candidates.push({g,p,score,structureClass,preferredDistance,cleanBracket:clean,bracketFill,practical:allPractical,sweet:allSweet,recommendedQualify:recQualify,recommendedBest:recBest,recommendedAutoFill:dayLast8?false:null,dayLast8});
  }
  return candidates.sort((a,b)=>a.structureClass-b.structureClass||a.preferredDistance-b.preferredDistance||a.score-b.score||Number(b.cleanBracket)-Number(a.cleanBracket)||a.bracketFill-b.bracketFill||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
 }
