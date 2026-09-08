@@ -247,7 +247,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.08.127';
+const APP_VERSION='2026.09.08.128';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1461,7 +1461,7 @@ function renderBuilder(s){
    <h3 style="margin-top:0">League Setup</h3>
    <p class="muted">Enter your teams under Players / Teams. Each league fixture is one club v another, made up of two triples. Each triple is worth 2 points for a win / 1 for a draw, plus 2 aggregate bonus points for the combined score.</p>
    <div class="formgrid">
-    <div class="field"><label>League format</label><select id="bLeagueFormat"><option value="single" ${(x.leagueFormat||'single')==='single'?'selected':''}>Single round robin</option><option value="home_away" ${x.leagueFormat==='home_away'?'selected':''}>Home & Away</option></select></div>
+    <div class="field"><label>Number of league teams</label><input id="bLeagueTeams" type="number" min="2" max="128" step="1" value="${c.teams.length||x.teamCount||2}"><div class="meta">Reducing the number removes teams from the bottom of the Teams list. Teams with recorded scores cannot be removed.</div></div><div class="field"><label>League format</label><select id="bLeagueFormat"><option value="single" ${(x.leagueFormat||'single')==='single'?'selected':''}>Single round robin</option><option value="home_away" ${x.leagueFormat==='home_away'?'selected':''}>Home & Away</option></select></div>
     <div class="field"><label>Green / venue</label><input id="bLeagueGreen" value="${esc(x.leagueGreenName||x.clubName||'Main Green')}"></div>
     <div class="field"><label>Rinks available per session</label><input id="bLeagueRinks" type="number" min="2" max="30" value="${x.rinks||2}"></div>
     <div class="field"><label>Sessions per week</label><input id="bLeagueSessionsWeek" type="number" min="1" max="7" value="${x.leagueSessionsPerWeek||1}"></div>
@@ -1535,7 +1535,7 @@ function updatePlanner(){
   let box=document.getElementById('plannerResult'),status=document.getElementById('plannerStatus'),use=document.getElementById('useRecommendation');if(!box||!status||!use)return;
   if(type.value==='aggregate'){box.innerHTML='<p class="muted">The tournament planner is for tournament formats. Aggregate district matches use the number of rinks selected above.</p>';status.textContent='Not required';status.className='pill wait';use.disabled=true;return}
   if(type.value==='league'){
-   let n=c.teams.length||Math.max(2,+document.getElementById('bTeams')?.value||2),fmt=document.getElementById('bLeagueFormat')?.value||x.leagueFormat||'single',r=Math.max(1,+document.getElementById('bLeagueRinks')?.value||x.rinks||1),spw=Math.max(1,+document.getElementById('bLeagueSessionsWeek')?.value||x.leagueSessionsPerWeek||1),target=Math.max(1,+document.getElementById('bLeagueTargetWeeks')?.value||x.leagueTargetWeeks||10),rounds=(n%2?n:n-1),gamesPerRound=Math.floor(n/2),totalSessions=rounds,weeks=Math.ceil(totalSessions/spw);
+   let n=Math.max(2,+document.getElementById('bLeagueTeams')?.value||c.teams.length||2),fmt=document.getElementById('bLeagueFormat')?.value||x.leagueFormat||'single',r=Math.max(1,+document.getElementById('bLeagueRinks')?.value||x.rinks||1),spw=Math.max(1,+document.getElementById('bLeagueSessionsWeek')?.value||x.leagueSessionsPerWeek||1),target=Math.max(1,+document.getElementById('bLeagueTargetWeeks')?.value||x.leagueTargetWeeks||10),rounds=(n%2?n:n-1),gamesPerRound=Math.floor(n/2),totalSessions=rounds,weeks=Math.ceil(totalSessions/spw);
    status.textContent=weeks<=target?'✓ League fits target':'⚠ Longer than target';status.className='pill '+(weeks<=target?'done':'wait');use.disabled=true;
    box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>League planner:</b> ${n} teams • ${fmt==='home_away'?'Home & Away':'Single round robin'}.</div><div class="grid"><div class="kpi"><b>${rounds}</b><span>Rounds</span></div><div class="kpi"><b>${totalSessions}</b><span>Playing sessions</span></div><div class="kpi"><b>${spw}</b><span>Sessions / week</span></div><div class="kpi"><b>${weeks}</b><span>Estimated weeks</span></div></div><p><b>Club fixtures per round:</b> ${gamesPerRound} • <b>Each fixture:</b> 2 triples • <b>Maximum points:</b> 6</p>${weeks>target?`<div class="notice"><b>Target warning:</b> this setup needs about ${weeks} weeks, which is ${weeks-target} week${weeks-target===1?'':'s'} longer than the ${target}-week target.</div>`:`<div class="oknotice notice"><b>Target:</b> this fixture list fits within ${target} weeks.</div>`}`;
    let lp=document.getElementById('leaguePlanPreview');if(lp)lp.innerHTML=box.innerHTML;return
@@ -1623,6 +1623,7 @@ function updatePlanner(){
  document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}setupDirty=true;updatePlanner()};
 
  document.getElementById('saveBuilder').onclick=()=>{
+  if(type.value==='league'&&!resizeLeagueTeams(c,Number(document.getElementById('bLeagueTeams').value)))return;
   let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
   if(type.value==='wick64'){
    let names=[document.getElementById('bWickGreen1')?.value.trim()||'Green 1',document.getElementById('bWickGreen2')?.value.trim()||'Green 2',document.getElementById('bWickGreen3')?.value.trim()||'Green 3'];
@@ -1632,7 +1633,7 @@ function updatePlanner(){
   }
   if(type.value==='league'){
    let n=Math.max(2,c.teams.length||x.teamCount||2);
-   Object.assign(x,{specialPreset:'league',teamCount:n,leagueFormat:'single',leagueGreenName:document.getElementById('bLeagueGreen')?.value.trim()||'Main Green',rinks:Math.max(2,+document.getElementById('bLeagueRinks')?.value||2),leagueSessionsPerWeek:Math.max(1,+document.getElementById('bLeagueSessionsWeek')?.value||1),leagueStartDate:document.getElementById('bLeagueStartDate')?.value||new Date().toISOString().slice(0,10),leagueTargetWeeks:Math.max(1,+document.getElementById('bLeagueTargetWeeks')?.value||10),start:document.getElementById('bLeagueStartTime')?.value||'18:30',gameType:'triples',ends:Math.max(1,+document.getElementById('bLeagueEnds')?.value||18),minutes:Math.max(10,+document.getElementById('bLeagueMinutes')?.value||120),drawMethod:'league',qualify:'winners',autoFillKnockout:false,leagueScoring:'two_triples_aggregate'});
+   Object.assign(x,{specialPreset:'league',teamCount:n,leagueFormat:document.getElementById('bLeagueFormat').value,leagueGreenName:document.getElementById('bLeagueGreen')?.value.trim()||'Main Green',rinks:Math.max(2,+document.getElementById('bLeagueRinks')?.value||2),leagueSessionsPerWeek:Math.max(1,+document.getElementById('bLeagueSessionsWeek')?.value||1),leagueStartDate:document.getElementById('bLeagueStartDate')?.value||new Date().toISOString().slice(0,10),leagueTargetWeeks:Math.max(1,+document.getElementById('bLeagueTargetWeeks')?.value||10),start:document.getElementById('bLeagueStartTime')?.value||'18:30',gameType:'triples',ends:Math.max(1,+document.getElementById('bLeagueEnds')?.value||18),minutes:Math.max(10,+document.getElementById('bLeagueMinutes')?.value||120),drawMethod:'league',qualify:'winners',autoFillKnockout:false,leagueScoring:'two_triples_aggregate'});
    c.teams.forEach(t=>{t.group='League';t.drawPos=null});c.knockout=[];
   }
   if(type.value==='aggregate'){x.aggregateSideA=document.getElementById('bSideA').value.trim()||'Side A';x.aggregateSideB=document.getElementById('bSideB').value.trim()||'Side B';x.aggregateRinks=Math.max(1,+document.getElementById('bAggRinks').value||6);ensureAggregate(c)}
@@ -1859,6 +1860,7 @@ function generateWick64Fixtures(c=comp()){
 function leagueRoundSessions(c=comp()){
  let base=roundRobin(c.teams),rounds=[];
  base.forEach((games,ri)=>rounds.push({round:ri+1,games:games.map((m,mi)=>((ri+mi)%2?[m[1],m[0]]:m))}));
+ if(c.settings.leagueFormat==='home_away'){let n=rounds.length;rounds.push(...rounds.slice().map(r=>({round:r.round+n,games:r.games.map(m=>[m[1],m[0]])})))}
  return rounds
 }
 function leagueRequiredWeeks(c=comp()){let rounds=leagueRoundSessions(c).length,per=Math.max(1,+c.settings.leagueSessionsPerWeek||1);return Math.max(1,Math.ceil(rounds/per))}
@@ -2063,7 +2065,7 @@ function manualGroupLetters(c=comp()){let count=(c.settings.tournamentType||'sta
 function assignManualGroup(teamId,group){let c=comp(),t=c.teams.find(x=>x.id===teamId);if(!t)return;let from=t.group||'',fromPos=t.drawPos||null;if(from===group&&group)return;if((c.settings.tournamentType||'standard')==='wick64'&&group){let used=new Set(c.teams.filter(x=>x.id!==teamId&&x.group===group).map(x=>+x.drawPos).filter(Boolean)),pos=[1,2,3,4].find(p=>!used.has(p));if(!pos)return alert('Group '+group+' already has four teams.');t.drawPos=pos}else if(!group)t.drawPos=null;c.manualHistory=c.manualHistory||[];c.manualHistory.push({teamId,from,fromPos,to:group,toPos:t.drawPos||null});t.group=group;c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
 function undoManualDraw(){let c=comp(),h=(c.manualHistory||[]).pop();if(!h)return;let t=c.teams.find(x=>x.id===h.teamId);if(t){t.group=h.from||'';t.drawPos=h.fromPos||null}c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
 function clearManualDraw(){let c=comp();c.teams.forEach(t=>{t.group='';t.drawPos=null});c.manualHistory=[];c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
-function renderDraw(s){let c=comp(),tt=(c.settings.tournamentType||'standard');
+function renderDraw(s){let c=comp(),tt=(c.settings.tournamentType||'standard');if(tt==='league')return renderLeagueEditor(s,c);
  if(tt==='league'){
   let weeks=leagueRequiredWeeks(c),target=Math.max(1,+c.settings.leagueTargetWeeks||10);
   s.innerHTML=`<div class="card"><h2>League Fixtures</h2><p class="muted">Each team plays every other team once. Generate the opponents, then choose Home or Away for every tie.</p><div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${Math.max(0,c.teams.length-1)}</b><span>Games per team</span></div><div class="kpi"><b>${weeks}</b><span>Estimated weeks</span></div><div class="kpi"><b>6</b><span>Points available</span></div></div>${weeks>target?`<div class="notice"><b>Target warning:</b> this league needs about ${weeks} weeks against a ${target}-week target.</div>`:`<div class="oknotice notice"><b>Target:</b> this league fits within ${target} weeks.</div>`}${role==='admin'?`<button class="btn primary" id="makeLeagueFixtures">${c.fixtures.length?'Regenerate League Fixtures':'Generate League Fixtures'}</button>`:''}</div>${c.fixtures.length?`<div class="card"><h3>Home / Away Allocation</h3><p class="muted">Choose the home team for each fixture. The other team becomes away automatically.</p><div class="tablewrap"><table><thead><tr><th>Round</th><th>Fixture</th><th>Home</th><th>Away</th></tr></thead><tbody>${c.fixtures.map(f=>{let home=String(f.homeId||f.a),away=home===String(f.a)?f.b:f.a;return `<tr><td>${f.round}</td><td>${esc(teamName(f.a,c))} v ${esc(teamName(f.b,c))}</td><td><select data-league-home="${f.id}"><option value="${f.a}" ${home===String(f.a)?'selected':''}>${esc(teamName(f.a,c))}</option><option value="${f.b}" ${home===String(f.b)?'selected':''}>${esc(teamName(f.b,c))}</option></select></td><td>${esc(teamName(away,c))}</td></tr>`}).join('')}</tbody></table></div><button class="btn primary" id="saveLeagueHomeAway">Save Home / Away</button></div>`:''}`;
@@ -2193,7 +2195,49 @@ function openQuickTeamSchedule(){
  };
  box.scrollIntoView({behavior:'smooth',block:'start'})
 }
-function renderSchedule(s){let c=comp();
+
+// Build 128: editable league entries and manual fixtures.
+function leagueHasScore(f){return ['triple1A','triple1B','triple2A','triple2B','scoreA','scoreB'].some(k=>f[k]!==undefined&&f[k]!==null&&f[k]!=='')}
+function resizeLeagueTeams(c,n){
+ if(!Number.isInteger(n)||n<2||n>128){alert('Enter a whole number of teams from 2 to 128.');return false}
+ if(n===c.teams.length)return true;
+ let removed=new Set(c.teams.slice(n).map(t=>String(t.id))),affected=(c.fixtures||[]).filter(f=>removed.has(String(f.a))||removed.has(String(f.b)));
+ if(affected.some(leagueHasScore)){alert('A team being removed has recorded scores. Keep that team in the league.');return false}
+ if(n<c.teams.length&&!confirm('Remove the last '+(c.teams.length-n)+' teams and their '+affected.length+' unplayed fixtures?'))return false;
+ c.teams=c.teams.slice(0,n);let id=1;
+ while(c.teams.length<n){while(c.teams.some(t=>t.id==='t'+id))id++;c.teams.push({id:'t'+id++,name:'Team '+(c.teams.length+1),group:'League',drawPos:null,players:[]})}
+ c.fixtures=(c.fixtures||[]).filter(f=>!affected.includes(f));c.settings.teamCount=n;return true
+}
+function leagueDrawErrors(rows,c){
+ let errors=[],pairs=new Set(),ids=new Set(c.teams.map(t=>String(t.id)));
+ rows.forEach((f,i)=>{
+ let a=String(f.a),b=String(f.b),label='Fixture '+(i+1);
+ if(!ids.has(a)||!ids.has(b)||a===b)errors.push(label+': choose two different teams.');
+ if(!Number.isInteger(+f.round)||+f.round<1||!Number.isInteger(+f.leagueWeek)||+f.leagueWeek<1)errors.push(label+': round and week must be positive whole numbers.');
+ let key=c.settings.leagueFormat==='home_away'?a+'|'+b:[a,b].sort().join('|');if(pairs.has(key))errors.push(label+': this pairing is already in the draw.');pairs.add(key);
+ rows.slice(0,i).forEach(g=>{let shared=[String(g.a),String(g.b)].some(t=>t===a||t===b);
+ if(shared&&f.date&&g.date===f.date&&Math.abs(minutesOfDay(f.start)-minutesOfDay(g.start))<Math.max(1,+c.settings.minutes||120))errors.push(label+': a team is already playing at that time.');
+ });
+ });return [...new Set(errors)]
+}
+function renderLeagueEditor(s,c){
+ let work=JSON.parse(JSON.stringify(c.fixtures||[])),admin=role==='admin';
+ // Normalize to home-first, moving any recorded scores with their team.
+ work.forEach(f=>{if(String(f.homeId||f.a)!==String(f.a)){[f.a,f.b]=[f.b,f.a];['triple1','triple2','score'].forEach(k=>{[f[k+'A'],f[k+'B']]=[f[k+'B'],f[k+'A']]})}});
+ const paint=()=>{
+ s.innerHTML=`<div class="card"><h2>League Draw & Schedule</h2><p>${c.teams.length} teams • 2 triples + aggregate bonus • ${work.length} fixtures</p><p class="muted">Choose opponents manually or generate a full draw, then edit the schedule. Save when ready. Teams without a fixture in a round have a bye. Scored fixtures keep their opponents.</p>${admin?'<button class="btn secondary" id="leagueAuto">Generate Full Draw</button> <button class="btn secondary" id="leagueAdd">Add Manual Fixture</button> <button class="btn primary" id="leagueSave">Save Draw & Schedule</button> <button class="btn secondary" id="leagueCancel">Cancel Changes</button>':''}<div id="leagueErrors" role="alert"></div></div><div class="card"><div class="tablewrap"><table><thead><tr><th>Round</th><th>Week</th><th>Date</th><th>Time</th><th>Home</th><th>Away</th><th>Venue</th><th></th></tr></thead><tbody>${work.map((f,i)=>{let locked=leagueHasScore(f),input=(key,type)=>`<input aria-label="${key} fixture ${i+1}" data-i="${i}" data-key="${key}" type="${type}" ${type==='number'?'min="1" step="1"':''} value="${esc(String(f[key]??''))}" ${admin?'':'disabled'}>`,select=key=>`<select aria-label="${key==='a'?'Home':'Away'} fixture ${i+1}" data-i="${i}" data-key="${key}" ${!admin||locked?'disabled':''}><option value="">Choose team</option>${c.teams.map(t=>`<option value="${esc(t.id)}" ${String(f[key])===String(t.id)?'selected':''}>${esc(t.name)}</option>`).join('')}</select>`;return `<tr><td>${input('round','number')}</td><td>${input('leagueWeek','number')}</td><td>${input('date','date')}</td><td>${input('start','time')}</td><td>${select('a')}</td><td>${select('b')}</td><td>${input('venue','text')}</td><td>${locked?'Scores entered':admin?`<button class="btn secondary" data-remove="${i}">Remove</button>`:''}</td></tr>`}).join('')}</tbody></table></div></div>`;
+ if(!admin)return;
+ s.querySelectorAll('[data-key]').forEach(el=>el.oninput=()=>{work[+el.dataset.i][el.dataset.key]=el.type==='number'?Number(el.value):el.value});
+ s.querySelectorAll('[data-remove]').forEach(el=>el.onclick=()=>{work.splice(+el.dataset.remove,1);paint()});
+ s.querySelector('#leagueAdd').onclick=()=>{let last=work[work.length-1];work.push({id:'lfm'+Date.now()+Math.random().toString(36).slice(2),a:'',b:'',round:last?.round||1,leagueWeek:last?.leagueWeek||1,date:last?.date||c.settings.leagueStartDate||'',start:last?.start||c.settings.start||'18:30',venue:last?.venue||c.settings.leagueGreenName||'Main Green',triple1A:'',triple1B:'',triple2A:'',triple2B:''});paint()};
+ s.querySelector('#leagueCancel').onclick=()=>render();
+ s.querySelector('#leagueAuto').onclick=()=>{if(work.some(leagueHasScore)||c.fixtures.some(leagueHasScore))return alert('Recorded scores exist. Edit the remaining fixtures manually to keep results.');if(work.length&&!confirm('Replace the current draw and any unsaved edits with a full generated draw?'))return;generateLeagueFixtures(c);render()};
+ s.querySelector('#leagueSave').onclick=()=>{let errors=leagueDrawErrors(work,c);if(errors.length){s.querySelector('#leagueErrors').innerHTML='<p class="notice">'+errors.map(esc).join('<br>')+'</p>';return}
+ c.fixtures=work.map((f,i)=>({...f,game:i+1,group:'League',homeId:f.a,awayId:f.b,nameA:teamName(f.a,c),nameB:teamName(f.b,c),green:f.venue,session:+f.round,leagueSessionInWeek:1,rink:f.rink||1}));saveDB();render()};
+ };paint()
+}
+
+function renderSchedule(s){let c=comp();if(c.settings.tournamentType==='league')return renderLeagueEditor(s,c);
  if((c.settings.tournamentType||'standard')==='league'){
   let fs=c.fixtures||[],weeks=leagueRequiredWeeks(c),x=c.settings;if(!fs.length){s.innerHTML=`<div class="card"><h2>League Schedule</h2><p>No league fixtures generated yet.</p>${role==='admin'?'<button class="btn primary" id="makeLeagueSchedule">Generate League Fixtures</button>':''}</div>`;let b=document.getElementById('makeLeagueSchedule');if(b)b.onclick=()=>{generateLeagueFixtures(c);render()};return}
   let weekNos=[...new Set(fs.map(f=>f.leagueWeek))].sort((a,b)=>a-b);s.innerHTML=`<div class="card"><h2>League Schedule</h2><p class="muted">${c.teams.length} teams • each team plays ${Math.max(0,c.teams.length-1)} fixtures • 2 triples per fixture • ${x.leagueSessionsPerWeek||1} session${(+x.leagueSessionsPerWeek||1)===1?'':'s'} per week • estimated ${weeks} weeks.</p></div>${weekNos.map(w=>{let rows=fs.filter(f=>f.leagueWeek===w);return `<div class="card"><h3>Week ${w}</h3><div class="tablewrap"><table><thead><tr><th>Round</th><th>Date</th><th>Home</th><th>Away</th><th>Format</th></tr></thead><tbody>${rows.map(f=>{let home=String(f.homeId||f.a),away=home===String(f.a)?f.b:f.a;return `<tr><td>${f.round}</td><td>${esc(f.date||'')}</td><td><b>${esc(teamName(home,c))}</b></td><td>${esc(teamName(away,c))}</td><td>2 Triples</td></tr>`}).join('')}</tbody></table></div></div>`}).join('')}`;return
