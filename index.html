@@ -247,7 +247,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.08.129';
+const APP_VERSION='2026.09.08.130';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -398,6 +398,8 @@ async function refreshRemoteTournament(){
  if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
  // Build 125: never overwrite unsaved Setup edits with the last cloud-saved version.
  if(tab==='builder'&&setupDirty)return;
+ // Keep admin controls and manual league drafts stable between explicit saves.
+ if(tab==='admin'||(role==='admin'&&['draw','schedule'].includes(tab)&&comp().settings?.tournamentType==='league'))return;
  if(offlineQueueEntry()){await flushOfflineQueue();if(offlineQueueEntry())return;}
  if(currentUser)await refreshRemoteAccess();
  if(remoteSaveBusy||Date.now()-remoteLastPushAt<2000)return;
@@ -654,7 +656,7 @@ function downloadCompetitionBackup(c=comp()){
  downloadBlobFile(JSON.stringify(pack,null,2),'application/json',safeFileName(c.title||'competition')+'-archive-backup.json');
 }
 function competitionSummaryHTML(c=comp()){
- let title=esc((c.title||'').trim()||'Untitled competition'),type=c.settings?.tournamentType||'standard',body='';
+ let title=esc(competitionDisplayName(c)||'Untitled competition'),type=c.settings?.tournamentType||'standard',body='';
  if(type==='aggregate'){
   let t=aggregateTotals(c),rows=ensureAggregate(c);
   body=`<h2>${esc(c.settings.aggregateSideA||'Side A')} ${t.a} – ${t.b} ${esc(c.settings.aggregateSideB||'Side B')}</h2><table><tr><th>Rink</th><th>Side A / Skip</th><th>Score</th><th>Side B / Skip</th></tr>${rows.map(r=>{let s=currentScore(r);return `<tr><td>${r.rink}</td><td>${esc(r.skipA||'')}</td><td>${s.a} – ${s.b}</td><td>${esc(r.skipB||'')}</td></tr>`}).join('')}</table>`;
@@ -951,7 +953,7 @@ async function showNewTournamentWizard(){
   let t=type.value,n=t==='wick64'?64:Math.max(2,+document.getElementById('ntTeams')?.value||16);
   let requestedClub=document.getElementById('ntClubAccount')?.value||(currentAppRole!=='owner'&&clubs.length===1?clubs[0].id:null);
   if(t==='league'&&!clubs.find(x=>String(x.id)===String(requestedClub))?.enable_two_triples_league)return alert('The 2-Triples Aggregate League format is not enabled for this club.');
-  let c=defaultComp();c.id='comp-'+Date.now();c.title=name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode='live_optional';
+  let c=defaultComp();c.id='comp-'+Date.now();c.title=t==='league'?'Black Isle and District Indoor Bowling League':name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode='live_optional';
   if(t==='aggregate'){c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
   else{
    if(t==='wick64')Object.assign(c.settings,{specialPreset:'wick64',teamCount:64,groupSize:4,manualGroups:16,drawMethod:'manual',gameType:'triples',ends:15,start:'09:00',minutes:115,changeoverMinutes:5,greensCount:3,rinksPerGreen:6,rinks:18,eventFormat:'two_day',day1TargetFinish:'21:00',day2Start:'09:00',qualify:'top2',bestRunners:0,autoFillKnockout:false,wickGreenNames:['Green 1','Green 2','Green 3'],wickMainGreen:'Green 1',wickDay2Gap:20});
@@ -984,7 +986,8 @@ async function duplicateCurrentTournament(){
  db.competitions.push(copy);db.active=copy.id;saveDB();tab='builder';render();
 }
 
-function comp(){if(!db.active)db.active=db.competitions[0].id;let c=db.competitions.find(c=>c.id===db.active)||db.competitions[0];if(c.settings?.tournamentType==='league'&&!c.settings.blackIsle129){c.title='Black Isle and District Indoor Bowling League';Object.assign(c.settings,{leagueFormat:'home_away',leagueSessionsPerWeek:1,blackIsle129:true})}return c}
+function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competitions.find(c=>c.id===db.active)||db.competitions[0]}
+function competitionDisplayName(c){return c?.settings?.tournamentType==='league'?'Black Isle and District Indoor Bowling League':(c?.title||'').trim()}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
 function appendDrawActions(){
@@ -1155,7 +1158,7 @@ function setupMobileKeyboardNav(){
 setupMobileKeyboardNav();
 
 function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];let badge=accessNotificationCount>0?`<span class="notify-badge">${accessNotificationCount>99?'99+':accessNotificationCount}</span>`:'';document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');let wanted=role==='admin'?['dashboard','quick','knockout','tables','admin']:role==='scorer'?['quick','knockout','fixtures','tables']:['dashboard','tables','fixtures','knockout'];let mobileTabs=wanted.map(k=>tabs.find(x=>x[0]===k)).filter(Boolean).slice(0,5);document.getElementById('bottomNav').innerHTML=mobileTabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});updateAdminRoleBadge()}
-function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc((c.title||'').trim()||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
+function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc(competitionDisplayName(c)||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
 
 function wireGlobalToolbar(){
  let a=document.getElementById('accessBtn');
@@ -1203,7 +1206,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=(comp().title||'').trim(),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
@@ -1535,6 +1538,7 @@ function updatePlanner(){
   let box=document.getElementById('plannerResult'),status=document.getElementById('plannerStatus'),use=document.getElementById('useRecommendation');if(!box||!status||!use)return;
   if(type.value==='aggregate'){box.innerHTML='<p class="muted">The tournament planner is for tournament formats. Aggregate district matches use the number of rinks selected above.</p>';status.textContent='Not required';status.className='pill wait';use.disabled=true;return}
   if(type.value==='league'){
+   c.title='Black Isle and District Indoor Bowling League';
    let n=Math.max(2,+document.getElementById('bLeagueTeams')?.value||c.teams.length||2),fmt=document.getElementById('bLeagueFormat')?.value||x.leagueFormat||'single',r=Math.max(1,+document.getElementById('bLeagueRinks')?.value||x.rinks||1),spw=Math.max(1,+document.getElementById('bLeagueSessionsWeek')?.value||x.leagueSessionsPerWeek||1),target=Math.max(1,+document.getElementById('bLeagueTargetWeeks')?.value||x.leagueTargetWeeks||10),rounds=(n%2?n:n-1)*(fmt==='home_away'?2:1),gamesPerRound=Math.floor(n/2),totalSessions=rounds,weeks=Math.ceil(totalSessions/spw);
    status.textContent=weeks<=target?'✓ League fits target':'⚠ Longer than target';status.className='pill '+(weeks<=target?'done':'wait');use.disabled=true;
    box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>League planner:</b> ${n} teams • ${fmt==='home_away'?'Home & Away':'Single round robin'}.</div><div class="grid"><div class="kpi"><b>${rounds}</b><span>Rounds</span></div><div class="kpi"><b>${totalSessions}</b><span>Playing sessions</span></div><div class="kpi"><b>${spw}</b><span>Sessions / week</span></div><div class="kpi"><b>${weeks}</b><span>Estimated weeks</span></div></div><p><b>Club fixtures per round:</b> ${gamesPerRound} • <b>Each fixture:</b> 2 triples • <b>Maximum points:</b> 6</p>${weeks>target?`<div class="notice"><b>Target warning:</b> this setup needs about ${weeks} weeks, which is ${weeks-target} week${weeks-target===1?'':'s'} longer than the ${target}-week target.</div>`:`<div class="oknotice notice"><b>Target:</b> this fixture list fits within ${target} weeks.</div>`}`;
@@ -1632,6 +1636,7 @@ function updatePlanner(){
    if(c.teams.length>64)c.teams=c.teams.slice(0,64);
   }
   if(type.value==='league'){
+   c.title='Black Isle and District Indoor Bowling League';
    let n=Math.max(2,c.teams.length||x.teamCount||2);
    Object.assign(x,{specialPreset:'league',teamCount:n,leagueFormat:document.getElementById('bLeagueFormat').value,leagueGreenName:document.getElementById('bLeagueGreen')?.value.trim()||'Main Green',rinks:Math.max(2,+document.getElementById('bLeagueRinks')?.value||2),leagueSessionsPerWeek:Math.max(1,+document.getElementById('bLeagueSessionsWeek')?.value||1),leagueStartDate:document.getElementById('bLeagueStartDate')?.value||new Date().toISOString().slice(0,10),leagueTargetWeeks:Math.max(1,+document.getElementById('bLeagueTargetWeeks')?.value||10),start:document.getElementById('bLeagueStartTime')?.value||'18:30',gameType:'triples',ends:Math.max(1,+document.getElementById('bLeagueEnds')?.value||18),minutes:Math.max(10,+document.getElementById('bLeagueMinutes')?.value||120),drawMethod:'league',qualify:'winners',autoFillKnockout:false,leagueScoring:'two_triples_aggregate'});
    c.teams.forEach(t=>{t.group='League';t.drawPos=null});c.knockout=[];
@@ -2859,7 +2864,7 @@ async function loadClubAdminPanel(){
    <div class="notice" style="margin-top:10px">
     <b>Optional league formats</b>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px">
-      <label style="display:flex;align-items:center;gap:7px"><input type="checkbox" data-club-two-triples="${esc(club.id)}" ${club.enable_two_triples_league?'checked':''}> Enable 2 Triples + Aggregate Bonus League</label>
+      <label style="display:flex;align-items:center;gap:7px"><input type="checkbox" data-club-two-triples="${esc(club.id)}" ${club.enable_two_triples_league?'checked':''}> Enable Black Isle and District Indoor Bowling League</label>
       <span class="meta">Hidden from this club when switched off.</span>
     </div>
    </div>
