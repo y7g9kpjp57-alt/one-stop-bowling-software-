@@ -247,7 +247,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.08.124';
+const APP_VERSION='2026.09.08.125';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'';
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -287,7 +287,7 @@ const defaultComp=()=>({
  settings:{clubName:'Your Bowls Club',tournamentType:'standard',scoringMode:'live_optional',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:6,ends:12,start:'09:00',minutes:60,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:60,knockoutMinutesManual:false,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,autoFillKnockout:true,optimise:'balanced'},
  pins:{admin:'0001',scorer:'0001'},teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})),fixtures:[],knockout:[],drawSeed:1
 });
-let db=loadDB();let role='public', tab='dashboard';
+let db=loadDB();let role='public', tab='dashboard',setupDirty=false;
 setTimeout(applySimpleMode,0);
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
@@ -394,6 +394,8 @@ async function requestScorerAccess(){
 
 async function refreshRemoteTournament(){
  if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
+ // Build 125: never overwrite unsaved Setup edits with the last cloud-saved version.
+ if(tab==='builder'&&setupDirty)return;
  if(offlineQueueEntry()){await flushOfflineQueue();if(offlineQueueEntry())return;}
  if(currentUser)await refreshRemoteAccess();
  if(remoteSaveBusy||Date.now()-remoteLastPushAt<2000)return;
@@ -431,7 +433,7 @@ async function openSavedTournament(row){
  setRemoteTournament(row.id,row.code,access);
  startRemoteRefresh();
  role=['owner','admin'].includes(access)?'admin':access==='scorer'?'scorer':'public';
- tab='dashboard';
+ tab='dashboard';setupDirty=false;
  setTournamentNotice();
  document.getElementById('myTournamentsModal')?.remove();
  render()
@@ -1563,6 +1565,12 @@ function updatePlanner(){
   let f={bTeams:64,bGroup:4,bGreens:3,bRinksPerGreen:6,bRinks:18,bEnds:15,bMinutes:115,bChangeover:5};
   Object.entries(f).forEach(([id,v])=>{let el=document.getElementById(id);if(el)el.value=v});
  }
+ if(!s.dataset.setupDirtyBound){
+  const markSetupDirty=e=>{if(e.target&&['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))setupDirty=true};
+  s.addEventListener('input',markSetupDirty);
+  s.addEventListener('change',markSetupDirty);
+  s.dataset.setupDirtyBound='1';
+ }
  let endsInput=document.getElementById('bEnds'),gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes'),gameTypeInput=document.getElementById('bGame');
  let greensInput=document.getElementById('bGreens'),rinksPerGreenInput=document.getElementById('bRinksPerGreen'),totalRinksInput=document.getElementById('bRinks');
  const syncGreenCapacity=()=>{
@@ -1595,12 +1603,13 @@ function updatePlanner(){
   let rec=suggestedGameMinutes(gameTypeInput?.value||'rinks',Math.max(1,+endsInput?.value||12));
   if(gameMinutesInput)gameMinutesInput.value=rec;
   if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=rec;
+  setupDirty=true;
   updateSetupRecommendedTime();updatePlanner()
  };
  updateSetupRecommendedTime();
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
- document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}updatePlanner()};
+ document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}setupDirty=true;updatePlanner()};
 
  document.getElementById('saveBuilder').onclick=()=>{
   let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
@@ -1620,7 +1629,7 @@ function updatePlanner(){
    if(oldCount<x.teamCount){for(let i=oldCount;i<x.teamCount;i++)c.teams.push({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})}else if(oldCount>x.teamCount)c.teams=c.teams.slice(0,x.teamCount);
    if(oldCount!==x.teamCount||oldGroup!==x.groupSize||oldDraw!==x.drawMethod||oldTournamentType!==x.tournamentType){c.teams.forEach(t=>t.group='');c.fixtures=[];c.knockout=[];c.knockoutByes=[];c.manualHistory=[];c.manualDrawConfirmed=false}else if(c.fixtures?.length){c.fixtures.forEach(f=>f.start=sessionStartTime(c,+f.session||1))}
   }
-  saveDB();render();alert('Setup saved ✓\n\nNext step: open Players / Teams.')
+  setupDirty=false;saveDB();render();alert('Setup saved ✓\n\nNext step: open Players / Teams.')
  };
  syncSinglesSetup();
 }
