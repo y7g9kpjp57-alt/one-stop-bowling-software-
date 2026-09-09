@@ -247,7 +247,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.08.132';
+const APP_VERSION='2026.09.09.133';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1434,7 +1434,7 @@ function renderBuilder(s){
  <div class="formgrid">
   <div class="field"><label>Competition name</label><input id="bTitle" value="${esc(c.title)}"></div>
   <div class="field"><label>Club / organiser</label><input id="bClub" value="${esc(x.clubName||'')}"></div>
-  <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly&&x.tournamentType!=='wick64')?'selected':''}>Round Robin + Knockout</option><option value="wick64" ${x.tournamentType==='wick64'?'selected':''}>Wick / 64-Team Two-Day Triples</option>${(x.tournamentType==='league'||clubTwoTriplesEnabled())?`<option value="league" ${x.tournamentType==='league'?'selected':''}>Black Isle and District Indoor Bowling League</option>`:''}<option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
+  <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly&&x.tournamentType!=='wick64'&&x.tournamentType!=='league')?'selected':''}>Round Robin + Knockout</option><option value="wick64" ${x.tournamentType==='wick64'?'selected':''}>Wick / 64-Team Two-Day Triples</option>${(x.tournamentType==='league'||clubTwoTriplesEnabled())?`<option value="league" ${x.tournamentType==='league'?'selected':''}>Black Isle and District Indoor Bowling League</option>`:''}<option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
   <div class="field"><label>Scoring mode</label><div style="padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:#ecfdf5;color:#065f46;font-weight:800">End-by-End / Anytime Scoring</div><input type="hidden" id="bScoring" value="live_optional"></div>
   <div class="field"><label>Game format</label><select id="bGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select><div class="meta">Singles is available when required, but other formats remain the normal tournament setup.</div></div>
   <div class="field" id="endsSetupField"><label id="bEndsLabel">${x.gameType==='singles'?'Singles scoring':'Ends'}</label><div id="singles21Box" class="${x.gameType==='singles'?'oknotice':'hidden'}" style="padding:10px;margin:0"><b>First to 21 shots</b><div class="meta">No fixed number of ends. The scorer has 45 end rows available and the game is recognised as complete once a player reaches 21 or more shots.</div></div><input id="bEnds" class="${x.gameType==='singles'?'hidden':''}" type="number" min="1" max="40" value="${x.ends||12}"><div id="endsTimeHelp" class="meta ${x.gameType==='singles'?'hidden':''}">Recommended game time is based on the selected discipline and rounded UP to the nearest 5 minutes. Tap Use Recommended Time if you want to apply it.</div></div>
@@ -1649,6 +1649,28 @@ function updatePlanner(){
   setupDirty=false;saveDB();render();alert('Setup saved ✓\n\nNext step: open Players / Teams.')
  };
  syncSinglesSetup();
+ organiseSetupDetails(s);
+}
+
+
+// Build 133: show previously entered details once, with an explicit edit section.
+function organiseSetupDetails(screen){
+ let card=screen.querySelector('.card'),type=document.getElementById('bType');if(!card||!type)return;
+ let box=document.createElement('div');box.className='notice oknotice';box.id='setupDetailsSummary';
+ let summary=document.createElement('div'),details=document.createElement('details'),label=document.createElement('summary'),grid=document.createElement('div');
+ label.textContent='Edit tournament details';grid.className='formgrid';grid.style.marginTop='12px';details.append(label,grid);box.append(summary,details);
+ let heading=card.querySelector('h2');heading.insertAdjacentElement('afterend',box);
+ let moved={};['bTitle','bClub','bType','bTeams','bLeagueTeams'].forEach(id=>{let el=document.getElementById(id),field=el?.closest('.field');if(field){moved[id]=field;grid.append(field)}});
+ const update=()=>{let league=type.value==='league',aggregate=type.value==='aggregate',wick=type.value==='wick64';
+ if(moved.bTeams)moved.bTeams.classList.toggle('hidden',league||aggregate||wick);
+ if(moved.bLeagueTeams)moved.bLeagueTeams.classList.toggle('hidden',!league);
+ let teamInput=document.getElementById(league?'bLeagueTeams':'bTeams'),name=document.getElementById('bTitle').value.trim()||'Untitled competition',club=document.getElementById('bClub').value.trim(),format=type.selectedOptions[0]?.textContent||'';
+ summary.innerHTML='<b>'+esc(name)+'</b><div class="meta">'+[club,format,aggregate?'':(wick?64:teamInput?.value||comp().teams.length)+' teams'].filter(Boolean).map(esc).join(' • ')+'</div>';
+ // League-specific controls below already collect these settings.
+ document.getElementById('bGame')?.closest('.field')?.classList.toggle('hidden',league);
+ document.getElementById('endsSetupField')?.classList.toggle('hidden',league);
+ };
+ grid.addEventListener('input',update);type.addEventListener('change',update);update();
 }
 
 function scorerNextMatch(c=comp()){
