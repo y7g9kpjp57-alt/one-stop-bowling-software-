@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#082f49" />
 <title>One Stop Bowling Software</title>
-<!-- Build 138: cleanup, modular-source split, safer local recovery, modern notices -->
+<!-- Build 139: performance-only smoothing; no user-facing feature/detail changes -->
 <style>
 :root{--nav:#082f49;--blue:#0369a1;--sky:#e0f2fe;--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--green:#166534;--amber:#92400e;--red:#b91c1c}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
@@ -269,8 +269,8 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.09.138';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
+const APP_VERSION='2026.09.09.139';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
 let offlineSyncBusy=false;
@@ -330,18 +330,43 @@ function loadDB(){
  return {competitions:[defaultComp()],active:null}
 }
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
-function saveDB(){uxSnapshotBeforeSave();localStorage.setItem(APPKEY,JSON.stringify(db));showSavedIndicator();if(!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament()){queueOfflineState(navigator.onLine?'Saving online':'Saved offline');if(cloudReady&&navigator.onLine)pushRemoteTournament();}}
+let lastLocalSerialized='';
+try{lastLocalSerialized=localStorage.getItem(APPKEY)||''}catch(e){console.warn('Could not initialise local save cache',e)}
+function scheduleRemoteTournamentPush(delay=220){
+ if(remotePushTimer)clearTimeout(remotePushTimer);
+ remotePushTimer=setTimeout(()=>{remotePushTimer=null;pushRemoteTournament()},delay)
+}
+function saveDB(){
+ uxSnapshotBeforeSave();
+ let serialized='';
+ try{serialized=JSON.stringify(db)}catch(e){console.error('Tournament save serialisation failed',e);appToast('Could not prepare this change for saving.','warn');return}
+ if(serialized!==lastLocalSerialized){
+  try{localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized}catch(e){console.error('Tournament local save failed',e);appToast('This change could not be saved on this device.','warn');return}
+ }
+ showSavedIndicator();
+ if(!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament()){
+  queueOfflineState(navigator.onLine?'Saving online':'Saved offline');
+  if(cloudReady&&navigator.onLine)scheduleRemoteTournamentPush()
+ }
+}
 function canWriteRemoteTournament(){let a=accessState();return !!currentUser&&a.active&&['owner','admin','scorer'].includes(remoteAccessRole)}
 async function pushRemoteTournament(){
- if(remoteSaveBusy)return false;
+ if(remoteSaveBusy){remotePushRequested=true;return false}
  if(!navigator.onLine){queueOfflineState('Saved offline');return false}
- remoteSaveBusy=true;
+ if(!cloud||!cloudReady||!remoteTournamentId||!canWriteRemoteTournament())return false;
+ remoteSaveBusy=true;remotePushRequested=false;
+ let stateSnapshot=JSON.parse(JSON.stringify(db));
+ let snapshotSerialized='';
+ try{snapshotSerialized=JSON.stringify(stateSnapshot)}catch(e){snapshotSerialized=''}
  try{
-  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||'')});
+  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:stateSnapshot,p_title:(stateSnapshot.competitions?.find(c=>c.id===stateSnapshot.active)||stateSnapshot.competitions?.[0])?.title||''});
   if(error)throw error;
   remoteLastPushAt=Date.now();
-  clearOfflineState();
+  let pending=offlineQueueEntry(),pendingSerialized='';
+  try{pendingSerialized=pending?.state?JSON.stringify(pending.state):''}catch(e){pendingSerialized=''}
+  if(!pending||pendingSerialized===snapshotSerialized)clearOfflineState();
   setTournamentNotice();
+  if(remotePushRequested||offlineQueueEntry())scheduleRemoteTournamentPush(80);
   return true
  }catch(e){
   console.error('Tournament cloud save failed',e);
@@ -435,7 +460,7 @@ async function requestScorerAccess(){
 
 async function refreshRemoteTournament(){
  const requestedCode=remoteTournamentCode,requestedTab=tab,editRevision=formEditRevision;
- if(scoringRefreshBlocked())return;
+ if(document.hidden||scoringRefreshBlocked())return;
  if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
  // Build 125: never overwrite unsaved Setup edits with the last cloud-saved version.
  if(tab==='builder'&&setupDirty)return;
