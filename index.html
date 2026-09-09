@@ -179,6 +179,18 @@ body.simple-mode .bottom button{font-size:13px}
 .ux-progress{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:9px 2px 12px;margin:0 0 8px}.ux-step{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 11px;white-space:nowrap;font-size:12px;font-weight:800;color:#64748b}.ux-step.done{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}.ux-step.current{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8;box-shadow:0 0 0 2px #dbeafe inset}.ux-step.problem{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.ux-step button{all:unset;cursor:pointer}.ux-next{border:2px solid #93c5fd;background:#eff6ff}.ux-next h2{margin-bottom:4px}.ux-next-action{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ux-next-action .btn.primary{font-size:16px;padding:12px 17px}.ux-legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 12px}.ux-dot{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700}.ux-dot:before{content:'';width:9px;height:9px;border-radius:50%;background:#94a3b8}.ux-dot.done:before{background:#10b981}.ux-dot.wait:before{background:#f59e0b}.ux-dot.bad:before{background:#ef4444}.ux-save-toast{position:fixed;right:14px;top:86px;z-index:80;background:#0f172a;color:#fff;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;opacity:0;transform:translateY(-6px);pointer-events:none;transition:.18s}.ux-save-toast.show{opacity:1;transform:translateY(0)}.ux-search-modal .modalbox{width:min(760px,100%);max-height:88vh;overflow:auto}.ux-search-row{padding:11px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;justify-content:space-between;align-items:center}.ux-search-row:last-child{border-bottom:0}.ux-search-row .meta{margin-top:3px}.ux-context-help{border-left:4px solid #93c5fd}.ux-context-help summary{cursor:pointer;font-weight:900}.ux-sticky{display:none}.large-text-mode{font-size:18px}.large-text-mode .btn{font-size:16px;min-height:44px}.large-text-mode input,.large-text-mode select,.large-text-mode textarea{font-size:17px;min-height:44px}.large-text-mode .meta,.large-text-mode .muted{font-size:14px}.ux-tour-highlight{outline:4px solid #38bdf8!important;outline-offset:3px!important}.ux-tour-box{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;width:min(560px,calc(100% - 28px));background:#0f172a;color:#fff;border-radius:16px;padding:16px;box-shadow:0 18px 60px #0008}.ux-tour-box h3{margin:0 0 6px}.ux-tour-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}.ux-tour-box .btn.secondary{background:#fff}.ux-finish{border:2px solid #a7f3d0;background:#ecfdf5}.ux-simple-note{font-size:13px;color:#475569;margin-top:6px}.ux-current-tournament{border:2px solid #38bdf8!important;background:#f0f9ff!important}.ux-help-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:800;cursor:pointer}
 @media(max-width:760px){.ux-progress{margin-left:-2px;margin-right:-2px}.ux-step{padding:7px 9px}.ux-sticky{display:flex;position:fixed;left:0;right:0;bottom:63px;z-index:19;background:#fff;border-top:1px solid var(--line);padding:8px 10px;gap:8px;box-shadow:0 -8px 20px #0f172a12}.ux-sticky .btn{flex:1;min-height:46px;font-size:15px}.wrap{padding-bottom:145px}.ux-save-toast{top:72px;right:8px}}
 @media print{.ux-progress,.ux-next,.ux-context-help,.ux-sticky,.ux-save-toast,.ux-tour-box{display:none!important}}
+
+/* Build 135: keep phone controls clear of the keyboard and fixed navigation. */
+@media(max-width:760px){
+ .top{position:relative}
+ .ux-sticky{bottom:calc(72px + env(safe-area-inset-bottom));}
+ .wrap{padding-bottom:calc(165px + env(safe-area-inset-bottom));}
+ body.keyboard-open .ux-sticky,body.keyboard-open .bottom,body.keyboard-open .ux-save-toast{display:none!important}
+ input,select,textarea{font-size:16px!important;scroll-margin-block:24px}
+ .modal{overflow-y:auto;align-items:flex-start;padding-top:24px}
+ .modalbox{margin:auto;max-height:calc(100dvh - 48px);overflow:auto}
+ .modalbox input:not([type=password]){letter-spacing:normal;text-align:left}
+}
 </style>
 </head>
 <body>
@@ -247,7 +259,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.09.134';
+const APP_VERSION='2026.09.09.135';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -287,6 +299,10 @@ const defaultComp=()=>({
  settings:{clubName:'Your Bowls Club',tournamentType:'standard',scoringMode:'live_optional',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:6,ends:12,start:'09:00',minutes:60,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:60,knockoutMinutesManual:false,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,autoFillKnockout:true,optimise:'balanced'},
  pins:{admin:'0001',scorer:'0001'},teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})),fixtures:[],knockout:[],drawSeed:1
 });
+let formEditRevision=0,lastFormEditAt=0,scoreWritesPending=0;
+let scoreWriteChain=Promise.resolve();
+document.addEventListener('input',()=>{formEditRevision++;lastFormEditAt=Date.now()},true);
+function scoringRefreshBlocked(){let a=document.activeElement;return scoreWritesPending>0||Date.now()-lastFormEditAt<1800||!!(a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))}
 let db=loadDB();let role='public', tab='dashboard',setupDirty=false;
 setTimeout(applySimpleMode,0);
 function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
@@ -395,6 +411,8 @@ async function requestScorerAccess(){
 }
 
 async function refreshRemoteTournament(){
+ const requestedCode=remoteTournamentCode,requestedTab=tab,editRevision=formEditRevision;
+ if(scoringRefreshBlocked())return;
  if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
  // Build 125: never overwrite unsaved Setup edits with the last cloud-saved version.
  if(tab==='builder'&&setupDirty)return;
@@ -413,6 +431,7 @@ async function refreshRemoteTournament(){
  if(editing||openLiveScoring)return;
  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
  if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
+ if(requestedCode!==remoteTournamentCode||requestedTab!==tab||editRevision!==formEditRevision||scoringRefreshBlocked())return;
  if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
 }
 
@@ -853,7 +872,12 @@ function scorePatchData(data){
   liveEnds:Array.isArray(data?.liveEnds)?data.liveEnds:[]
  }
 }
-async function pushScoreDiff(before,after){
+function pushScoreDiff(before,after){
+ scoreWritesPending++;
+ let run=scoreWriteChain.catch(()=>{}).then(()=>pushScoreDiffOrdered(before,after));
+ scoreWriteChain=run;return run.finally(()=>{scoreWritesPending--});
+}
+async function pushScoreDiffOrdered(before,after){
  if(!remoteTournamentId)return true;
  if(!navigator.onLine||!cloudReady){queueOfflineState('Score changes saved offline');return false}
  if(!canWriteRemoteTournament())return true;
@@ -883,11 +907,12 @@ async function pushScoreDiff(before,after){
 async function auditScoreDiff(before,after){for(let k of new Set([...Object.keys(before||{}),...Object.keys(after||{})])){let a=before?.[k],b=after?.[k];if(JSON.stringify(a?.data??null)!==JSON.stringify(b?.data??null))await auditEvent('score_change',b?.target||a?.target||k,a?.data??null,b?.data??null)}}
 let pendingAuditBefore=null;
 async function saveScoresNow(saveForm,afterSave){
+ const saveRevision=formEditRevision,saveTab=tab;
  let before=scoreAuditSnapshot();saveForm();let after=scoreAuditSnapshot();
  localStorage.setItem(APPKEY,JSON.stringify(db));
  let ok=await pushScoreDiff(before,after);
  await auditScoreDiff(before,after);
- if(ok&&afterSave)afterSave();
+ if(ok&&afterSave){if(saveRevision===formEditRevision&&saveTab===tab&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))afterSave();else setSyncNotice('Score saved ✓',true)}
  else if(!ok&&!navigator.onLine)setSyncNotice('Offline • score saved safely on this device • will sync when connection returns',false);
  else if(!ok)setSyncNotice('Score saved on this device • online sync is waiting to retry',false)
 }
@@ -1264,7 +1289,7 @@ function ensureUxToolbar(){
 function uxProgressStrip(s,c){if(role!=='admin'||tab==='admin')return;let stages=uxStageInfo(c),firstIncomplete=stages.findIndex(x=>!x.done);let currentIdx=Math.max(0,firstIncomplete<0?stages.length-1:firstIncomplete),wrap=document.createElement('div');wrap.className='ux-progress noPrint';wrap.innerHTML=stages.map((x,i)=>`<span class="ux-step ${x.done?'done':i===currentIdx?'current':''}"><button data-ux-stage="${esc(x.id)}">${x.done?'✓ ':i===currentIdx?'→ ':''}${esc(x.label)}</button></span>`).join('');s.prepend(wrap);wrap.querySelectorAll('[data-ux-stage]').forEach(b=>b.onclick=()=>{tab=b.dataset.uxStage;render()})}
 function uxNextCard(s,c){if(role!=='admin'||tab!=='dashboard')return;let n=uxNextAction(c),card=document.createElement('div');card.className='card ux-next';card.innerHTML=`<h2>What do I do next?</h2><h3 style="margin:8px 0 4px">${esc(n.title)}</h3><p class="muted" style="margin:0">${esc(n.text)}</p><div class="ux-next-action"><button class="btn primary" id="uxNextButton">${esc(n.button)} →</button>${localStorage.getItem(UX_SNAPSHOT_KEY)?'<button class="btn secondary" id="uxRestoreSafe">Restore Last Safe Version</button>':''}</div><div class="ux-simple-note">Your tournament saves automatically. You can always go back to an earlier screen.</div>`;let progress=s.querySelector('.ux-progress');if(progress)progress.insertAdjacentElement('afterend',card);else s.prepend(card);card.querySelector('#uxNextButton').onclick=()=>{tab=n.tab;render()};card.querySelector('#uxRestoreSafe')?.addEventListener('click',restoreSafeSnapshot)}
 function uxContextCard(s){if(tab==='dashboard')return;let [title,body]=uxContextHelp(tab),card=document.createElement('details');card.className='card ux-context-help noPrint';card.innerHTML=`<summary>❓ Help with ${esc(title)}</summary><p class="muted">${esc(body)}</p><button class="btn secondary" id="uxFullGuide">Open Full User Guide</button>`;s.appendChild(card);card.querySelector('#uxFullGuide').onclick=()=>document.getElementById('helpModal')?.classList.remove('hidden')}
-function uxStickyAction(c){document.getElementById('uxSticky')?.remove();if(role!=='admin')return;let n=uxNextAction(c),bar=document.createElement('div');bar.id='uxSticky';bar.className='ux-sticky noPrint';bar.innerHTML=`<button class="btn primary" id="uxStickyPrimary">${esc(n.button)}</button><button class="btn secondary" id="uxStickyFind">🔎 Find</button>`;document.body.appendChild(bar);bar.querySelector('#uxStickyPrimary').onclick=()=>{tab=n.tab;render()};bar.querySelector('#uxStickyFind').onclick=openUxSearch}
+function uxStickyAction(c){document.getElementById('uxSticky')?.remove();if(role!=='admin'||['quick','knockout'].includes(tab))return;let n=uxNextAction(c),bar=document.createElement('div');bar.id='uxSticky';bar.className='ux-sticky noPrint';bar.innerHTML=`<button class="btn primary" id="uxStickyPrimary">${esc(n.button)}</button><button class="btn secondary" id="uxStickyFind">🔎 Find</button>`;document.body.appendChild(bar);bar.querySelector('#uxStickyPrimary').onclick=()=>{tab=n.tab;render()};bar.querySelector('#uxStickyFind').onclick=openUxSearch}
 function uxStatusLegend(s){if(!['quick','knockout','fixtures'].includes(tab))return;let el=document.createElement('div');el.className='ux-legend noPrint';el.innerHTML='<span class="ux-dot done">Finished</span><span class="ux-dot wait">Waiting / in progress</span><span class="ux-dot bad">Needs attention</span>';s.prepend(el)}
 function uxFinished(c){let type=c.settings?.tournamentType||'standard';if(c.archivedAt)return false;if(type==='aggregate')return aggregateTotals(c).complete===aggregateTotals(c).total;if(type==='knockout'){let a=(c.knockout||[]).flat();return a.length>0&&a.every(completed)}let k=(c.knockout||[]).flat();if(k.length)return k.every(completed);return (c.fixtures||[]).length>0&&(c.fixtures||[]).every(completed)}
 function uxFinishCard(s,c){if(role!=='admin'||tab!=='dashboard'||!uxFinished(c))return;let card=document.createElement('div');card.className='card ux-finish';card.innerHTML=`<h2>🏆 Competition finished</h2><p>All currently scheduled games have final scores. Your results are ready to check, print, share or archive.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-ux-finish-tab="tables">View Results</button><button class="btn secondary" data-ux-finish-tab="scorecards">Scorecards / Print</button><button class="btn secondary" id="uxFinishReport">AI / Facebook Report</button><button class="btn success" data-ux-finish-tab="admin">Archive Tournament</button></div>`;s.prepend(card);card.querySelectorAll('[data-ux-finish-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.uxFinishTab;render()});card.querySelector('#uxFinishReport').onclick=openAiTournamentReport}
@@ -1417,16 +1442,20 @@ function attachBowlsEndRules(root=document,onChange=()=>{}){root.querySelectorAl
 let liveAutoSaveTimer=null;
 function queueLiveAutoSave(saveForm,delay=450){
  if(!pendingAuditBefore)pendingAuditBefore=scoreAuditSnapshot();
- clearTimeout(liveAutoSaveTimer);setSyncNotice('Live score changed • saving…',true);
+ clearTimeout(liveAutoSaveTimer);
+ // Capture edits now, while their form is still mounted. Only the network write waits.
+ saveForm();const after=scoreAuditSnapshot();
+ localStorage.setItem(APPKEY,JSON.stringify(db));
+ setSyncNotice('Live score changed • saving…',true);
  liveAutoSaveTimer=setTimeout(async()=>{
-  let before=pendingAuditBefore||scoreAuditSnapshot();pendingAuditBefore=null;
-  saveForm();let after=scoreAuditSnapshot();
-  localStorage.setItem(APPKEY,JSON.stringify(db));
-  let ok=await pushScoreDiff(before,after);
-  await auditScoreDiff(before,after);
-  if(!ok)setSyncNotice('Live score not saved online • try again',false)
+  liveAutoSaveTimer=null;
+  let before=pendingAuditBefore||after;pendingAuditBefore=null;
+  try{let ok=await pushScoreDiff(before,after);await auditScoreDiff(before,after);
+   if(!ok)setSyncNotice('Score saved on this device • waiting to sync',false)
+  }catch(e){queueOfflineState('Score changes waiting to sync');setSyncNotice('Score saved on this device • waiting to sync',false)}
  },delay)
 }
+
 function renderBuilder(s){
  let c=comp(),x=c.settings;x.scoringMode='live_optional';x.tournamentType=x.tournamentType||'standard';x.optimise=x.optimise||'balanced';x.qualify=x.qualify||'winner_best_runner';x.bestRunners=Number.isFinite(+x.bestRunners)?+x.bestRunners:4;x.autoFillKnockout=x.autoFillKnockout!==false;x.day1TargetFinish=x.day1TargetFinish||'21:00';x.day2Start=x.day2Start||'09:00';x.changeoverMinutes=Number.isFinite(+x.changeoverMinutes)?Math.max(0,+x.changeoverMinutes):5;x.greensCount=Math.max(1,+x.greensCount||1);x.rinksPerGreen=Math.max(1,+x.rinksPerGreen||(+x.rinks||6));x.rinks=x.greensCount*x.rinksPerGreen;x.lunchEnabled=!!x.lunchEnabled;x.lunchStart=x.lunchStart||'13:00';x.lunchMinutes=Number.isFinite(+x.lunchMinutes)?Math.max(0,+x.lunchMinutes):45;
  let agg=x.tournamentType==='aggregate',koOnly=x.tournamentType==='knockout';
