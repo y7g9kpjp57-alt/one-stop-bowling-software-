@@ -247,7 +247,7 @@ body.simple-mode .bottom button{font-size:13px}
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.09.133';
+const APP_VERSION='2026.09.09.134';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1660,7 +1660,7 @@ function organiseSetupDetails(screen){
  let summary=document.createElement('div'),details=document.createElement('details'),label=document.createElement('summary'),grid=document.createElement('div');
  label.textContent='Edit tournament details';grid.className='formgrid';grid.style.marginTop='12px';details.append(label,grid);box.append(summary,details);
  let heading=card.querySelector('h2');heading.insertAdjacentElement('afterend',box);
- let moved={};['bTitle','bClub','bType','bTeams','bLeagueTeams'].forEach(id=>{let el=document.getElementById(id),field=el?.closest('.field');if(field){moved[id]=field;grid.append(field)}});
+ let moved={};['bTitle','bClub','bType'].forEach(id=>{let el=document.getElementById(id),field=el?.closest('.field');if(field){moved[id]=field;grid.append(field)}});
  const update=()=>{let league=type.value==='league',aggregate=type.value==='aggregate',wick=type.value==='wick64';
  if(moved.bTeams)moved.bTeams.classList.toggle('hidden',league||aggregate||wick);
  if(moved.bLeagueTeams)moved.bLeagueTeams.classList.toggle('hidden',!league);
@@ -1670,7 +1670,7 @@ function organiseSetupDetails(screen){
  document.getElementById('bGame')?.closest('.field')?.classList.toggle('hidden',league);
  document.getElementById('endsSetupField')?.classList.toggle('hidden',league);
  };
- grid.addEventListener('input',update);type.addEventListener('change',update);update();
+ grid.addEventListener('input',update);['bTeams','bLeagueTeams'].forEach(id=>document.getElementById(id)?.addEventListener('input',update));type.addEventListener('change',update);update();
 }
 
 function scorerNextMatch(c=comp()){
