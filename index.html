@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#082f49" />
 <title>One Stop Bowling Software</title>
+<!-- Build 138: cleanup, modular-source split, safer local recovery, modern notices -->
 <style>
 :root{--nav:#082f49;--blue:#0369a1;--sky:#e0f2fe;--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--green:#166534;--amber:#92400e;--red:#b91c1c}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
@@ -191,6 +192,9 @@ body.simple-mode .bottom button{font-size:13px}
  .modalbox{margin:auto;max-height:calc(100dvh - 48px);overflow:auto}
  .modalbox input:not([type=password]){letter-spacing:normal;text-align:left}
 }
+
+/* Build 138 modal / soft-notice layer */
+.app-modal-backdrop{position:fixed;inset:0;background:#0f172a88;z-index:99999;display:grid;place-items:center;padding:18px}.app-modal-card{width:min(520px,100%);background:#fff;border-radius:18px;box-shadow:0 24px 70px #0005;padding:20px;color:#0f172a}.app-modal-card h3{margin:0 0 8px;font-size:20px}.app-modal-card p{white-space:pre-wrap;line-height:1.45;margin:0 0 16px}.app-modal-actions{display:flex;justify-content:flex-end;gap:10px}.app-toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:99998;background:#0f172a;color:#fff;padding:12px 16px;border-radius:12px;max-width:min(92vw,640px);box-shadow:0 10px 30px #0004;font-weight:700}.app-toast.warn{background:#92400e}.app-toast.error{background:#991b1b}
 </style>
 <!-- Build 137: simplified guided flow; removed progress strip; completed tabs get a check; saves advance to next step -->
 </head>
@@ -257,6 +261,11 @@ body.simple-mode .bottom button{font-size:13px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
+// ===== Build 138 / UI feedback module =====
+function appToast(message,type='info',ms=4200){try{let old=document.querySelector('.app-toast');if(old)old.remove();let el=document.createElement('div');el.className='app-toast '+(type||'');el.textContent=String(message||'');document.body.appendChild(el);setTimeout(()=>el.remove(),ms)}catch(e){console.warn(message,e)}}
+function appAlert(message,title='One Stop Bowling Software'){try{let old=document.querySelector('.app-modal-backdrop');if(old)old.remove();let bg=document.createElement('div');bg.className='app-modal-backdrop';bg.innerHTML=`<div class="app-modal-card" role="dialog" aria-modal="true"><h3>${title}</h3><p></p><div class="app-modal-actions"><button class="btn primary" data-app-ok>OK</button></div></div>`;bg.querySelector('p').textContent=String(message||'');let close=()=>bg.remove();bg.querySelector('[data-app-ok]').onclick=close;bg.onclick=e=>{if(e.target===bg)close()};document.body.appendChild(bg);setTimeout(()=>bg.querySelector('[data-app-ok]')?.focus(),0)}catch(e){console.warn(message,e)}}
+function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice,'warn',9000);startupSoftNotice=''}}
+// ===== End UI feedback module =====
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
@@ -298,7 +307,7 @@ async function flushOfflineQueue(){
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
  settings:{clubName:'Your Bowls Club',tournamentType:'standard',scoringMode:'live_optional',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:6,ends:12,start:'09:00',minutes:60,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:60,knockoutMinutesManual:false,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,autoFillKnockout:true,optimise:'balanced'},
- pins:{admin:'0001',scorer:'0001'},teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})),fixtures:[],knockout:[],drawSeed:1
+teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})),fixtures:[],knockout:[],drawSeed:1
 });
 let formEditRevision=0,lastFormEditAt=0,scoreWritesPending=0;
 let scoreWriteChain=Promise.resolve();
@@ -306,7 +315,20 @@ document.addEventListener('input',()=>{formEditRevision++;lastFormEditAt=Date.no
 function scoringRefreshBlocked(){let a=document.activeElement;return scoreWritesPending>0||Date.now()-lastFormEditAt<1800||!!(a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))}
 let db=loadDB();let role='public', tab='dashboard',setupDirty=false;
 setTimeout(applySimpleMode,0);
-function loadDB(){try{let x=JSON.parse(localStorage.getItem(APPKEY));if(x&&x.competitions?.length)return x}catch(e){}return {competitions:[defaultComp()],active:null}}
+let startupSoftNotice='';
+function loadDB(){
+ try{
+  let raw=localStorage.getItem(APPKEY);if(!raw)return {competitions:[defaultComp()],active:null};
+  let x=JSON.parse(raw);if(x&&x.competitions?.length)return x;
+  startupSoftNotice='Saved tournament data on this device was incomplete, so a safe new local state has been opened.';
+  console.warn('One Stop Bowling: local data was incomplete.');
+ }catch(e){
+  console.warn('One Stop Bowling: local tournament data could not be read.',e);
+  startupSoftNotice='A problem was found in the saved tournament data on this device. Your damaged local copy has been preserved for recovery.';
+  try{let raw=localStorage.getItem(APPKEY);if(raw)localStorage.setItem(APPKEY+'_corrupt_'+Date.now(),raw)}catch(backupError){console.warn('Could not preserve corrupt local data.',backupError)}
+ }
+ return {competitions:[defaultComp()],active:null}
+}
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
 function saveDB(){uxSnapshotBeforeSave();localStorage.setItem(APPKEY,JSON.stringify(db));showSavedIndicator();if(!cloudApplying&&remoteTournamentId&&canWriteRemoteTournament()){queueOfflineState(navigator.onLine?'Saving online':'Saved offline');if(cloudReady&&navigator.onLine)pushRemoteTournament();}}
 function canWriteRemoteTournament(){let a=accessState();return !!currentUser&&a.active&&['owner','admin','scorer'].includes(remoteAccessRole)}
@@ -351,11 +373,11 @@ function setTournamentNotice(){
 }
 async function createShareableTournament(){
  if(!currentUser){showAuthModal('admin');return}
- await loadCurrentProfile();let a=accessState();if(!a.active){alert('Your trial has expired.');return}
+ await loadCurrentProfile();let a=accessState();if(!a.active){appAlert('Your trial has expired.');return}
  let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:(comp().title||''),p_state:db});
- if(error){alert(error.message);return}
- let row=Array.isArray(data)?data[0]:data;if(!row){alert('Could not create tournament code.');return}
- setRemoteTournament(row.id,row.code,'owner');setTournamentNotice();alert('Tournament code: '+row.code+'\n\nShare this code with scorers and spectators.');render();
+ if(error){appAlert(error.message);return}
+ let row=Array.isArray(data)?data[0]:data;if(!row){appAlert('Could not create tournament code.');return}
+ setRemoteTournament(row.id,row.code,'owner');setTournamentNotice();appAlert('Tournament code: '+row.code+'\n\nShare this code with scorers and spectators.');render();
 }
 function startRemoteRefresh(){
  if(remoteRefreshTimer)clearInterval(remoteRefreshTimer);
@@ -364,8 +386,8 @@ function startRemoteRefresh(){
 async function openTournamentByCode(code=null){
  code=(code||prompt('Enter tournament code')||'').trim().toUpperCase();if(!code)return false;
  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:code});
- if(error){alert(error.message);return false}
- let row=Array.isArray(data)?data[0]:data;if(!row){alert('Tournament code not found.');return false}
+ if(error){appAlert(error.message);return false}
+ let row=Array.isArray(data)?data[0]:data;if(!row){appAlert('Tournament code not found.');return false}
  let access='public';
  if(currentUser){
    let {data:j,error:je}=await cloud.rpc('bowls_request_join',{p_code:code});
@@ -379,9 +401,9 @@ async function openTournamentByCode(code=null){
  let inviteJoin=new URLSearchParams(location.search).get('join');
  if(inviteJoin==='scorer'&&currentUser&&access==='public'){
   let req=await cloud.rpc('bowls_request_join',{p_code:row.code});
-  if(!req.error){access='pending';setRemoteTournament(row.id,row.code,access);setTimeout(()=>alert('Scorer access requested. The organiser must approve you before you can enter scores.'),250)}
+  if(!req.error){access='pending';setRemoteTournament(row.id,row.code,access);setTimeout(()=>appAlert('Scorer access requested. The organiser must approve you before you can enter scores.'),250)}
  }startRemoteRefresh();role='public';tab='dashboard';setTournamentNotice();render();
- if(access==='pending')alert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
+ if(access==='pending')appAlert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
  return true;
 }
 
@@ -401,14 +423,14 @@ async function refreshRemoteAccess(){
  return remoteAccessRole
 }
 async function requestScorerAccess(){
- if(!remoteTournamentCode)return alert('Open the tournament first.');
+ if(!remoteTournamentCode)return appAlert('Open the tournament first.');
  if(!currentUser){authRequestedRole='scorer';showAuthModal('scorer');return}
  let {data,error}=await cloud.rpc('bowls_request_join',{p_code:remoteTournamentCode});
- if(error)return alert('Could not request scorer access: '+error.message);
+ if(error)return appAlert('Could not request scorer access: '+error.message);
  let row=Array.isArray(data)?data[0]:data,got=row?.role||'pending';
  remoteAccessRole=got==='admin'?'owner':got;localStorage.setItem('bowlsRemoteAccessRole',remoteAccessRole);
  setTournamentNotice();render();
- if(remoteAccessRole==='pending')alert('Scorer access requested. The organiser needs to approve you under Invite / Access.');
+ if(remoteAccessRole==='pending')appAlert('Scorer access requested. The organiser needs to approve you under Invite / Access.');
 }
 
 async function refreshRemoteTournament(){
@@ -451,7 +473,7 @@ function tournamentCreatedLabel(row){
  return d&&!Number.isNaN(d.getTime())?d.toLocaleDateString():'—'
 }
 async function openSavedTournament(row){
- if(!row?.state?.competitions?.length)return alert('This tournament has no saved tournament data.');
+ if(!row?.state?.competitions?.length)return appAlert('This tournament has no saved tournament data.');
  if(cloud){let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)cacheClubFeatures(Array.isArray(cr.data)?cr.data:[])}
  cloudApplying=true;db=JSON.parse(JSON.stringify(row.state));localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
  let access=row.access_role||'public';
@@ -466,7 +488,7 @@ async function openSavedTournament(row){
 async function duplicateSavedTournament(row){
  if(!currentUser)return showAuthModal('admin');
  let source=tournamentStatePrimary(row);
- if(!source)return alert('This tournament has no saved data to duplicate.');
+ if(!source)return appAlert('This tournament has no saved data to duplicate.');
  let copy=JSON.parse(JSON.stringify(source));
  copy.id='comp-'+Date.now();
  copy.title=((source.title||'Untitled tournament')+' Copy');
@@ -476,35 +498,35 @@ async function duplicateSavedTournament(row){
  copy.teams=(copy.teams||[]).map((t,i)=>({...t,id:'t'+(i+1),group:'',name:t.name||('Team '+(i+1))}));
  let state={competitions:[copy],active:copy.id};
  let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:copy.title,p_state:state,p_club_id:row.club_id||null});
- if(error)return alert('Could not duplicate tournament: '+error.message);
+ if(error)return appAlert('Could not duplicate tournament: '+error.message);
  let made=Array.isArray(data)?data[0]:data;
- if(!made)return alert('Could not create the duplicate tournament.');
+ if(!made)return appAlert('Could not create the duplicate tournament.');
  document.getElementById('myTournamentsModal')?.remove();
  await openSavedTournament({id:made.id,code:made.code,title:copy.title,status:'active',access_role:'owner',state});
- alert('Tournament duplicated.\n\nNew tournament code: '+made.code)
+ appAlert('Tournament duplicated.\n\nNew tournament code: '+made.code)
 }
 async function archiveSavedTournament(row){
- if(!['owner','admin'].includes(row?.access_role||''))return alert('Only the tournament organiser or an admin can archive this tournament.');
+ if(!['owner','admin'].includes(row?.access_role||''))return appAlert('Only the tournament organiser or an admin can archive this tournament.');
  if(!confirm('Archive this tournament? It will remain in My Tournaments and can still be viewed later.'))return;
  let state=JSON.parse(JSON.stringify(row.state||{})),c=state.competitions?.find(x=>x.id===state.active)||state.competitions?.[0];
- if(!c)return alert('Tournament data could not be opened.');
+ if(!c)return appAlert('Tournament data could not be opened.');
  c.archivedAt=new Date().toISOString();c.status='archived';
  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:row.id,p_state:state,p_title:c.title||row.title||''});
- if(error)return alert('Could not archive tournament: '+error.message);
+ if(error)return appAlert('Could not archive tournament: '+error.message);
  await showMyTournaments()
 }
 
 function appBaseUrl(){return location.origin+location.pathname}
 async function shareTournamentInvite(kind){
- let c=comp(),code=remoteTournamentCode;if(!code)return alert('Open an online tournament first.');
+ let c=comp(),code=remoteTournamentCode;if(!code)return appAlert('Open an online tournament first.');
  let scorer=kind==='scorer',url=appBaseUrl()+'?code='+encodeURIComponent(code)+(scorer?'&join=scorer':'');
  let text=scorer?`You have been invited to score ${c.title||'this bowls tournament'}. Sign in and request scorer access. Tournament code: ${code}.`:`Follow ${c.title||'this bowls tournament'} live. Tournament code: ${code}.`;
  if(navigator.share){try{await navigator.share({title:(c.title||'Bowls Tournament')+(scorer?' – Scorer Invite':' – Live Scores'),text,url});return}catch(e){if(e?.name==='AbortError')return}}
- try{await navigator.clipboard.writeText(text+'\n'+url);alert('Invite copied. Paste it into WhatsApp, Messenger, text or email.')}catch(e){prompt('Copy this invite:',text+'\n'+url)}
+ try{await navigator.clipboard.writeText(text+'\n'+url);appAlert('Invite copied. Paste it into WhatsApp, Messenger, text or email.')}catch(e){prompt('Copy this invite:',text+'\n'+url)}
 }
 async function showTournamentAccess(){
  if(!remoteTournamentId||!remoteTournamentCode){
-  return alert('Open an online tournament first. Use My Tournaments to open the saved tournament, then try Invite / Access again.');
+  return appAlert('Open an online tournament first. Use My Tournaments to open the saved tournament, then try Invite / Access again.');
  }
  document.getElementById('accessModal')?.remove();
  let c=comp();
@@ -514,7 +536,7 @@ async function showTournamentAccess(){
   else if(typeof currentAccess!=='undefined'&&currentAccess)accessRole=currentAccess;
   else if(typeof currentAppRole!=='undefined'&&currentAppRole)accessRole=currentAppRole;
   else if(typeof role!=='undefined'&&role)accessRole=role;
- }catch(e){}
+ }catch(e){console.warn('Non-fatal app error',e)}
  let canManage=['owner','admin'].includes(accessRole);
  let box=document.createElement('div');box.className='modal';box.id='accessModal';
  box.innerHTML=`<div class="modalbox" style="width:min(820px,100%);max-height:92vh;overflow:auto">
@@ -593,33 +615,33 @@ async function loadTournamentMembers(){
     </div>
   </div>`
  }).join('');
- list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){alert(error.message);b.disabled=false;return}if(role==='scorer'){let st=scorerPermissionStore(comp());st[String(b.dataset.member)]=st[String(b.dataset.member)]||{mode:'all',matchIds:[],rinks:[],sessions:[]};saveDB()}await loadTournamentMembers()});
+ list.querySelectorAll('[data-member]').forEach(b=>b.onclick=async()=>{let role=b.dataset.mrole;if(!confirm(role==='pending'?'Remove scoring access?':'Set this person as '+role+'?'))return;b.disabled=true;let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:b.dataset.member,p_role:role});if(error){appAlert(error.message);b.disabled=false;return}if(role==='scorer'){let st=scorerPermissionStore(comp());st[String(b.dataset.member)]=st[String(b.dataset.member)]||{mode:'all',matchIds:[],rinks:[],sessions:[]};saveDB()}await loadTournamentMembers()});
  list.querySelectorAll('[data-config-scorer]').forEach(b=>b.onclick=()=>openScorerAssignment(b.dataset.configScorer,b.dataset.configLabel||'Scorer'))
 }
 
 
 async function deleteTournamentPermanently(id,title='Tournament'){
- if(!cloud||!currentUser)return alert('Sign in before deleting a tournament.');
+ if(!cloud||!currentUser)return appAlert('Sign in before deleting a tournament.');
  // Stage 1: clear warning.
  if(!confirm(`Permanently delete "${title}"?\n\nThis will remove the tournament, scores, draw, results and access records. This cannot be undone.`))return;
  // Stage 2: typed confirmation prevents accidental taps.
  let typed=prompt(`FINAL CHECK\n\nType DELETE to permanently remove "${title}".`);
- if(typed!=='DELETE')return alert('Deletion cancelled. Nothing was removed.');
+ if(typed!=='DELETE')return appAlert('Deletion cancelled. Nothing was removed.');
  let {error}=await cloud.rpc('bowls_delete_tournament',{p_id:id});
- if(error)return alert('Tournament was NOT deleted: '+error.message);
+ if(error)return appAlert('Tournament was NOT deleted: '+error.message);
  if(String(remoteTournamentId)===String(id)){
    setRemoteTournament('','','public','','');
    let remaining=db.competitions||[];
    if(remaining.length){db.active=remaining[0].id}else{let n=defaultComp();remaining.push(n);db.active=n.id}
    localStorage.setItem(APPKEY,JSON.stringify(db));
  }
- alert(`"${title}" has been permanently deleted.`);
+ appAlert(`"${title}" has been permanently deleted.`);
  await showMyTournaments();
 }
 
 async function showMyTournaments(){
  if(!currentUser){showAuthModal('admin');return}
- if(!cloud)return alert('Online tournament storage is not connected yet.');
+ if(!cloud)return appAlert('Online tournament storage is not connected yet.');
  let old=document.getElementById('myTournamentsModal');if(old)old.remove();
  let box=document.createElement('div');box.className='modal';box.id='myTournamentsModal';
  box.innerHTML=`<div class="modalbox" style="width:min(780px,100%);max-height:90vh;overflow:auto">
@@ -692,7 +714,7 @@ function competitionSummaryHTML(c=comp()){
 }
 function downloadResultsSummary(c=comp()){downloadBlobFile(competitionSummaryHTML(c),'text/html',safeFileName(c.title||'competition')+'-results-summary.html')}
 async function completeAndArchive(){
- let c=comp();if(isArchived(c)){alert('This competition is already archived.');return}
+ let c=comp();if(isArchived(c)){appAlert('This competition is already archived.');return}
  if(!confirm('Complete and archive this competition? It will be locked against further scoring changes.'))return;
  c.archivedAt=new Date().toISOString();c.status='archived';saveDB();
  await auditEvent('competition_archived',(c.title||'Untitled competition'),null,{archivedAt:c.archivedAt});
@@ -715,7 +737,7 @@ async function loadCurrentProfile(){
  let {data,error}=await cloud.from('bowls_users').select('role,display_name,email,trial_started_at,trial_ends_at,subscription_status,subscription_ends_at').eq('user_id',currentUser.id).maybeSingle();
  if(error){console.error('Profile load failed',error);currentAppRole='pending';currentAccess=null}else{currentAppRole=data?.role||'pending';currentAccess=data||null}
  currentClubs=[];
- try{let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)currentClubs=Array.isArray(cr.data)?cr.data:[]}catch(e){}
+ try{let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)currentClubs=Array.isArray(cr.data)?cr.data:[]}catch(e){console.warn('Non-fatal app error',e)}
  updateAccountButton();
  if(cloudReady)setTimeout(refreshAccessNotificationBadge,0);
 }
@@ -816,7 +838,7 @@ async function requestRole(target){
  if(target==='public'){role='public';tab='dashboard';setQueryRole('public');render();return}
  if(!currentUser){showAuthModal(target);return}
  await loadCurrentProfile();
- if(!roleAllowed(target)){let a=accessState();if(currentAppRole==='pending'){showPendingApprovalScreen('Your sign-in worked. Your account is waiting for Admin approval before scoring or admin access is unlocked.');return}alert(!a.active?'Your trial has expired. Please contact the software administrator to activate or extend your access.':'Your account does not have permission for this area.');return}
+ if(!roleAllowed(target)){let a=accessState();if(currentAppRole==='pending'){showPendingApprovalScreen('Your sign-in worked. Your account is waiting for Admin approval before scoring or admin access is unlocked.');return}appAlert(!a.active?'Your trial has expired. Please contact the software administrator to activate or extend your access.':'Your account does not have permission for this area.');return}
  role=target;tab=target==='scorer'?scoringHomeTab():'dashboard';setQueryRole(target);render();
 }
 async function signInAccount(){
@@ -947,7 +969,7 @@ async function initCloudSync(){
 
 async function showNewTournamentWizard(){
  if(!currentUser){showAuthModal('admin');return}
- let a=accessState();if(!a.active){alert('Your trial has expired.');return}
+ let a=accessState();if(!a.active){appAlert('Your trial has expired.');return}
  let clubs=[];
  if(cloud){let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error){clubs=Array.isArray(cr.data)?cr.data:[];cacheClubFeatures(clubs)}}
  let box=document.createElement('div');box.className='modal';box.id='newTournamentModal';
@@ -975,10 +997,10 @@ async function showNewTournamentWizard(){
  let toggle=()=>{syncLeagueFeature();let agg=type.value==='aggregate',wick=type.value==='wick64',entries=document.getElementById('ntEntriesField'),teams=document.getElementById('ntTeams');if(entries)entries.classList.toggle('hidden',agg);if(teams){teams.readOnly=wick;if(wick)teams.value=64}};type.onchange=toggle;if(clubSel)clubSel.onchange=toggle;toggle();
  document.getElementById('ntCancel').onclick=()=>box.remove();
  document.getElementById('ntCreate').onclick=async()=>{
-  let name=document.getElementById('ntName').value.trim();if(!name)return alert('Please enter a tournament name.');
+  let name=document.getElementById('ntName').value.trim();if(!name)return appAlert('Please enter a tournament name.');
   let t=type.value,n=t==='wick64'?64:Math.max(2,+document.getElementById('ntTeams')?.value||16);
   let requestedClub=document.getElementById('ntClubAccount')?.value||(currentAppRole!=='owner'&&clubs.length===1?clubs[0].id:null);
-  if(t==='league'&&!clubs.find(x=>String(x.id)===String(requestedClub))?.enable_two_triples_league)return alert('The 2-Triples Aggregate League format is not enabled for this club.');
+  if(t==='league'&&!clubs.find(x=>String(x.id)===String(requestedClub))?.enable_two_triples_league)return appAlert('The 2-Triples Aggregate League format is not enabled for this club.');
   let c=defaultComp();c.id='comp-'+Date.now();c.title=t==='league'?'Black Isle and District Indoor Bowling League':name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode='live_optional';
   if(t==='aggregate'){c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
   else{
@@ -988,17 +1010,17 @@ async function showNewTournamentWizard(){
   }
   let selectedClub=requestedClub||null;
   if(currentAppRole!=='owner'&&!selectedClub&&clubs.length===1)selectedClub=clubs[0].id;
-  if(currentAppRole!=='owner'&&!selectedClub)return alert('Your account has Club Admin access, but no club was selected. Please choose your club.');
-  if(!cloud)return alert('Online connection is required to create a club tournament.');
+  if(currentAppRole!=='owner'&&!selectedClub)return appAlert('Your account has Club Admin access, but no club was selected. Please choose your club.');
+  if(!cloud)return appAlert('Online connection is required to create a club tournament.');
   let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:name,p_state:{competitions:[c],active:c.id},p_club_id:selectedClub});
-  if(error){alert('Could not create tournament: '+error.message);return}
+  if(error){appAlert('Could not create tournament: '+error.message);return}
   let row=Array.isArray(data)?data[0]:data;
-  if(!row)return alert('Could not create tournament. No tournament was returned by the server.');
+  if(!row)return appAlert('Could not create tournament. No tournament was returned by the server.');
   db.competitions.push(c);db.active=c.id;localStorage.setItem(APPKEY,JSON.stringify(db));
   let club=clubs.find(x=>x.id===row.club_id);
   setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'');
   box.remove();role='admin';tab='builder';startRemoteRefresh();render();
-  alert('Tournament created ✓\\n\\nClub: '+(club?.name||c.settings.clubName||'Club')+'\\nTournament code: '+row.code+'\\n\\nNext step: complete Tournament Setup.')
+  appAlert('Tournament created ✓\\n\\nClub: '+(club?.name||c.settings.clubName||'Club')+'\\nTournament code: '+row.code+'\\n\\nNext step: complete Tournament Setup.')
  };
 }
 async function duplicateCurrentTournament(){
@@ -1007,7 +1029,7 @@ async function duplicateCurrentTournament(){
  let state={competitions:[copy],active:copy.id};
  if(currentUser&&cloud){
    let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:copy.title,p_state:state});
-   if(!error){let row=Array.isArray(data)?data[0]:data;if(row){db=state;localStorage.setItem(APPKEY,JSON.stringify(db));setRemoteTournament(row.id,row.code,'owner');startRemoteRefresh();tab='builder';render();alert('Tournament duplicated.\\n\\nNew tournament code: '+row.code);return}}
+   if(!error){let row=Array.isArray(data)?data[0]:data;if(row){db=state;localStorage.setItem(APPKEY,JSON.stringify(db));setRemoteTournament(row.id,row.code,'owner');startRemoteRefresh();tab='builder';render();appAlert('Tournament duplicated.\\n\\nNew tournament code: '+row.code);return}}
  }
  db.competitions.push(copy);db.active=copy.id;saveDB();tab='builder';render();
 }
@@ -1033,7 +1055,7 @@ async function shareCurrentDraw(){
  let s=document.getElementById('screen');if(!s)return;
  let actions=document.getElementById('drawShareActions');if(actions)actions.style.display='none';
  try{
-   if(typeof html2canvas!=='function'){alert('Image export is unavailable right now. Please use Print Draw.');return}
+   if(typeof html2canvas!=='function'){appAlert('Image export is unavailable right now. Please use Print Draw.');return}
    let canvas=await html2canvas(s,{backgroundColor:'#ffffff',scale:2,useCORS:true,logging:false,windowWidth:Math.max(document.documentElement.scrollWidth,1100)});
    let blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));
    if(!blob)throw new Error('Image creation failed');
@@ -1046,7 +1068,7 @@ async function shareCurrentDraw(){
      let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
    }
  }catch(e){
-   if(e?.name!=='AbortError'){console.error(e);alert('Could not create the draw image. Please use Print Draw instead.')}
+   if(e?.name!=='AbortError'){console.error(e);appAlert('Could not create the draw image. Please use Print Draw instead.')}
  }finally{if(actions)actions.style.display='flex'}
 }
 const SIMPLE_MODE_KEY='bowlsSimpleModeV1';
@@ -1105,14 +1127,14 @@ function openScorerAssignment(userId,label='Scorer'){
  document.body.appendChild(box);let mode=document.getElementById('scorerAssignMode');mode.value=p.mode||'all';
  const toggle=()=>{document.getElementById('assignMatches').classList.toggle('hidden',mode.value!=='matches');document.getElementById('assignRinks').classList.toggle('hidden',mode.value!=='rinks');document.getElementById('assignSessions').classList.toggle('hidden',mode.value!=='sessions')};mode.onchange=toggle;toggle();
  document.getElementById('closeScorerAssign').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
- document.getElementById('saveScorerAssign').onclick=()=>{let store=scorerPermissionStore(c);store[String(userId)]={mode:mode.value,matchIds:[...document.querySelectorAll('[data-assign-match]:checked')].map(x=>x.dataset.assignMatch),rinks:[...document.querySelectorAll('[data-assign-rink]:checked')].map(x=>+x.dataset.assignRink),sessions:[...document.querySelectorAll('[data-assign-session]:checked')].map(x=>+x.dataset.assignSession)};saveDB();box.remove();loadTournamentMembers();alert('Scorer access updated ✓')}
+ document.getElementById('saveScorerAssign').onclick=()=>{let store=scorerPermissionStore(c);store[String(userId)]={mode:mode.value,matchIds:[...document.querySelectorAll('[data-assign-match]:checked')].map(x=>x.dataset.assignMatch),rinks:[...document.querySelectorAll('[data-assign-rink]:checked')].map(x=>+x.dataset.assignRink),sessions:[...document.querySelectorAll('[data-assign-session]:checked')].map(x=>+x.dataset.assignSession)};saveDB();box.remove();loadTournamentMembers();appAlert('Scorer access updated ✓')}
 }
 function scorerResultConfirmation(item,c=comp(),isKo=false){
  if(role!=='scorer'||!completed(item))return;
  let a=isKo?knockoutRefName(item.a,c):fixtureTeamName(item,'a',c),b=isKo?knockoutRefName(item.b,c):fixtureTeamName(item,'b',c),msg=`Result confirmed ✓\n\n${a} ${item.scoreA} – ${item.scoreB} ${b}`;
  if(isKo){let w=koWinner(item);if(w){let rounds=(c.settings?.tournamentType||'standard')==='knockout'?(c.knockout||[]):normaliseStandardKnockout(c),flat=rounds.flat(),last=flat.length&&String(flat[flat.length-1]?.id)===String(item.id)&&rounds[rounds.length-1]?.length===1;msg+=last?`\n\n🏆 Tournament winner: ${knockoutRefName(w,c)}`:`\n\n${knockoutRefName(w,c)} progresses to the next round`}}
  else if(allGroupGamesComplete(c))msg+='\n\nAll group results are now complete.';else msg+='\n\nGroup tables updated.';
- alert(msg)
+ appAlert(msg)
 }
 function tabsFor(){
  let league=(comp()?.settings?.tournamentType||'standard')==='league';
@@ -1190,7 +1212,7 @@ function wireGlobalToolbar(){
  let a=document.getElementById('accessBtn');
  if(a)a.onclick=async()=>{
   try{await showTournamentAccess()}
-  catch(e){console.error('Invite / Access error',e);alert('Invite / Access error: '+(e?.message||String(e)))}
+  catch(e){console.error('Invite / Access error',e);appAlert('Invite / Access error: '+(e?.message||String(e)))}
  };
  let mt=document.getElementById('myTournamentsBtn');if(mt)mt.onclick=showMyTournaments;
  let oc=document.getElementById('openCodeBtn');if(oc)oc.onclick=()=>openTournamentByCode();
@@ -1220,14 +1242,14 @@ function restoreScoringUiState(state=null){
   (state.open||[]).forEach(id=>{let d=document.querySelector(`details[data-score-panel="${CSS.escape(String(id))}"]`);if(d)d.open=true});
   document.querySelectorAll('details[data-score-panel]').forEach(d=>d.addEventListener('toggle',()=>captureScoringUiState()));
   if(Number.isFinite(+state.scrollY))requestAnimationFrame(()=>window.scrollTo(0,+state.scrollY||0))
- }catch(e){}
+ }catch(e){console.warn('Non-fatal app error',e)}
 }
 function undoLastLiveEnd(obj,c=comp()){
  if(!obj)return false;
- if(obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null){alert('Quick Current Total is active for this game. Clear that checkpoint first before using Undo Last End.');return false}
+ if(obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null){appAlert('Quick Current Total is active for this game. Clear that checkpoint first before using Undo Last End.');return false}
  let arr=liveEntries(obj),idx=-1;
  for(let i=arr.length-1;i>=0;i--){let e=arr[i];if(e&&((e.a!==''&&e.a!=null)||(e.b!==''&&e.b!=null))){idx=i;break}}
- if(idx<0){alert('There is no entered end to undo.');return false}
+ if(idx<0){appAlert('There is no entered end to undo.');return false}
  arr[idx]={a:'',b:''};obj.liveEnds=arr;
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
@@ -1243,10 +1265,10 @@ function showSavedIndicator(){
  el.textContent=navigator.onLine?(remoteTournamentId?'Saved ✓':'Saved on this device ✓'):'Saved offline ✓';el.classList.add('show');clearTimeout(uxSavedTimer);uxSavedTimer=setTimeout(()=>el.classList.remove('show'),1300)
 }
 function uxSnapshotBeforeSave(){
- try{let old=localStorage.getItem(APPKEY);if(!old)return;let now=Date.now(),last=+localStorage.getItem(UX_SNAPSHOT_AT)||0;if(now-last<45000)return;localStorage.setItem(UX_SNAPSHOT_KEY,old);localStorage.setItem(UX_SNAPSHOT_AT,String(now))}catch(e){}
+ try{let old=localStorage.getItem(APPKEY);if(!old)return;let now=Date.now(),last=+localStorage.getItem(UX_SNAPSHOT_AT)||0;if(now-last<45000)return;localStorage.setItem(UX_SNAPSHOT_KEY,old);localStorage.setItem(UX_SNAPSHOT_AT,String(now))}catch(e){console.warn('Non-fatal app error',e)}
 }
 function restoreSafeSnapshot(){
- try{let raw=localStorage.getItem(UX_SNAPSHOT_KEY);if(!raw)return alert('There is no earlier safe version on this device yet.');let snap=JSON.parse(raw);if(!snap?.competitions?.length)return alert('The saved recovery version is not valid.');if(!confirm('Restore the previous safe version saved on this device? Your current local version will be replaced.'))return;db=snap;localStorage.setItem(APPKEY,JSON.stringify(db));render();alert('Previous safe version restored ✓')}catch(e){alert('Could not restore the safe version.')}
+ try{let raw=localStorage.getItem(UX_SNAPSHOT_KEY);if(!raw)return appAlert('There is no earlier safe version on this device yet.');let snap=JSON.parse(raw);if(!snap?.competitions?.length)return appAlert('The saved recovery version is not valid.');if(!confirm('Restore the previous safe version saved on this device? Your current local version will be replaced.'))return;db=snap;localStorage.setItem(APPKEY,JSON.stringify(db));render();appAlert('Previous safe version restored ✓')}catch(e){appAlert('Could not restore the safe version.')}
 }
 function uxStageInfo(c=comp()){
  let type=c.settings?.tournamentType||'standard',teams=(c.teams||[]).filter(t=>String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())),groups=[...new Set((c.teams||[]).map(t=>t.group).filter(Boolean))],fixtures=c.fixtures||[],groupDone=fixtures.length&&fixtures.every(completed),ko=(c.knockout||[]).flat(),koDone=ko.length&&ko.every(completed);
@@ -1295,7 +1317,7 @@ function uxStatusLegend(s){if(!['quick','knockout','fixtures'].includes(tab))ret
 function uxFinished(c){let type=c.settings?.tournamentType||'standard';if(c.archivedAt)return false;if(type==='aggregate')return aggregateTotals(c).complete===aggregateTotals(c).total;if(type==='knockout'){let a=(c.knockout||[]).flat();return a.length>0&&a.every(completed)}let k=(c.knockout||[]).flat();if(k.length)return k.every(completed);return (c.fixtures||[]).length>0&&(c.fixtures||[]).every(completed)}
 function uxFinishCard(s,c){if(role!=='admin'||tab!=='dashboard'||!uxFinished(c))return;let card=document.createElement('div');card.className='card ux-finish';card.innerHTML=`<h2>🏆 Competition finished</h2><p>All currently scheduled games have final scores. Your results are ready to check, print, share or archive.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-ux-finish-tab="tables">View Results</button><button class="btn secondary" data-ux-finish-tab="scorecards">Scorecards / Print</button><button class="btn secondary" id="uxFinishReport">AI / Facebook Report</button><button class="btn success" data-ux-finish-tab="admin">Archive Tournament</button></div>`;s.prepend(card);card.querySelectorAll('[data-ux-finish-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.uxFinishTab;render()});card.querySelector('#uxFinishReport').onclick=openAiTournamentReport}
 function createDemoTournament(){
- if(!confirm('Create a separate practice tournament? Your current tournament will not be changed.'))return;let d=defaultComp();d.title='Practice Tournament';d.settings.format='pairs';d.settings.rinks=2;d.settings.ends=6;d.settings.minutes=40;d.teams=(d.teams||[]).slice(0,8);['Anderson','Brown','Campbell','Davidson','Fraser','Grant','Mackay','Stewart'].forEach((n,i)=>{if(d.teams[i])d.teams[i].name=n});db.competitions.push(d);db.active=d.id;saveDB();tab='builder';render();alert('Practice Tournament created. Try anything you like — it is separate from your real tournament.')
+ if(!confirm('Create a separate practice tournament? Your current tournament will not be changed.'))return;let d=defaultComp();d.title='Practice Tournament';d.settings.format='pairs';d.settings.rinks=2;d.settings.ends=6;d.settings.minutes=40;d.teams=(d.teams||[]).slice(0,8);['Anderson','Brown','Campbell','Davidson','Fraser','Grant','Mackay','Stewart'].forEach((n,i)=>{if(d.teams[i])d.teams[i].name=n});db.competitions.push(d);db.active=d.id;saveDB();tab='builder';render();appAlert('Practice Tournament created. Try anything you like — it is separate from your real tournament.')
 }
 function uxDemoCard(s,c){if(role!=='admin'||tab!=='dashboard')return;if((c.fixtures||[]).length||(c.teams||[]).some(t=>!/^Team\s+\d+$/i.test(String(t.name||''))))return;let card=document.createElement('div');card.className='card noPrint';card.innerHTML='<h3>New to the software?</h3><p class="muted">Try a separate sample tournament without changing this one.</p><button class="btn secondary" id="uxDemoBtn">Try a Practice Tournament</button>';s.appendChild(card);card.querySelector('#uxDemoBtn').onclick=createDemoTournament}
 function startUxTour(force=false){
@@ -1852,7 +1874,7 @@ function backToBackStats(slots){
 function generateDraw(){
  let c=comp(),x=c.settings;
  if(isAggregate(c))return false;
- let n=c.teams.length;if(n<2){alert('Add at least 2 teams first.');return false}
+ let n=c.teams.length;if(n<2){appAlert('Add at least 2 teams first.');return false}
  let preferred=Math.max(2,+x.groupSize||4),sizes=balancedSizes(n,preferred),pool=[...c.teams];
  for(let i=pool.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
  c.teams.forEach(t=>t.group='');
@@ -1901,7 +1923,7 @@ function generateWick64Fixtures(c=comp()){
   let gs=a.groups,split=Math.ceil(gs.length/2);
   for(let gi=0;gi<gs.length;gi++){
    let g=gs[gi],teams=c.teams.filter(t=>t.group===g).sort((u,v)=>(+u.drawPos||99)-(+v.drawPos||99));
-   if(teams.length!==4)return alert('Group '+g+' must contain exactly four drawn teams.');
+   if(teams.length!==4)return appAlert('Group '+g+' must contain exactly four drawn teams.');
    let wave=gi<split?0:1,slot=gi%split;
    for(let round=0;round<3;round++){
     let pairingIndex=(round+slot)%3,rp=rinkPairs[pairingIndex],pp=pairings[pairingIndex],startHour=wave===0?[9,13,17][round]:[11,15,19][round],start=String(startHour).padStart(2,'0')+':00';
@@ -1909,7 +1931,7 @@ function generateWick64Fixtures(c=comp()){
    }
   }
  }
- if(fixtures.length!==96)return alert('Triples Over 3 Greens preset expected 96 group games but could not build the full schedule.');
+ if(fixtures.length!==96)return appAlert('Triples Over 3 Greens preset expected 96 group games but could not build the full schedule.');
  c.fixtures=fixtures;c.knockout=[];saveDB();return true
 }
 
@@ -1942,10 +1964,10 @@ function leagueTable(c=comp()){
 function generateFixtures(){
  let c=comp(),x=c.settings;if((x.tournamentType||'standard')==='wick64')return generateWick64Fixtures(c);if((x.tournamentType||'standard')==='league')return generateLeagueFixtures(c);
  let unassigned=c.teams.filter(t=>!t.group);
- if(x.drawMethod==='manual'&&unassigned.length){alert('Complete the manual draw first.');return false}
+ if(x.drawMethod==='manual'&&unassigned.length){appAlert('Complete the manual draw first.');return false}
  if(x.drawMethod!=='manual'&&unassigned.length){generateDraw()}
  let groups=[...new Set(c.teams.map(t=>t.group).filter(Boolean))].sort(),all=[],k=0;
- if(!groups.length){alert('No valid group draw found. Generate the draw first.');return false}
+ if(!groups.length){appAlert('No valid group draw found. Generate the draw first.');return false}
  groups.forEach(g=>{let teams=c.teams.filter(t=>t.group===g);roundRobin(teams).forEach((games,r)=>games.forEach(m=>all.push({_key:'m'+(++k),g,round:r+1,a:m[0],b:m[1]})))});
  let slots=scheduleGames(all,x.rinks),fixtures=[],game=1;
  slots.forEach((slot,si)=>slot.forEach((z,ri)=>fixtures.push({id:'f'+game,game:game++,group:z.g,round:z.round,session:si+1,rink:ri+1,start:sessionStartTime(c,si+1),a:z.a.id,b:z.b.id,nameA:z.a.name,nameB:z.b.name,scoreA:'',scoreB:''})));
@@ -2033,7 +2055,7 @@ function knockoutOnlyPlan(n,rinks,minutes,start){
 function shuffleCopy(arr){let a=[...arr];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function knockoutRefName(v,c=comp()){if(v==null)return 'TBC';let str=String(v);if(/^Winner /i.test(str))return str;return teamName(str,c)}
 function generateKnockoutOnlyDraw(){
- let c=comp(),x=c.settings,n=c.teams.length;if(n<2){alert('Enter at least 2 teams first.');return false}
+ let c=comp(),x=c.settings,n=c.teams.length;if(n<2){appAlert('Enter at least 2 teams first.');return false}
  let plan=knockoutOnlyPlan(n,x.rinks,knockoutInterval(c),x.start),shuffled=shuffleCopy(c.teams),rounds=[],matchNo=1,mainEntrants=[];
  if(plan.prelimGames>0){
    let prelimTeams=shuffled.slice(0,plan.prelimTeams),byeTeams=shuffled.slice(plan.prelimTeams),pre=[];
@@ -2109,7 +2131,7 @@ function renderTeams(s){
    if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament())ok=await pushRemoteTournament();
    btn.disabled=false;btn.textContent='Save Rink Line-up';
    if(ok){let m=document.getElementById('lineupSaveMessage');m.classList.remove('hidden');setTimeout(()=>m.classList.add('hidden'),2500)}
-   else alert('The line-up is saved on this device, but the online save failed. Please check your connection and try again.')
+   else appAlert('The line-up is saved on this device, but the online save failed. Please check your connection and try again.')
   };
   return
  }
@@ -2119,7 +2141,7 @@ function renderTeams(s){
 }
 
 function manualGroupLetters(c=comp()){let count=(c.settings.tournamentType||'standard')==='wick64'?16:Math.max(1,Math.min(20,+c.settings.manualGroups||Math.ceil(c.teams.length/Math.max(1,c.settings.groupSize||4))));return Array.from({length:count},(_,i)=>String.fromCharCode(65+i))}
-function assignManualGroup(teamId,group){let c=comp(),t=c.teams.find(x=>x.id===teamId);if(!t)return;let from=t.group||'',fromPos=t.drawPos||null;if(from===group&&group)return;if((c.settings.tournamentType||'standard')==='wick64'&&group){let used=new Set(c.teams.filter(x=>x.id!==teamId&&x.group===group).map(x=>+x.drawPos).filter(Boolean)),pos=[1,2,3,4].find(p=>!used.has(p));if(!pos)return alert('Group '+group+' already has four teams.');t.drawPos=pos}else if(!group)t.drawPos=null;c.manualHistory=c.manualHistory||[];c.manualHistory.push({teamId,from,fromPos,to:group,toPos:t.drawPos||null});t.group=group;c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
+function assignManualGroup(teamId,group){let c=comp(),t=c.teams.find(x=>x.id===teamId);if(!t)return;let from=t.group||'',fromPos=t.drawPos||null;if(from===group&&group)return;if((c.settings.tournamentType||'standard')==='wick64'&&group){let used=new Set(c.teams.filter(x=>x.id!==teamId&&x.group===group).map(x=>+x.drawPos).filter(Boolean)),pos=[1,2,3,4].find(p=>!used.has(p));if(!pos)return appAlert('Group '+group+' already has four teams.');t.drawPos=pos}else if(!group)t.drawPos=null;c.manualHistory=c.manualHistory||[];c.manualHistory.push({teamId,from,fromPos,to:group,toPos:t.drawPos||null});t.group=group;c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
 function undoManualDraw(){let c=comp(),h=(c.manualHistory||[]).pop();if(!h)return;let t=c.teams.find(x=>x.id===h.teamId);if(t){t.group=h.from||'';t.drawPos=h.fromPos||null}c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
 function clearManualDraw(){let c=comp();c.teams.forEach(t=>{t.group='';t.drawPos=null});c.manualHistory=[];c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
 function renderDraw(s){let c=comp(),tt=(c.settings.tournamentType||'standard');if(tt==='league')return renderLeagueEditor(s,c);
@@ -2127,12 +2149,12 @@ function renderDraw(s){let c=comp(),tt=(c.settings.tournamentType||'standard');i
   let weeks=leagueRequiredWeeks(c),target=Math.max(1,+c.settings.leagueTargetWeeks||10);
   s.innerHTML=`<div class="card"><h2>League Fixtures</h2><p class="muted">Each team plays every other team once. Generate the opponents, then choose Home or Away for every tie.</p><div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Teams</span></div><div class="kpi"><b>${Math.max(0,c.teams.length-1)}</b><span>Games per team</span></div><div class="kpi"><b>${weeks}</b><span>Estimated weeks</span></div><div class="kpi"><b>6</b><span>Points available</span></div></div>${weeks>target?`<div class="notice"><b>Target warning:</b> this league needs about ${weeks} weeks against a ${target}-week target.</div>`:`<div class="oknotice notice"><b>Target:</b> this league fits within ${target} weeks.</div>`}${role==='admin'?`<button class="btn primary" id="makeLeagueFixtures">${c.fixtures.length?'Regenerate League Fixtures':'Generate League Fixtures'}</button>`:''}</div>${c.fixtures.length?`<div class="card"><h3>Home / Away Allocation</h3><p class="muted">Choose the home team for each fixture. The other team becomes away automatically.</p><div class="tablewrap"><table><thead><tr><th>Round</th><th>Fixture</th><th>Home</th><th>Away</th></tr></thead><tbody>${c.fixtures.map(f=>{let home=String(f.homeId||f.a),away=home===String(f.a)?f.b:f.a;return `<tr><td>${f.round}</td><td>${esc(teamName(f.a,c))} v ${esc(teamName(f.b,c))}</td><td><select data-league-home="${f.id}"><option value="${f.a}" ${home===String(f.a)?'selected':''}>${esc(teamName(f.a,c))}</option><option value="${f.b}" ${home===String(f.b)?'selected':''}>${esc(teamName(f.b,c))}</option></select></td><td>${esc(teamName(away,c))}</td></tr>`}).join('')}</tbody></table></div><button class="btn primary" id="saveLeagueHomeAway">Save Home / Away</button></div>`:''}`;
   let b=document.getElementById('makeLeagueFixtures');if(b)b.onclick=()=>{if(c.fixtures.length&&!confirm('Regenerate the league fixture list? Existing league scores will be cleared.'))return;generateLeagueFixtures(c);render()};
-  let sh=document.getElementById('saveLeagueHomeAway');if(sh)sh.onclick=()=>{document.querySelectorAll('[data-league-home]').forEach(sel=>{let f=c.fixtures.find(x=>x.id===sel.dataset.leagueHome);if(f){f.homeId=sel.value;f.awayId=String(sel.value)===String(f.a)?f.b:f.a}});saveDB();render();alert('Home / Away saved ✓')};
+  let sh=document.getElementById('saveLeagueHomeAway');if(sh)sh.onclick=()=>{document.querySelectorAll('[data-league-home]').forEach(sel=>{let f=c.fixtures.find(x=>x.id===sel.dataset.leagueHome);if(f){f.homeId=sel.value;f.awayId=String(sel.value)===String(f.a)?f.b:f.a}});saveDB();render();appAlert('Home / Away saved ✓')};
   return
  }
  if(tt==='aggregate'){s.innerHTML='<div class="card"><h2>Draw</h2><p>Group and knockout draws are not used for Team / District Aggregate matches.</p></div>';return}
  if(tt==='knockout'){let kp=c.knockoutOnlyPlan||knockoutOnlyPlan(c.teams.length,c.settings.rinks,knockoutInterval(c),c.settings.start);if(!c.knockout?.length){s.innerHTML=`<div class="card"><h2>Knockout Draw</h2><p class="muted">${c.teams.length} teams • ${kp.prelimGames} preliminary game${kp.prelimGames===1?'':'s'} • ${kp.byes} bye${kp.byes===1?'':'s'} • main draw ${kp.mainSize}</p>${role==='admin'?'<button class="btn primary" id="makeKoOnly">Generate Random Knockout Draw</button>':''}</div>`;if(role==='admin')document.getElementById('makeKoOnly').onclick=()=>{generateKnockoutOnlyDraw();render()};return}s.innerHTML=`<div class="card"><h2>Knockout Draw</h2><p class="muted">${c.teams.length} teams • ${kp.prelimGames} preliminary game${kp.prelimGames===1?'':'s'} • ${kp.byes} bye${kp.byes===1?'':'s'} into a ${kp.mainSize}-team main draw.</p>${c.knockoutByes?.length?`<div class="oknotice notice"><b>Byes:</b> ${c.knockoutByes.map(id=>esc(teamName(id,c))).join(', ')}</div>`:''}${role==='admin'?'<button class="btn secondary" id="redoKoOnly">New Random Draw</button>':''}</div><div class="bracket">${c.knockout.map((round,ri)=>`<div class="round"><h3>${esc(round[0]?.roundName||('Round '+(ri+1)))}</h3>${round.map(m=>{let cs=currentScore(m),score=completed(m)?`${m.scoreA}–${m.scoreB}`:cs.live?`${cs.a}–${cs.b}${cs.ends?` after ${cs.ends}`:''}`:'';return `<div class="match"><div><b>${esc(knockoutRefName(m.a,c))}</b></div><div><b>${esc(knockoutRefName(m.b,c))}</b></div>${score?`<div style="text-align:center;font-size:20px;font-weight:900">${score} ${completed(m)?'<span class="pill done">Final</span>':'<span class="pill wait">Live</span>'}</div>`:''}<div class="qual">${esc(m.label||'')}</div></div>`}).join('')}</div>`).join('')}</div>`;if(role==='admin')document.getElementById('redoKoOnly').onclick=()=>{if(confirm('Create a new random knockout draw?')){generateKnockoutOnlyDraw();render()}};return}let isManual=c.settings.drawMethod==='manual';if(isManual){let letters=manualGroupLetters(c),unassigned=c.teams.filter(t=>!t.group),assigned=c.teams.filter(t=>t.group),complete=unassigned.length===0,counts=Object.fromEntries(letters.map(g=>[g,c.teams.filter(t=>t.group===g).length]));s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><div><h2>${(c.settings.tournamentType||'standard')==='wick64'?'Wick 64-Team Live Draw':'Manual Live Draw'}</h2><p class="muted">${(c.settings.tournamentType||'standard')==='wick64'?'Draw teams into Groups A–P. First team into a group becomes position 1, then 2, 3 and 4. Those positions drive the Day 1 rink schedule.':'Use this while the draw is being made live. Select the team drawn, then tap the group it is placed into.'}</p></div><span class="pill ${complete?'done':'wait'}">${assigned.length}/${c.teams.length} allocated</span></div><div class="formgrid" style="margin-top:12px">${(c.settings.tournamentType||'standard')==='wick64'?'<div class="field"><label>Groups</label><div class="oknotice">16 fixed groups — A to P</div></div>':`<div class="field"><label>Number of groups</label><input id="liveGroupCount" type="number" min="1" max="20" value="${letters.length}"></div>`}<div class="field" style="grid-column:span 2"><label>Team just drawn</label><select id="liveTeamPick"><option value="">Select a team…</option>${unassigned.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></div></div><div id="liveGroupButtons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${letters.map(g=>`<button class="btn secondary" data-live-group="${g}">Group ${g} (${counts[g]})</button>`).join('')}</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn secondary" id="undoManual" ${(c.manualHistory||[]).length?'':'disabled'}>↶ Undo Last</button><button class="btn danger" id="clearManual" ${assigned.length?'':'disabled'}>Clear Draw</button>${complete?'<button class="btn success" id="confirmManual">Confirm Draw & Generate Fixtures</button>':''}</div>${!complete?`<div class="notice" style="margin-top:12px"><b>${unassigned.length} team${unassigned.length===1?'':'s'} still to draw.</b> You can leave this screen and come back — allocations are saved on this device.</div>`:'<div class="oknotice notice" style="margin-top:12px"><b>All teams allocated.</b> Check the groups below, move anyone if needed, then confirm the draw.</div>'}</div><div class="groupgrid">${letters.map(g=>`<div class="card"><h3>Group ${g} <span class="muted" style="font-size:12px">(${counts[g]})</span></h3>${c.teams.filter(t=>t.group===g).length?c.teams.filter(t=>t.group===g).sort((a,b)=>(+a.drawPos||99)-(+b.drawPos||99)).map((t,i)=>`<div style="display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${(c.settings.tournamentType||'standard')==='wick64'?(g+(t.drawPos||i+1)+'.'):(i+1+'.')}</b> ${esc(t.name)}</div><select data-move-team="${t.id}" style="border:1px solid #cbd5e1;border-radius:8px;padding:7px"><option value="">Unassign</option>${letters.map(x=>`<option value="${x}" ${x===g?'selected':''}>Group ${x}</option>`).join('')}</select></div>`).join(''):'<p class="muted">No teams yet.</p>'}</div>`).join('')}</div>`;
- let pick=document.getElementById('liveTeamPick');document.querySelectorAll('[data-live-group]').forEach(b=>b.onclick=()=>{if(!pick.value){alert('Select the team that has just been drawn first.');return}assignManualGroup(pick.value,b.dataset.liveGroup);render()});document.querySelectorAll('[data-move-team]').forEach(sel=>sel.onchange=()=>{assignManualGroup(sel.dataset.moveTeam,sel.value);render()});let lgc=document.getElementById('liveGroupCount');if(lgc)lgc.onchange=e=>{let n=Math.max(1,Math.min(20,+e.target.value||1));if(assigned.some(t=>t.group&&t.group.charCodeAt(0)-64>n)&&!confirm('Reducing the group count will unassign teams in the removed groups. Continue?')){render();return}c.settings.manualGroups=n;c.teams.forEach(t=>{if(t.group&&t.group.charCodeAt(0)-64>n){t.group='';t.drawPos=null}});c.manualHistory=[];c.fixtures=[];c.knockout=[];saveDB();render()};document.getElementById('undoManual').onclick=()=>{undoManualDraw();render()};document.getElementById('clearManual').onclick=()=>{if(confirm('Clear all manual draw allocations?')){clearManualDraw();render()}};let cf=document.getElementById('confirmManual');if(cf)cf.onclick=()=>{let empty=letters.filter(g=>!c.teams.some(t=>t.group===g));if((c.settings.tournamentType||'standard')==='wick64'){let bad=letters.filter(g=>c.teams.filter(t=>t.group===g).length!==4);if(bad.length)return alert('Every Triples Over 3 Greens preset group must contain exactly 4 teams. Check: '+bad.join(', '));}else if(empty.length&&!confirm(`Group${empty.length===1?'':'s'} ${empty.join(', ')} ${empty.length===1?'is':'are'} empty. Continue anyway?`))return;c.manualDrawConfirmed=true;saveDB();generateFixtures();tab='schedule';render()};return}
+ let pick=document.getElementById('liveTeamPick');document.querySelectorAll('[data-live-group]').forEach(b=>b.onclick=()=>{if(!pick.value){appAlert('Select the team that has just been drawn first.');return}assignManualGroup(pick.value,b.dataset.liveGroup);render()});document.querySelectorAll('[data-move-team]').forEach(sel=>sel.onchange=()=>{assignManualGroup(sel.dataset.moveTeam,sel.value);render()});let lgc=document.getElementById('liveGroupCount');if(lgc)lgc.onchange=e=>{let n=Math.max(1,Math.min(20,+e.target.value||1));if(assigned.some(t=>t.group&&t.group.charCodeAt(0)-64>n)&&!confirm('Reducing the group count will unassign teams in the removed groups. Continue?')){render();return}c.settings.manualGroups=n;c.teams.forEach(t=>{if(t.group&&t.group.charCodeAt(0)-64>n){t.group='';t.drawPos=null}});c.manualHistory=[];c.fixtures=[];c.knockout=[];saveDB();render()};document.getElementById('undoManual').onclick=()=>{undoManualDraw();render()};document.getElementById('clearManual').onclick=()=>{if(confirm('Clear all manual draw allocations?')){clearManualDraw();render()}};let cf=document.getElementById('confirmManual');if(cf)cf.onclick=()=>{let empty=letters.filter(g=>!c.teams.some(t=>t.group===g));if((c.settings.tournamentType||'standard')==='wick64'){let bad=letters.filter(g=>c.teams.filter(t=>t.group===g).length!==4);if(bad.length)return appAlert('Every Triples Over 3 Greens preset group must contain exactly 4 teams. Check: '+bad.join(', '));}else if(empty.length&&!confirm(`Group${empty.length===1?'':'s'} ${empty.join(', ')} ${empty.length===1?'is':'are'} empty. Continue anyway?`))return;c.manualDrawConfirmed=true;saveDB();generateFixtures();tab='schedule';render()};return}
  let groups=[...new Set(c.teams.map(t=>t.group).filter(Boolean))].sort(),unassigned=c.teams.filter(t=>!t.group);if(!groups.length||unassigned.length){s.innerHTML=`<div class="card"><h2>Automatic Group Draw</h2><p>${groups.length?`The setup has changed and ${unassigned.length} team${unassigned.length===1?' is':'s are'} not currently in a group. A fresh draw is required.`:'No draw yet.'}</p>${role==='admin'?'<button class="btn primary" id="doDraw">Generate Fresh Random Draw</button>':''}</div>`;if(role==='admin')document.getElementById('doDraw').onclick=()=>{if(generateDraw()){tab='schedule';render();showSavedIndicator()}};return}
  s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><div><h2>Automatic Group Draw</h2><p class="muted">Balanced groups generated from ${c.teams.length} teams. Draw seed ${c.drawSeed}.</p></div>${role==='admin'?'<button class="btn primary" id="redraw">New Random Draw</button>':''}</div></div><div class="groupgrid">${groups.map(g=>`<div class="card"><h3>Group ${g}</h3>${c.teams.filter(t=>t.group===g).map((t,i)=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)"><b>${i+1}.</b> ${esc(t.name)}</div>`).join('')}</div>`).join('')}</div>`;
  if(role==='admin')document.getElementById('redraw').onclick=()=>{if(!c.fixtures.length||confirm('Create a new random draw? Existing fixtures and scores will be cleared.')){generateDraw();render()}}
@@ -2149,7 +2171,7 @@ function fixtureVenue(f,c=comp()){
 }
 function fixtureLocalRink(f,c=comp()){let r=Math.max(1,+f?.rink||1);if((c?.settings?.tournamentType||'standard')==='wick64')return r;let n=Math.max(1,+c?.settings?.rinks||1),venues=scheduleVenueNames(c);return venues.length>1?((r-1)%n)+1:r}
 function openManualScheduleEditor(){
- let c=comp(),fs=c.fixtures;if(!fs.length){alert('Generate the round-robin fixtures first.');return}
+ let c=comp(),fs=c.fixtures;if(!fs.length){appAlert('Generate the round-robin fixtures first.');return}
  let existing=document.getElementById('manualScheduleEditor');if(existing){existing.remove();startRemoteRefresh();return}
  // Pause cloud polling while the schedule editor is open. Otherwise a normal
  // 2.5 second live refresh can re-render the Rinks screen and make the editor vanish.
@@ -2166,7 +2188,7 @@ function openManualScheduleEditor(){
  function bindSelects(){wrap.querySelectorAll('#manualScheduleTable select').forEach(sel=>{sel.dataset.prev=sel.value;sel.onchange=()=>{let tr=sel.closest('[data-ms-row]');if(sel.hasAttribute('data-ms-session'))tr.querySelector('[data-ms-time]').textContent=sessionStartTime(c,+sel.value);if(sel.hasAttribute('data-ms-a')||sel.hasAttribute('data-ms-b')){let oldVal=sel.dataset.prev,newVal=sel.value,other=sel.hasAttribute('data-ms-a')?tr.querySelector('[data-ms-b]').value:tr.querySelector('[data-ms-a]').value;if(String(newVal)!==String(oldVal)&&String(newVal)!==String(other)){let grp=c.fixtures.find(f=>String(f.id)===String(tr.dataset.msRow))?.group||'',sess=+tr.querySelector('[data-ms-session]').value;let candidates=[...wrap.querySelectorAll('[data-ms-row]')].filter(r=>r!==tr&&(c.fixtures.find(f=>String(f.id)===String(r.dataset.msRow))?.group||'')===grp);let partner=candidates.find(r=>+r.querySelector('[data-ms-session]').value===sess&&[r.querySelector('[data-ms-a]').value,r.querySelector('[data-ms-b]').value].some(v=>String(v)===String(newVal)))||candidates.find(r=>[r.querySelector('[data-ms-a]').value,r.querySelector('[data-ms-b]').value].some(v=>String(v)===String(newVal)));if(partner){let pa=partner.querySelector('[data-ms-a]'),pb=partner.querySelector('[data-ms-b]'),target=String(pa.value)===String(newVal)?pa:pb;target.value=oldVal;target.dataset.prev=oldVal}}}sel.dataset.prev=sel.value;validate(true)}})}
  bindSelects();
  document.getElementById('venueCount').onchange=e=>{let n=+e.target.value,box=document.getElementById('venueNames'),old=[...box.querySelectorAll('[data-venue-name]')].map(x=>x.value);box.innerHTML=Array.from({length:n},(_,i)=>`<input data-venue-name="${i}" value="${esc(old[i]||`Green ${i+1}`)}" placeholder="Green ${i+1}" style="min-width:150px">`).join('')};
- document.getElementById('applyVenues').onclick=async()=>{let names=[...document.querySelectorAll('[data-venue-name]')].map((x,i)=>(x.value||`Green ${i+1}`).trim()).filter(Boolean);if(!names.length)names=['Main Green'];c.settings.scheduleVenues=names;venues=names;fs.forEach(f=>{if(!venues.includes(f.venue))f.venue=venues[0]});localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){alert('The green setup is saved on this device, but the online save failed. Please try Apply Venue Setup again before leaving this screen.');return}}wrap.remove();openManualScheduleEditor()};
+ document.getElementById('applyVenues').onclick=async()=>{let names=[...document.querySelectorAll('[data-venue-name]')].map((x,i)=>(x.value||`Green ${i+1}`).trim()).filter(Boolean);if(!names.length)names=['Main Green'];c.settings.scheduleVenues=names;venues=names;fs.forEach(f=>{if(!venues.includes(f.venue))f.venue=venues[0]});localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){appAlert('The green setup is saved on this device, but the online save failed. Please try Apply Venue Setup again before leaving this screen.');return}}wrap.remove();openManualScheduleEditor()};
  document.getElementById('splitGroups').onclick=async()=>{
  if(venues.length<2)return;
  let gs=[...new Set(fs.map(f=>f.group).filter(Boolean))].sort(),per=Math.ceil(gs.length/venues.length),map={};
@@ -2193,16 +2215,16 @@ function openManualScheduleEditor(){
  if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){
    for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));
    let ok=await pushRemoteTournament();
-   if(!ok){alert('The groups have been split on this device, but the online save failed. Please tap Split Groups Evenly Across Venues again.');return}
+   if(!ok){appAlert('The groups have been split on this device, but the online save failed. Please tap Split Groups Evenly Across Venues again.');return}
  }
- alert('Groups split across '+venues.length+' greens and saved.');
+ appAlert('Groups split across '+venues.length+' greens and saved.');
 };
  document.getElementById('cancelManualSchedule').onclick=()=>{wrap.remove();startRemoteRefresh()};
- document.getElementById('saveManualSchedule').onclick=async()=>{c.settings.scheduleVenues=venues.slice();let v=validate(true);if(!v.ok)return;let gmap={...(c.settings.groupVenueMap||{})};v.rows.forEach(r=>{if(r.group)gmap[r.group]=r.venue});c.settings.groupVenueMap=gmap;v.rows.forEach(r=>{let f=c.fixtures.find(x=>x.id===r.id);if(!f)return;f.a=r.a;f.b=r.b;f.nameA=teamName(r.a,c);f.nameB=teamName(r.b,c);f.venue=r.venue;f.session=r.session;f.rink=r.rink;f.start=sessionStartTime(c,r.session);f.round='manual'});c.fixtures.sort((a,b)=>(a.session-b.session)||String(fixtureVenue(a,c)).localeCompare(String(fixtureVenue(b,c)))||(a.rink-b.rink)||(a.game-b.game));localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){alert('The green split is still on this device, but it did not save online. The editor will stay open so you can tap Save Manual Schedule again.');return}}wrap.remove();startRemoteRefresh();render()};
+ document.getElementById('saveManualSchedule').onclick=async()=>{c.settings.scheduleVenues=venues.slice();let v=validate(true);if(!v.ok)return;let gmap={...(c.settings.groupVenueMap||{})};v.rows.forEach(r=>{if(r.group)gmap[r.group]=r.venue});c.settings.groupVenueMap=gmap;v.rows.forEach(r=>{let f=c.fixtures.find(x=>x.id===r.id);if(!f)return;f.a=r.a;f.b=r.b;f.nameA=teamName(r.a,c);f.nameB=teamName(r.b,c);f.venue=r.venue;f.session=r.session;f.rink=r.rink;f.start=sessionStartTime(c,r.session);f.round='manual'});c.fixtures.sort((a,b)=>(a.session-b.session)||String(fixtureVenue(a,c)).localeCompare(String(fixtureVenue(b,c)))||(a.rink-b.rink)||(a.game-b.game));localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){appAlert('The green split is still on this device, but it did not save online. The editor will stay open so you can tap Save Manual Schedule again.');return}}wrap.remove();startRemoteRefresh();render()};
  wrap.scrollIntoView({behavior:'smooth',block:'start'});validate(false)
 }
 function openQuickTeamSchedule(){
- let c=comp(),fs=c.fixtures||[];if(!fs.length){alert('Generate the round-robin fixtures first.');return}
+ let c=comp(),fs=c.fixtures||[];if(!fs.length){appAlert('Generate the round-robin fixtures first.');return}
  let old=document.getElementById('quickTeamScheduleEditor');if(old){old.remove();startRemoteRefresh();return}
  if(remoteRefreshTimer){clearInterval(remoteRefreshTimer);remoteRefreshTimer=null}
  let work=fs.map(f=>({...f}));
@@ -2224,11 +2246,11 @@ function openQuickTeamSchedule(){
    syncVisibleRows();
    let f=work.find(x=>String(x.id)===String(fid));if(!f)return true;
    let oldOpp=getOpponent(f,id);if(String(newOpp)===String(oldOpp))return true;
-   if(String(newOpp)===String(id)){alert('A team cannot play itself.');return false}
-   if(completed(f)){alert('This game already has a completed score, so it cannot be moved.');return false}
+   if(String(newOpp)===String(id)){appAlert('A team cannot play itself.');return false}
+   if(completed(f)){appAlert('This game already has a completed score, so it cannot be moved.');return false}
    let target=work.find(x=>String(x.id)!==String(f.id)&&String(x.group)===String(f.group)&&((String(x.a)===String(id)&&String(x.b)===String(newOpp))||(String(x.b)===String(id)&&String(x.a)===String(newOpp))));
-   if(!target){alert('I could not find the existing round-robin game between those two teams.');return false}
-   if(completed(target)){alert('That matching game already has a completed score, so it cannot be moved.');return false}
+   if(!target){appAlert('I could not find the existing round-robin game between those two teams.');return false}
+   if(completed(target)){appAlert('That matching game already has a completed score, so it cannot be moved.');return false}
    // Swap the two fixture slots. This keeps all round-robin pairings intact and
    // means the change is immediately reflected for BOTH teams involved.
    let slotA={venue:fixtureVenue(f,c),session:+f.session||1,rink:fixtureLocalRink(f,c),start:f.start};
@@ -2248,7 +2270,7 @@ function openQuickTeamSchedule(){
    syncVisibleRows();let errs=[],match=new Set(),slots=new Set(),teamSessions=new Set(),counts=new Map();for(let f of work){if(String(f.a)===String(f.b))errs.push(`Group ${f.group}: a team cannot play itself.`);let mk=f.group+'|'+[String(f.a),String(f.b)].sort().join('|');if(match.has(mk))errs.push(`Group ${f.group}: the same match-up has been entered more than once.`);match.add(mk);let venue=fixtureVenue(f,c),session=+f.session||1,rink=fixtureLocalRink(f,c),sk=venue+'|'+session+'|'+rink;if(slots.has(sk))errs.push(`${venue}, Session ${session}, Rink ${rink} already has another game.`);slots.add(sk);for(let tid of [f.a,f.b]){let tk=session+'|'+tid;if(teamSessions.has(tk))errs.push(`${teamName(tid,c)} would be playing twice in Session ${session}.`);teamSessions.add(tk);counts.set(String(tid),(counts.get(String(tid))||0)+1)}}
    let expected=Math.max(...[...counts.values(),0]);for(let t of c.teams){if((counts.get(String(t.id))||0)!==expected)errs.push(`${t.name} does not have the same number of games as the other teams.`)}
    let w=document.getElementById('qtsWarn');if(errs.length){w.classList.remove('hidden');w.innerHTML='<b>Please fix:</b><br>'+[...new Set(errs)].map(esc).join('<br>');return}w.classList.add('hidden');
-   c.fixtures=work.map(f=>({...f,nameA:teamName(f.a,c),nameB:teamName(f.b,c),start:sessionStartTime(c,+f.session||1)}));localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){alert('Saved on this device, but the online save failed. Please tap Save Team Schedule again.');return}}box.remove();startRemoteRefresh();render()
+   c.fixtures=work.map(f=>({...f,nameA:teamName(f.a,c),nameB:teamName(f.b,c),start:sessionStartTime(c,+f.session||1)}));localStorage.setItem(APPKEY,JSON.stringify(db));if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){for(let i=0;i<12&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));let ok=await pushRemoteTournament();if(!ok){appAlert('Saved on this device, but the online save failed. Please tap Save Team Schedule again.');return}}box.remove();startRemoteRefresh();render()
  };
  box.scrollIntoView({behavior:'smooth',block:'start'})
 }
@@ -2261,7 +2283,7 @@ function completeLeagueReturns(rows,c){
  games.forEach(([a,b])=>{out.push({id:'lfreturn'+Date.now()+out.length,round:lastRound,leagueWeek:lastWeek,date:base,start:c.settings.start||'18:30',venue:c.settings.leagueGreenName||'Main Green',a:a.id,b:b.id,homeId:a.id,awayId:b.id,triple1A:'',triple1B:'',triple2A:'',triple2B:''});pairs.add(String(a.id)+'|'+String(b.id))})});return out
 }
 function leagueTableText(){let c=comp();return c.title+'\nLeague Table • '+new Date().toLocaleDateString('en-GB')+'\n\n'+leagueTable(c).map((r,i)=>`${i+1}. ${r.name} — ${r.pts} pts | Played ${r.p} | W ${r.w} D ${r.d} L ${r.l} | Bonus ${r.bonus} | Shots ${r.f}–${r.a}`).join('\n')+'\n\nPlayed = triples. 2 points per triple win + 2 aggregate bonus points; 6 points per fixture. Drawn triples and tied aggregates: 1 point each.'}
-async function copyLeagueTable(){let text=leagueTableText();try{await navigator.clipboard.writeText(text);alert('League table copied — ready to paste into your post.')}catch(e){prompt('Copy the league table below:',text)}}
+async function copyLeagueTable(){let text=leagueTableText();try{await navigator.clipboard.writeText(text);appAlert('League table copied — ready to paste into your post.')}catch(e){prompt('Copy the league table below:',text)}}
 async function shareLeagueTable(){
  let c=comp(),text=leagueTableText(),canvas=document.createElement('canvas'),rows=leagueTable(c);canvas.width=1200;canvas.height=240+rows.length*50;let g=canvas.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,canvas.width,canvas.height);g.fillStyle='#1565c0';g.fillRect(0,0,1200,105);g.fillStyle='#fff';g.font='bold 30px Arial';g.fillText('Black Isle and District Indoor Bowling League',30,45);g.font='20px Arial';g.fillText('League Table • '+new Date().toLocaleDateString('en-GB'),30,80);
  let xs=[30,90,555,630,695,755,815,905,995,1090],heads=['Pos','Team','P','W','D','L','Bonus','For','Agst','Pts'];g.fillStyle='#123c31';g.font='bold 19px Arial';heads.forEach((h,i)=>g.fillText(h,xs[i],140));rows.forEach((r,i)=>{let y=180+i*50;g.fillStyle=i%2?'#eff5f2':'#fff';g.fillRect(0,y-28,1200,50);g.fillStyle='#172c25';g.font='20px Arial';[i+1,r.name,r.p,r.w,r.d,r.l,r.bonus,r.f,r.a,r.pts].forEach((v,j)=>{let label=String(v);if(j===1){while(g.measureText(label).width>435)label=label.slice(0,-2)+'…'}g.fillText(label,xs[j],y)})});g.font='17px Arial';g.fillText('P = triples played • 2 points per triple win + 2 aggregate bonus points • 6 points per fixture',30,canvas.height-30);
@@ -2279,16 +2301,16 @@ function leagueFixtureDocument(c){
  let fixtures=c.fixtures||[],weeks=[...new Set(fixtures.map(f=>+f.leagueWeek||1))].sort((a,b)=>a-b);
  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(competitionDisplayName(c))+' — Complete League Fixtures</title><style>@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#162a40;margin:0 auto;max-width:900px;padding:20px}header{background:#1565c0;color:white;padding:22px}h1{font-size:25px;margin:0 0 8px}h2{font-size:18px;color:#1565c0;margin:0 0 10px}section{break-inside:avoid;margin-top:22px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #dce5ee;width:50%}th{background:#edf4fc}p{line-height:1.5}.actions{margin:15px 0}button{background:#1565c0;color:white;border:0;padding:12px;border-radius:6px;cursor:pointer}footer{margin-top:24px;font-size:12px}@media print{body{padding:0;max-width:none}.actions{display:none}header{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body><header><h1>'+esc(competitionDisplayName(c))+'</h1><div>Complete League Fixtures</div></header><div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div><p>Fixtures are grouped by week beginning Monday. Clubs arrange their own playing night during that week. Each fixture comprises two triples: 2 points per triple win and 2 points for the combined aggregate win (6 points available).</p>'+weeks.map(week=>{let rows=fixtures.filter(f=>(+f.leagueWeek||1)===week);return '<section><h2>Week '+week+' — Week beginning '+esc(leagueWeekBeginning(c,week,rows))+'</h2><table><thead><tr><th>Home team</th><th>Away team</th></tr></thead><tbody>'+rows.map(f=>{let home=String(f.homeId||f.a),away=home===String(f.a)?f.b:f.a;return '<tr><td>'+esc(teamName(home,c))+'</td><td>'+esc(teamName(away,c))+'</td></tr>'}).join('')+'</tbody></table></section>'}).join('')+'<footer>'+fixtures.length+' fixtures across '+weeks.length+' scheduled weeks. Prepared '+new Date().toLocaleDateString('en-GB')+'.</footer></body></html>'
 }
-function openLeagueFixtureDocument(){let c=comp();if(!c.fixtures?.length)return alert('Save your league fixtures first.');let w=window.open('','_blank');if(!w)return alert('Please allow pop-ups to open the fixture document.');w.document.open();w.document.write(leagueFixtureDocument(c));w.document.close()}
-async function shareLeagueFixtureDocument(){let c=comp();if(!c.fixtures?.length)return alert('Save your league fixtures first.');let file=new File([leagueFixtureDocument(c)],'black-isle-complete-league-fixtures.html',{type:'text/html'});try{if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share({title:competitionDisplayName(c)+' — Complete League Fixtures',files:[file]});return}let a=document.createElement('a'),url=URL.createObjectURL(file);a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){if(e.name!=='AbortError')alert('Could not share the document. Use Open Fixtures / Save PDF instead.')}}
+function openLeagueFixtureDocument(){let c=comp();if(!c.fixtures?.length)return appAlert('Save your league fixtures first.');let w=window.open('','_blank');if(!w)return appAlert('Please allow pop-ups to open the fixture document.');w.document.open();w.document.write(leagueFixtureDocument(c));w.document.close()}
+async function shareLeagueFixtureDocument(){let c=comp();if(!c.fixtures?.length)return appAlert('Save your league fixtures first.');let file=new File([leagueFixtureDocument(c)],'black-isle-complete-league-fixtures.html',{type:'text/html'});try{if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share({title:competitionDisplayName(c)+' — Complete League Fixtures',files:[file]});return}let a=document.createElement('a'),url=URL.createObjectURL(file);a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)}catch(e){if(e.name!=='AbortError')appAlert('Could not share the document. Use Open Fixtures / Save PDF instead.')}}
 function leagueDocumentActions(){return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="btn primary" onclick="openLeagueFixtureDocument()">Open Fixtures / Save PDF</button><button class="btn secondary" onclick="shareLeagueFixtureDocument()">Share Fixture Document</button></div><p class="meta">Exports the complete saved schedule by week beginning. Save any draw changes before sharing.</p>'}
 
 function leagueHasScore(f){return ['triple1A','triple1B','triple2A','triple2B','scoreA','scoreB'].some(k=>f[k]!==undefined&&f[k]!==null&&f[k]!=='')}
 function resizeLeagueTeams(c,n){
- if(!Number.isInteger(n)||n<2||n>128){alert('Enter a whole number of teams from 2 to 128.');return false}
+ if(!Number.isInteger(n)||n<2||n>128){appAlert('Enter a whole number of teams from 2 to 128.');return false}
  if(n===c.teams.length)return true;
  let removed=new Set(c.teams.slice(n).map(t=>String(t.id))),affected=(c.fixtures||[]).filter(f=>removed.has(String(f.a))||removed.has(String(f.b)));
- if(affected.some(leagueHasScore)){alert('A team being removed has recorded scores. Keep that team in the league.');return false}
+ if(affected.some(leagueHasScore)){appAlert('A team being removed has recorded scores. Keep that team in the league.');return false}
  if(n<c.teams.length&&!confirm('Remove the last '+(c.teams.length-n)+' teams and their '+affected.length+' unplayed fixtures?'))return false;
  c.teams=c.teams.slice(0,n);let id=1;
  while(c.teams.length<n){while(c.teams.some(t=>t.id==='t'+id))id++;c.teams.push({id:'t'+id++,name:'Team '+(c.teams.length+1),group:'League',drawPos:null,players:[]})}
@@ -2318,7 +2340,7 @@ function renderLeagueEditor(s,c){
  s.querySelector('#leagueAdd').onclick=()=>{let last=work[work.length-1];work.push({id:'lfm'+Date.now()+Math.random().toString(36).slice(2),a:'',b:'',round:last?.round||1,leagueWeek:last?.leagueWeek||1,date:last?.date||c.settings.leagueStartDate||'',start:last?.start||c.settings.start||'18:30',venue:last?.venue||c.settings.leagueGreenName||'Main Green',triple1A:'',triple1B:'',triple2A:'',triple2B:''});paint()};
  s.querySelector('#leagueReturns').onclick=()=>{work=completeLeagueReturns(work,c);paint()};
  s.querySelector('#leagueCancel').onclick=()=>render();
- s.querySelector('#leagueAuto').onclick=()=>{if(work.some(leagueHasScore)||c.fixtures.some(leagueHasScore))return alert('Recorded scores exist. Edit the remaining fixtures manually to keep results.');if(work.length&&!confirm('Replace the current draw and any unsaved edits with a full generated draw?'))return;generateLeagueFixtures(c);render()};
+ s.querySelector('#leagueAuto').onclick=()=>{if(work.some(leagueHasScore)||c.fixtures.some(leagueHasScore))return appAlert('Recorded scores exist. Edit the remaining fixtures manually to keep results.');if(work.length&&!confirm('Replace the current draw and any unsaved edits with a full generated draw?'))return;generateLeagueFixtures(c);render()};
  s.querySelector('#leagueSave').onclick=()=>{let errors=leagueDrawErrors(work,c);if(errors.length){s.querySelector('#leagueErrors').innerHTML='<p class="notice">'+errors.map(esc).join('<br>')+'</p>';return}
  c.fixtures=work.map((f,i)=>({...f,game:i+1,group:'League',homeId:f.a,awayId:f.b,nameA:teamName(f.a,c),nameB:teamName(f.b,c),green:f.venue,session:+f.round,leagueSessionInWeek:1,rink:f.rink||1}));saveDB();render()};
  };paint()
@@ -2421,7 +2443,7 @@ function renderQuick(s){
    <div style="margin-top:14px"><label class="muted" style="font-size:12px;font-weight:700">Or choose from the list</label>
    <select id="assignedRink" style="width:100%;margin-top:5px;padding:11px;border:1px solid var(--line);border-radius:9px;background:#fff"><option value="">Choose rink…</option>${rows.map(r=>`<option value="${r.rink}">Rink ${r.rink}${r.skipA||r.skipB?` • ${esc(r.skipA||'TBC')} v ${esc(r.skipB||'TBC')}`:''}</option>`).join('')}</select>
    <button class="btn primary" id="openAssignedRink" style="width:100%;margin-top:10px">Open Selected Rink</button></div></div>`;
-   const openRink=n=>{n=+n;if(!n||n<1||n>rows.length)return alert('Please choose a rink first.');sessionStorage.setItem(rinkKey,String(n));render()};
+   const openRink=n=>{n=+n;if(!n||n<1||n>rows.length)return appAlert('Please choose a rink first.');sessionStorage.setItem(rinkKey,String(n));render()};
    document.querySelectorAll('[data-open-rink]').forEach(btn=>btn.onclick=()=>openRink(btn.dataset.openRink));
    document.getElementById('openAssignedRink').onclick=()=>openRink(document.getElementById('assignedRink').value);
    document.getElementById('assignedRink').onchange=e=>{if(e.target.value)openRink(e.target.value)};
@@ -2501,7 +2523,7 @@ function renderQuick(s){
 }
 function printGroupTables(){
  let c=comp(),st=standings(c),keys=Object.keys(st).sort();
- if(!keys.length)return alert('No group tables are available yet.');
+ if(!keys.length)return appAlert('No group tables are available yet.');
  let club=(c.settings?.clubName||'').trim(),title=(c.title||'Tournament').trim(),chunks=[];
  for(let i=0;i<keys.length;i+=2)chunks.push(keys.slice(i,i+2));
  let old=document.getElementById('printTablesHost');if(old)old.remove();
@@ -2520,7 +2542,7 @@ function printGroupTables(){
  document.body.classList.add('printing-tables');
  let cleaned=false;let cleanup=()=>{if(cleaned)return;cleaned=true;document.body.classList.remove('printing-tables');host.remove();window.removeEventListener('afterprint',cleanup)};
  window.addEventListener('afterprint',cleanup,{once:true});
- setTimeout(()=>{try{window.print()}catch(e){cleanup();alert('Could not open the print screen on this device. Please try again.')}setTimeout(cleanup,5000)},80);
+ setTimeout(()=>{try{window.print()}catch(e){cleanup();appAlert('Could not open the print screen on this device. Please try again.')}setTimeout(cleanup,5000)},80);
 }
 
 function ensureStageFlow(c=comp()){
@@ -2530,8 +2552,8 @@ function ensureStageFlow(c=comp()){
 }
 function allGroupGamesComplete(c=comp()){return !!(c.fixtures?.length)&&c.fixtures.every(completed)}
 function completeGroupStage(){
- let c=comp();if(!allGroupGamesComplete(c))return alert('Every group game needs a final score before the group stage can be completed.');
- let unresolved=unresolvedStandingTies(c);if(unresolved.length)return alert('A group position is still completely tied. Resolve the tie-break in Tables first (one-bowl shoot-out / manual decision), then complete the group stage.');
+ let c=comp();if(!allGroupGamesComplete(c))return appAlert('Every group game needs a final score before the group stage can be completed.');
+ let unresolved=unresolvedStandingTies(c);if(unresolved.length)return appAlert('A group position is still completely tied. Resolve the tie-break in Tables first (one-bowl shoot-out / manual decision), then complete the group stage.');
  if(!confirm('Complete the group stage and move on to the knockout stage? You can re-open the groups later if a result needs corrected.'))return;
  ensureStageFlow(c).groupCompleteAt=Date.now();saveDB();tab='knockout';render()
 }
@@ -2543,7 +2565,7 @@ function reopenGroupStage(){
 function completeKnockoutRoundStage(ri){
  let c=comp(),rounds=normaliseStandardKnockout(c),round=rounds[ri];if(!round)return;
  let name=round[0]?.roundName||koRoundNameFromCount(round.length);
- if(!standardRoundComplete(round))return alert('Finish every '+name+' game first.');
+ if(!standardRoundComplete(round))return appAlert('Finish every '+name+' game first.');
  if(!confirm('Mark '+name+' complete and continue to the next stage?'))return;
  let sf=ensureStageFlow(c);sf.roundsComplete[String(ri)]=Date.now();advanceStandardKnockout(c);saveDB();
  let next=ri+1,target=liveDrawTargetIndex(c);
@@ -2574,7 +2596,7 @@ function renderTables(s){
  let tieCard=!archived&&unresolved.length?`<div class="card"><h2>Tie-break Required</h2><p class="muted">Order used: Points → Shot Difference → Head-to-Head → Shots For → one-bowl shoot-out/manual decision.</p>${unresolved.map(t=>`<div class="notice" style="margin-bottom:8px"><b>Group ${esc(t.group)}:</b> ${esc(t.a.name)} and ${esc(t.b.name)} are still completely level.<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><span>Winner of tie-break:</span><select data-tie-key="${esc(t.key)}"><option value="">Select winner</option><option value="${esc(t.a.id)}">${esc(t.a.name)}</option><option value="${esc(t.b.id)}">${esc(t.b.name)}</option></select><button class="btn primary" data-save-tie="${esc(t.key)}">Save</button></div></div>`).join('')}</div>`:'';
  let tablesGrid=`<div class="groupgrid">${keys.map(g=>`<div class="groupbox"><h3>Group ${g}</h3><div class="tablewrap"><table style="min-width:520px"><thead><tr><th>Pos</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>SF</th><th>SA</th><th>SD</th><th>Pts</th></tr></thead><tbody>${st[g].map((r,i)=>`<tr><td><b>${i+1}</b></td><td>${esc(r.name)}</td><td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.sf}</td><td>${r.sa}</td><td>${r.sd>0?'+':''}${r.sd}</td><td><b>${r.pts}</b></td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div>`;
  s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h2 style="margin-bottom:4px">Group Tables</h2><p class="muted" style="margin:0">Current standings from completed results.</p></div><button class="btn primary" id="printTablesBtn">Print / Save PDF</button></div></div>${archived?'<div class="oknotice notice"><b>Archived results — view only.</b></div>':''}${tablesGrid}${stageCard}${tieCard}`;
- let b=document.getElementById('printTablesBtn');if(b)b.onclick=printGroupTables;let cg=document.getElementById('completeGroups');if(cg)cg.onclick=completeGroupStage;let rg=document.getElementById('reopenGroups');if(rg)rg.onclick=reopenGroupStage;document.querySelectorAll('[data-save-tie]').forEach(btn=>btn.onclick=()=>{let key=btn.dataset.saveTie,sel=document.querySelector(`[data-tie-key="${key}"]`),winner=sel?.value;if(!winner)return alert('Select the tie-break winner first.');setManualTieWinner(key,winner)});
+ let b=document.getElementById('printTablesBtn');if(b)b.onclick=printGroupTables;let cg=document.getElementById('completeGroups');if(cg)cg.onclick=completeGroupStage;let rg=document.getElementById('reopenGroups');if(rg)rg.onclick=reopenGroupStage;document.querySelectorAll('[data-save-tie]').forEach(btn=>btn.onclick=()=>{let key=btn.dataset.saveTie,sel=document.querySelector(`[data-tie-key="${key}"]`),winner=sel?.value;if(!winner)return appAlert('Select the tie-break winner first.');setManualTieWinner(key,winner)});
 }
 
 function manualKnockoutSelectionHTML(q){
@@ -2584,15 +2606,15 @@ function manualKnockoutSelectionHTML(q){
 function saveManualKnockoutSelection(){
  let c=comp(),q=qualifiers(),size=1;while(size<q.length)size*=2,byes=size-q.length;
  let slots=[...document.querySelectorAll('[data-ko-slot]')].sort((a,b)=>+a.dataset.koSlot-+b.dataset.koSlot).map(x=>x.value||null),used=slots.filter(Boolean);
- if(used.length!==q.length)return alert(`Please select all ${q.length} qualifiers once.`);
- if(new Set(used).size!==used.length)return alert('A qualifier has been selected more than once.');
- if(slots.filter(x=>!x).length!==byes)return alert(`There must be exactly ${byes} BYE position${byes===1?'':'s'}.`);
- let valid=new Set(q.map(x=>String(x.id)));if(used.some(x=>!valid.has(String(x))))return alert('One of the selected teams is not an eligible qualifier.');
+ if(used.length!==q.length)return appAlert(`Please select all ${q.length} qualifiers once.`);
+ if(new Set(used).size!==used.length)return appAlert('A qualifier has been selected more than once.');
+ if(slots.filter(x=>!x).length!==byes)return appAlert(`There must be exactly ${byes} BYE position${byes===1?'':'s'}.`);
+ let valid=new Set(q.map(x=>String(x.id)));if(used.some(x=>!valid.has(String(x))))return appAlert('One of the selected teams is not an eligible qualifier.');
  let matches=[];for(let i=0;i<size;i+=2){let a=slots[i],b=slots[i+1],qa=q.find(x=>String(x.id)===String(a)),qb=q.find(x=>String(x.id)===String(b));matches.push({id:'koM'+(i/2+1),label:'KO'+(i/2+1),a:a||null,b:b||null,scoreA:'',scoreB:'',sameGroupRematch:!!(qa&&qb&&qa.group===qb.group),groupA:qa?.group||null,groupB:qb?.group||null})}
  matches.forEach((m,i)=>{m.id=m.id||`sko1_${i+1}`;m.label=m.label||`R1-${i+1}`;m.roundName=koRoundNameFromCount(matches.length);m.venue=m.venue||knockoutVenueOptions(c)[0]||'Main Green';m.rink=m.rink||i%Math.max(1,+c.settings.rinks||1)+1});c.knockout=[matches];c.manualKnockout=true;c.knockoutLiveDrawRound='';c.knockoutLiveDrawDone={};advanceStandardKnockout(c);saveDB();render();
 }
 function openManualKnockoutSelection(){
- let q=qualifiers();if(q.length<2)return alert('Not enough qualifiers yet.');let s=document.getElementById('screen');s.innerHTML=manualKnockoutSelectionHTML(q);document.getElementById('saveManualKo').onclick=saveManualKnockoutSelection;document.getElementById('cancelManualKo').onclick=render;
+ let q=qualifiers();if(q.length<2)return appAlert('Not enough qualifiers yet.');let s=document.getElementById('screen');s.innerHTML=manualKnockoutSelectionHTML(q);document.getElementById('saveManualKo').onclick=saveManualKnockoutSelection;document.getElementById('cancelManualKo').onclick=render;
 }
 
 function knockoutVenueName(m,c=comp()){return (m?.venue||m?.green||scheduleVenueNames(c)[0]||'Main Green').trim()||'Main Green'}
@@ -2601,7 +2623,7 @@ function knockoutTimeOptions(selected=''){let out='<option value="">Time TBC</op
 function knockoutRinkOptions(c=comp(),selected=''){let max=Math.max(1,+c.settings?.rinks||1,12);let out='<option value="">Rink TBC</option>';for(let i=1;i<=max;i++)out+=`<option value="${i}" ${String(selected)===String(i)?'selected':''}>Rink ${i}</option>`;return out}
 function knockoutVenueSelectOptions(c=comp(),selected=''){let vals=knockoutVenueOptions(c);if(selected&&!vals.includes(selected))vals.push(selected);return vals.map(v=>`<option value="${esc(v)}" ${v===selected?'selected':''}>${esc(v)}</option>`).join('')}
 function openKnockoutScheduleEditor(){
- let c=comp(),rounds=c.knockout||[];if(!rounds.length)return alert('Generate the knockout draw first.');
+ let c=comp(),rounds=c.knockout||[];if(!rounds.length)return appAlert('Generate the knockout draw first.');
  // Keep the editor open while the organiser is choosing times/rinks.
  // Cloud polling normally re-renders the screen every few seconds, which could close this editor.
  if(remoteRefreshTimer){clearInterval(remoteRefreshTimer);remoteRefreshTimer=null}
@@ -2618,7 +2640,7 @@ function openKnockoutScheduleEditor(){
    let start=document.querySelector(`[data-ko-time="${m.id}"]`)?.value||'';
    let rinkVal=document.querySelector(`[data-ko-rink="${m.id}"]`)?.value||'';
    let rink=rinkVal===''?'':Math.max(1,+rinkVal||1);
-   if(start&&rink){let key=`${venue.toLowerCase()}|${start}|${rink}`;if(used.has(key))return alert(`${venue} Rink ${rink} is already being used at ${start}.`);used.set(key,m.id)}
+   if(start&&rink){let key=`${venue.toLowerCase()}|${start}|${rink}`;if(used.has(key))return appAlert(`${venue} Rink ${rink} is already being used at ${start}.`);used.set(key,m.id)}
    m.venue=venue;m.start=start;m.rink=rink;
   }
   saveDB();startRemoteRefresh();render();
@@ -2662,7 +2684,7 @@ function advanceStandardKnockout(c=comp()){
  c.knockout=rounds
 }
 function openLiveKnockoutDraw(roundIndex){
- let c=comp(),rounds=normaliseStandardKnockout(c),prev=rounds[roundIndex-1];if(!standardRoundComplete(prev))return alert('Finish the previous round first.');
+ let c=comp(),rounds=normaliseStandardKnockout(c),prev=rounds[roundIndex-1];if(!standardRoundComplete(prev))return appAlert('Finish the previous round first.');
  let winners=standardRoundWinners(prev),s=document.getElementById('screen'),name=koRoundNameFromCount(Math.ceil(winners.length/2)),opts=winners.map(id=>`<option value="${esc(id)}">${esc(teamName(id,c))}</option>`).join('');
  let matchCount=Math.ceil(winners.length/2),rinkCount=Math.max(1,+c.settings.rinks||1);
  let rinkOptions=(selected)=>Array.from({length:rinkCount},(_,i)=>{let r=i+1;return `<option value="${r}" ${String(selected)===String(r)?'selected':''}>Rink ${r}</option>`}).join('');
@@ -2670,11 +2692,11 @@ function openLiveKnockoutDraw(roundIndex){
  document.getElementById('cancelLiveKoDraw').onclick=render;
  document.getElementById('saveLiveKoDraw').onclick=()=>{
   let vals=[...document.querySelectorAll('[data-liveko-slot]')].sort((a,b)=>+a.dataset.livekoSlot-+b.dataset.livekoSlot).map(x=>x.value).filter(Boolean);
-  if(vals.length!==winners.length)return alert('Select every winner once.');
-  if(new Set(vals).size!==vals.length)return alert('A player/team has been selected more than once.');
-  let valid=new Set(winners.map(String));if(vals.some(v=>!valid.has(String(v))))return alert('Only winners from the previous round can be selected.');
+  if(vals.length!==winners.length)return appAlert('Select every winner once.');
+  if(new Set(vals).size!==vals.length)return appAlert('A player/team has been selected more than once.');
+  let valid=new Set(winners.map(String));if(vals.some(v=>!valid.has(String(v))))return appAlert('Only winners from the previous round can be selected.');
   let rinks=[...document.querySelectorAll('[data-liveko-rink]')].sort((a,b)=>+a.dataset.livekoRink-+b.dataset.livekoRink).map(x=>Math.max(1,+x.value||1));
-  if(new Set(rinks).size!==rinks.length)return alert('Each live-draw match must use a different rink. Choose a different rink for one of the matches.');
+  if(new Set(rinks).size!==rinks.length)return appAlert('Each live-draw match must use a different rink. Choose a different rink for one of the matches.');
   rounds[roundIndex]=makeStandardNextRound(c,winners,roundIndex,vals);
   rounds[roundIndex].forEach((m,i)=>m.rink=rinks[i]||i%rinkCount+1);
   c.knockoutLiveDrawDone=c.knockoutLiveDrawDone||{};c.knockoutLiveDrawDone[roundIndex]=true;saveDB();render()
@@ -2694,13 +2716,13 @@ function knockoutPrintHTML(c=comp()){
  let columns=rounds.map(round=>`<section class="round"><h2>${esc(round[0]?.roundName||koRoundNameFromCount(round.length))}</h2>${round.map(m=>{let w=completed(m)?koWinner(m):null,an=knockoutRefName(m.a,c)||'BYE',bn=knockoutRefName(m.b,c)||'BYE';return `<div class="pmatch ${completed(m)?'complete':''}"><div class="team ${w&&String(w)===String(m.a)?'winner':''}">${esc(an)}${w&&String(w)===String(m.a)?' <span class="winmark">✓ WINNER</span>':''}</div><div class="team ${w&&String(w)===String(m.b)?'winner':''}">${esc(bn)}${w&&String(w)===String(m.b)?' <span class="winmark">✓ WINNER</span>':''}</div><div class="meta">${esc(knockoutVenueName(m,c))} • ${esc(m.start||'Time TBC')} • Rink ${esc(String(m.rink||'—'))}${completed(m)?` • <b>Final ${m.scoreA}–${m.scoreB}</b>`:''}</div></div>`}).join('')}</section>`).join('');
  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)} - Knockout Draw</title><style>@page{size:A3 landscape;margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:0}h1{text-align:center;font-size:28px;margin:0 0 4px}.sub{text-align:center;margin:0 0 18px;color:#444;font-size:13px}.br{display:flex;gap:18px;align-items:flex-start}.round{flex:1;min-width:0}.round h2{text-align:center;font-size:18px;border-bottom:2px solid #111;padding-bottom:5px}.pmatch{border:1.5px solid #555;margin:0 0 14px;break-inside:avoid}.team{padding:7px 8px;font-weight:700;border-bottom:1px solid #aaa;min-height:18px}.team:nth-child(2){border-bottom:0}.team.winner{background:#e8f7ed;border-left:5px solid #16803b;font-weight:900}.winmark{float:right;font-size:10px;color:#166534;letter-spacing:.03em}.meta{font-size:10px;color:#555;background:#f2f2f2;padding:5px 7px;border-top:1px solid #aaa}footer{margin-top:14px;text-align:center;font-size:9px;color:#666}@media print{button{display:none}}</style></head><body><h1>${esc(title)}</h1><div class="sub">${esc(details)} • Knockout Draw</div><div class="br">${columns}</div><footer>Generated by One Stop Bowling Software</footer><script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`
 }
-function printKnockoutDraw(){let c=comp();if(!c.knockout?.length)return alert('Generate the knockout draw first.');let w=window.open('','_blank');if(!w)return alert('Please allow pop-ups to print the knockout draw.');w.document.open();w.document.write(knockoutPrintHTML(c));w.document.close()}
+function printKnockoutDraw(){let c=comp();if(!c.knockout?.length)return appAlert('Generate the knockout draw first.');let w=window.open('','_blank');if(!w)return appAlert('Please allow pop-ups to print the knockout draw.');w.document.open();w.document.write(knockoutPrintHTML(c));w.document.close()}
 function saveStandardKnockoutMatch(matchId){
- let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;if(role==='scorer'&&!scorerCanScoreItem(m,c))return alert('This match is not assigned to your scorer access.');let before=scoreAuditSnapshot(c),a=document.querySelector(`[data-stdko-a="${matchId}"]`),b=document.querySelector(`[data-stdko-b="${matchId}"]`);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(isSingles(c)&&completed(m)&&Math.max(+m.scoreA||0,+m.scoreB||0)<21)return alert('Singles is first to 21 shots. The winning score must be at least 21.');if(completed(m)&&(+m.scoreA)===(+m.scoreB))return alert('A knockout game cannot finish as a draw. Enter the tie-break/final result.');advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);if(completed(m))scorerResultConfirmation(m,c,true);render()
+ let c=comp(),rounds=normaliseStandardKnockout(c),m=rounds.flat().find(x=>x.id===matchId);if(!m)return;if(role==='scorer'&&!scorerCanScoreItem(m,c))return appAlert('This match is not assigned to your scorer access.');let before=scoreAuditSnapshot(c),a=document.querySelector(`[data-stdko-a="${matchId}"]`),b=document.querySelector(`[data-stdko-b="${matchId}"]`);persistLiveCheckpoint(m,matchId);persistStandardKnockoutEnds(m,matchId);m.scoreA=a?.value===''?'':Math.max(0,+a?.value||0);m.scoreB=b?.value===''?'':Math.max(0,+b?.value||0);if(isSingles(c)&&completed(m)&&Math.max(+m.scoreA||0,+m.scoreB||0)<21)return appAlert('Singles is first to 21 shots. The winning score must be at least 21.');if(completed(m)&&(+m.scoreA)===(+m.scoreB))return appAlert('A knockout game cannot finish as a draw. Enter the tie-break/final result.');advanceStandardKnockout(c);localStorage.setItem(APPKEY,JSON.stringify(db));let after=scoreAuditSnapshot(c);pushScoreDiff(before,after);auditScoreDiff(before,after);if(completed(m))scorerResultConfirmation(m,c,true);render()
 }
 
 function wick64QualifierGreen(q,c=comp()){return wick64GroupGreen(q?.group||'',c)}
-function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){alert('Not enough qualifiers yet.');return}let wick=(c.settings.tournamentType||'standard')==='wick64',greens=scheduleVenueNames(c),start=c.settings.day2Start||'09:00',matches;
+function generateKnockout(){let c=comp(),q=qualifiers();if(q.length<2){appAlert('Not enough qualifiers yet.');return}let wick=(c.settings.tournamentType||'standard')==='wick64',greens=scheduleVenueNames(c),start=c.settings.day2Start||'09:00',matches;
  if(wick){
   let byGreen={};greens.forEach(g=>byGreen[g]=[]);
   q.forEach(item=>{let g=wick64QualifierGreen(item,c);(byGreen[g]||(byGreen[g]=[])).push(item)});
@@ -2859,7 +2881,7 @@ function aiTournamentReportText(c=comp()){
  return lines.join('\n');
 }
 function openAiTournamentReport(){
- if(role!=='admin')return alert('Open Admin to generate the tournament report.');
+ if(role!=='admin')return appAlert('Open Admin to generate the tournament report.');
  let c=comp(),report=aiTournamentReportText(c);
  document.getElementById('aiReportModal')?.remove();
  let box=document.createElement('div');box.className='modal';box.id='aiReportModal';
@@ -2896,9 +2918,9 @@ function renderAdmin(s){
  loadAdminExtras()
 }
 async function createClubFromAdmin(){
- let input=document.getElementById('newClubName'),name=input?.value.trim();if(!name)return alert('Enter the club name.');
+ let input=document.getElementById('newClubName'),name=input?.value.trim();if(!name)return appAlert('Enter the club name.');
  let {error}=await cloud.rpc('bowls_create_club',{p_name:name});
- if(error)return alert(error.message);
+ if(error)return appAlert(error.message);
  input.value='';await loadClubAdminPanel()
 }
 async function loadClubAdminPanel(){
@@ -2943,9 +2965,9 @@ async function loadClubAdminPanel(){
  </div>`}).join('');
  box.querySelectorAll('[data-save-club-access]').forEach(b=>b.onclick=async()=>{
   let id=b.dataset.saveClubAccess,status=box.querySelector(`[data-club-access="${id}"]`)?.value||'trial',date=box.querySelector(`[data-club-end="${id}"]`)?.value||null;
-  if(['trial','active'].includes(status)&&!date)return alert('Choose an end date.');
+  if(['trial','active'].includes(status)&&!date)return appAlert('Choose an end date.');
   let {error}=await cloud.rpc('bowls_set_club_access',{p_club:id,p_status:status,p_end_date:date});
-  if(error)return alert(error.message);await loadClubAdminPanel()
+  if(error)return appAlert(error.message);await loadClubAdminPanel()
  });
  box.querySelectorAll('[data-club-days]').forEach(b=>b.onclick=()=>{
   let id=b.dataset.clubDays,days=Number(b.dataset.days||14),inp=box.querySelector(`[data-club-end="${id}"]`),sel=box.querySelector(`[data-club-access="${id}"]`);
@@ -2955,11 +2977,11 @@ async function loadClubAdminPanel(){
  box.querySelectorAll('[data-club-two-triples]').forEach(cb=>cb.onchange=async()=>{
   let enabled=!!cb.checked,id=cb.dataset.clubTwoTriples;
   let {error}=await cloud.rpc('bowls_set_club_two_triples_league',{p_club:id,p_enabled:enabled});
-  if(error){cb.checked=!enabled;return alert(error.message)}
+  if(error){cb.checked=!enabled;return appAlert(error.message)}
   await loadClubAdminPanel()
  });
- box.querySelectorAll('[data-add-club-admin]').forEach(b=>b.onclick=async()=>{let id=b.dataset.addClubAdmin,email=box.querySelector(`[data-club-email="${id}"]`)?.value.trim();if(!email)return alert('Enter the account email.');let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:id,p_email:email,p_enabled:true});if(error)return alert(error.message);await loadClubAdminPanel()});
- box.querySelectorAll('[data-remove-club-admin]').forEach(b=>b.onclick=async()=>{if(!confirm('Remove Club Admin access for '+b.dataset.email+'?'))return;let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:b.dataset.removeClubAdmin,p_email:b.dataset.email,p_enabled:false});if(error)return alert(error.message);await loadClubAdminPanel()})
+ box.querySelectorAll('[data-add-club-admin]').forEach(b=>b.onclick=async()=>{let id=b.dataset.addClubAdmin,email=box.querySelector(`[data-club-email="${id}"]`)?.value.trim();if(!email)return appAlert('Enter the account email.');let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:id,p_email:email,p_enabled:true});if(error)return appAlert(error.message);await loadClubAdminPanel()});
+ box.querySelectorAll('[data-remove-club-admin]').forEach(b=>b.onclick=async()=>{if(!confirm('Remove Club Admin access for '+b.dataset.email+'?'))return;let {error}=await cloud.rpc('bowls_set_club_admin_by_email',{p_club:b.dataset.removeClubAdmin,p_email:b.dataset.email,p_enabled:false});if(error)return appAlert(error.message);await loadClubAdminPanel()})
 }
 async function loadAdminExtras(){
  if(!cloud)return;
@@ -2972,11 +2994,11 @@ async function loadAdminExtras(){
   else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th></tr></thead><tbody>${(users||[]).map(u=>{let ua=u.role==='owner'?{active:true,label:'Owner access'}:accessLabel(u.subscription_status,u.trial_ends_at,u.subscription_ends_at);return `<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td><td>${u.role==='owner'?'<span class="pill done">Owner access</span>':`<div><span class="pill ${ua.active?'done':'wait'}">${esc(ua.label)}</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px"><select data-user-access="${u.user_id}"><option value="trial" ${u.subscription_status==='trial'?'selected':''}>Trial</option><option value="active" ${u.subscription_status==='active'?'selected':''}>Until date</option><option value="unlimited" ${u.subscription_status==='unlimited'?'selected':''}>No expiry</option><option value="suspended" ${u.subscription_status==='suspended'?'selected':''}>Suspend</option></select><input type="date" data-user-end="${u.user_id}" value="${u.subscription_status==='trial'&&u.trial_ends_at?u.trial_ends_at.slice(0,10):u.subscription_status==='active'&&u.subscription_ends_at?u.subscription_ends_at.slice(0,10):''}"><button class="btn secondary" data-save-user-access="${u.user_id}">Save</button></div>`}</td></tr>`}).join('')}</tbody></table></div>`;
   usersBox.querySelectorAll('[data-save-user-access]').forEach(b=>b.onclick=async()=>{
    let id=b.dataset.saveUserAccess,status=usersBox.querySelector(`[data-user-access="${id}"]`)?.value||'trial',date=usersBox.querySelector(`[data-user-end="${id}"]`)?.value||null;
-   if(['trial','active'].includes(status)&&!date)return alert('Choose an end date.');
+   if(['trial','active'].includes(status)&&!date)return appAlert('Choose an end date.');
    let {error}=await cloud.rpc('bowls_set_user_access',{p_user:id,p_status:status,p_end_date:date});
-   if(error)return alert(error.message);loadAdminExtras()
+   if(error)return appAlert(error.message);loadAdminExtras()
   });
-  usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){alert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras();setTimeout(refreshAccessNotificationBadge,250)}})
+  usersBox.querySelectorAll('[data-user-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.from('bowls_users').update({role:sel.value,updated_at:new Date().toISOString()}).eq('user_id',sel.dataset.userRole);if(error){appAlert(error.message);loadAdminExtras()}else{await auditEvent('permission_change','User '+sel.dataset.userRole,null,{role:sel.value});loadAdminExtras();setTimeout(refreshAccessNotificationBadge,250)}})
  }
  if(remoteTournamentId&&tournamentAdmin){
   let mb=document.getElementById('tournamentMemberList');
@@ -2984,7 +3006,7 @@ async function loadAdminExtras(){
   if(mb){
    if(merr)mb.innerHTML='<p>Could not load tournament users.</p>';
    else mb.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Tournament role</th></tr></thead><tbody>${(members||[]).map(u=>`<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-tournament-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td></tr>`).join('')}</tbody></table></div>`;
-   mb.querySelectorAll('[data-tournament-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:sel.dataset.tournamentRole,p_role:sel.value});if(error)alert(error.message);else{loadAdminExtras();setTimeout(refreshAccessNotificationBadge,250)}})
+   mb.querySelectorAll('[data-tournament-role]').forEach(sel=>sel.onchange=async()=>{let {error}=await cloud.rpc('bowls_set_tournament_member_role',{p_id:remoteTournamentId,p_user:sel.dataset.tournamentRole,p_role:sel.value});if(error)appAlert(error.message);else{loadAdminExtras();setTimeout(refreshAccessNotificationBadge,250)}})
   }
  }
  if(globalAdmin&&auditBox){
@@ -2995,7 +3017,7 @@ async function loadAdminExtras(){
  }
 }
 
-function setQueryRole(r){try{let u=new URL(location.href);u.searchParams.set('view',r);history.replaceState({},'',u)}catch(e){}}
+function setQueryRole(r){try{let u=new URL(location.href);u.searchParams.set('view',r);history.replaceState({},'',u)}catch(e){console.warn('Non-fatal app error',e)}}
 document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>requestRole(b.dataset.role));
 document.getElementById('authCancel').onclick=()=>document.getElementById('authModal').classList.add('hidden');
 document.getElementById('authModeSignin').onclick=()=>setAuthMode('signin');
@@ -3012,7 +3034,7 @@ document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
 document.getElementById('helpBtn').onclick=()=>document.getElementById('helpModal').classList.remove('hidden');
 document.getElementById('helpClose').onclick=()=>document.getElementById('helpModal').classList.add('hidden');
 document.getElementById('helpModal').onclick=e=>{if(e.target.id==='helpModal')document.getElementById('helpModal').classList.add('hidden')};
-document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{alert('That backup file could not be read.')}};r.readAsText(f)};
+document.getElementById('exportBtn').onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bowls-tournament-backup.json';a.click();URL.revokeObjectURL(a.href)};document.getElementById('importFile').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.competitions)throw 0;db=x;saveDB();render()}catch{appAlert('That backup file could not be read.')}};r.readAsText(f)};
 function tvCurrentGames(c){
  let fs=c.fixtures||[];
  if(!fs.length)return[];
@@ -3168,8 +3190,8 @@ function tvFinalStageHTML(c){
 function tvFinalsHTML(c){return tvKnockoutDrawHTML(c)}
 let tvPage=0,tvTimer=null,tvPaused=false,tvDisplayMode='auto';
 function tvModeStorageKey(c=comp()){return 'oneStopBowlsTvMode:'+(remoteTournamentCode||c?.id||'local')}
-function loadTvDisplayMode(c=comp()){try{let v=localStorage.getItem(tvModeStorageKey(c));if(['auto','groups','knockout'].includes(v))tvDisplayMode=v}catch(e){}return tvDisplayMode}
-function setTvDisplayMode(mode,c=comp()){tvDisplayMode=['auto','groups','knockout'].includes(mode)?mode:'auto';try{localStorage.setItem(tvModeStorageKey(c),tvDisplayMode)}catch(e){}tvPage=0;renderTv()}
+function loadTvDisplayMode(c=comp()){try{let v=localStorage.getItem(tvModeStorageKey(c));if(['auto','groups','knockout'].includes(v))tvDisplayMode=v}catch(e){console.warn('Non-fatal app error',e)}return tvDisplayMode}
+function setTvDisplayMode(mode,c=comp()){tvDisplayMode=['auto','groups','knockout'].includes(mode)?mode:'auto';try{localStorage.setItem(tvModeStorageKey(c),tvDisplayMode)}catch(e){console.warn('Non-fatal app error',e)}tvPage=0;renderTv()}
 function effectiveTvDisplayMode(c=comp()){let mode=loadTvDisplayMode(c);if(mode!=='auto')return mode;let groupsFinished=(c.fixtures||[]).length>0&&(c.fixtures||[]).every(completed);return groupsFinished&&(c.knockout||[]).length?'knockout':'groups'}
 
 function tvPagesFor(c){
@@ -3220,13 +3242,27 @@ function startTv(){
    if(remoteTournamentCode!==boundCode)await openTournamentByCode(boundCode);
    else await refreshRemoteTournament();
   }else if(remoteTournamentCode&&cloud)await refreshRemoteTournament();
-  else {try{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp}catch(e){}}
+  else {try{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp}catch(e){console.warn('Non-fatal app error',e)}}
   if(!tvPaused){let pages=tvPagesFor(comp());tvPage=(tvPage+1)%pages.length}
   renderTv()
  },20000);
  if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
 window.addEventListener('offline',()=>updateConnectivityNotice());window.addEventListener('online',()=>{updateConnectivityNotice('Back online • checking for unsynced changes…');setTimeout(flushOfflineQueue,300)});
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});}
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});}
+// ===== Build 138 / basic regression checks =====
+function runCoreSelfTests(){
+ const tests=[];const t=(name,fn)=>{try{if(!fn())throw new Error('failed');tests.push({name,ok:true})}catch(e){tests.push({name,ok:false,error:e.message});console.error('Self-test failed:',name,e)}};
+ t('time addition',()=>addMinutes('09:00',90)==='10:30');
+ t('round robin count',()=>roundRobin(['A','B','C','D']).length===3);
+ t('pairs positions',()=>JSON.stringify(playerPositions('pairs'))===JSON.stringify(['Lead','Skip']));
+ t('league points',()=>{let r=leagueFixtureTotals({triple1A:10,triple1B:5,triple2A:4,triple2B:8});return r.aggA===14&&r.aggB===13&&r.ptsA===4&&r.ptsB===2});
+ if(tests.some(x=>!x.ok))appToast('A built-in scoring check failed. Avoid changing results until the app is refreshed.','error',9000);
+ else console.info('One Stop Bowling self-tests passed:',tests.length);
+ return tests
+}
+setTimeout(()=>{try{runCoreSelfTests()}catch(e){console.warn('Self-tests could not run',e)}},50);
+// ===== End regression checks =====
+
 </script>
 </body></html>
