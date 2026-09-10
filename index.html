@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#082f49" />
 <title>One Stop Bowling Software</title>
-<!-- Build 139: performance-only smoothing; no user-facing feature/detail changes -->
+<!-- Build 141: Reliability & Performance Pass; tournament engine and user-facing workflows unchanged -->
 <style>
 :root{--nav:#082f49;--blue:#0369a1;--sky:#e0f2fe;--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--green:#166534;--amber:#92400e;--red:#b91c1c}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
@@ -209,6 +209,7 @@ body.simple-mode .bottom button{font-size:13px}
     <select id="competitionSelect" class="grow"></select>
     <button class="btn primary" id="newTournamentBtn">+ New Tournament</button>
     <button class="btn secondary" id="myTournamentsBtn">My Tournaments</button>
+    <button class="btn secondary" id="myClubsBtn">My Clubs</button>
     <button class="btn secondary" id="accessBtn">Invite / Access</button>
     <button class="btn secondary" id="openCodeBtn">Open Code</button>
     <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
@@ -269,8 +270,8 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.09.139';
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
+const APP_VERSION='2026.09.10.141';
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteRefreshBusy=false,scoreSaveBusy=false,pendingLiveSaveForm=null,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
 let offlineSyncBusy=false;
@@ -460,7 +461,7 @@ async function requestScorerAccess(){
 
 async function refreshRemoteTournament(){
  const requestedCode=remoteTournamentCode,requestedTab=tab,editRevision=formEditRevision;
- if(document.hidden||scoringRefreshBlocked())return;
+ if(remoteRefreshBusy||document.hidden||scoringRefreshBlocked())return;
  if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
  // Build 125: never overwrite unsaved Setup edits with the last cloud-saved version.
  if(tab==='builder'&&setupDirty)return;
@@ -477,10 +478,15 @@ async function refreshRemoteTournament(){
  // Remote polling used to rebuild the scoring screen every 2.5 seconds and collapse <details>.
  let openLiveScoring=!!document.querySelector('details[open] [data-live-a],details[open] [data-live-b],details[open] [data-stdko-end-a],details[open] [data-stdko-end-b]');
  if(editing||openLiveScoring)return;
- let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
- if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
- if(requestedCode!==remoteTournamentCode||requestedTab!==tab||editRevision!==formEditRevision||scoringRefreshBlocked())return;
- if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
+ remoteRefreshBusy=true;
+ try{
+  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
+  if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
+  if(requestedCode!==remoteTournamentCode||requestedTab!==tab||editRevision!==formEditRevision||scoringRefreshBlocked())return;
+  let remoteSerialized='',localSerialized='';
+  try{remoteSerialized=JSON.stringify(row.state);localSerialized=JSON.stringify(db)}catch(e){console.warn('Remote comparison failed',e)}
+  if(remoteSerialized&&remoteSerialized!==localSerialized){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,remoteSerialized);lastLocalSerialized=remoteSerialized;cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
+ }finally{remoteRefreshBusy=false}
 }
 
 
@@ -756,7 +762,7 @@ async function pushCloudState(){
  }catch(e){console.error('Cloud save failed',e);setSyncNotice('Live sync temporarily unavailable • changes are still saved on this device',false)}
 }
 function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!el)return;el.textContent=msg;el.classList.toggle('oknotice',!!ok)}
-function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account'}
+function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?'Account':'Sign in';b.title=currentUser?`${currentUser.email||'Signed in'} • ${currentAppRole} account`:'Sign in / create account'}
 async function loadCurrentProfile(){
  if(!cloud||!currentUser){currentAppRole='public';currentClubs=[];updateAccountButton();return}
  let {data,error}=await cloud.from('bowls_users').select('role,display_name,email,trial_started_at,trial_ends_at,subscription_status,subscription_ends_at').eq('user_id',currentUser.id).maybeSingle();
@@ -766,6 +772,53 @@ async function loadCurrentProfile(){
  updateAccountButton();
  if(cloudReady)setTimeout(refreshAccessNotificationBadge,0);
 }
+
+
+/* Build 140: account + club foundation. Build 141 adds reliability/performance protection without changing user-facing tournament logic. */
+const CLUB_BADGE_PREFIX='osbs_club_badge_';
+function clubBadgeKey(id){return CLUB_BADGE_PREFIX+String(id||'unknown')}
+function getClubBadge(id){try{return localStorage.getItem(clubBadgeKey(id))||''}catch(e){return ''}}
+function setClubBadge(id,data){try{if(data)localStorage.setItem(clubBadgeKey(id),data);else localStorage.removeItem(clubBadgeKey(id));return true}catch(e){appAlert('The badge could not be saved on this device. Try a smaller image.');return false}}
+function clubInitials(name){return String(name||'Club').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'BC'}
+function clubBadgeHtml(club,size=58){let badge=getClubBadge(club?.id),name=club?.name||'Club';return badge?`<img src="${badge}" alt="${esc(name)} badge" style="width:${size}px;height:${size}px;object-fit:contain;border-radius:14px;border:1px solid var(--line);background:#fff;padding:4px">`:`<div style="width:${size}px;height:${size}px;border-radius:14px;background:#eaf3ff;border:1px solid #bfd6f2;display:grid;place-items:center;font-weight:900;color:#174d7a">${esc(clubInitials(name))}</div>`}
+function compressClubBadge(file,max=320,quality=.82){return new Promise((resolve,reject)=>{if(!file||!/^image\/(png|jpeg|webp)$/i.test(file.type||''))return reject(new Error('Please choose a PNG, JPG or WebP image.'));let reader=new FileReader();reader.onerror=()=>reject(new Error('Could not read that image.'));reader.onload=()=>{let img=new Image();img.onerror=()=>reject(new Error('Could not open that image.'));img.onload=()=>{let scale=Math.min(1,max/Math.max(img.width,img.height)),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale)),cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);resolve(cv.toDataURL('image/webp',quality))};img.src=reader.result};reader.readAsDataURL(file)})}
+
+async function showMyClubs(){
+ if(!currentUser){showAuthModal('scorer','signin');return}
+ await loadCurrentProfile();
+ document.getElementById('myClubsModal')?.remove();
+ let box=document.createElement('div');box.className='modal';box.id='myClubsModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(760px,100%);max-height:90vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h2 style="margin:0">My Clubs</h2><p class="muted" style="margin:5px 0 0">Your club area. Badges are optional and stored on this device in Build 140.</p></div><button class="btn secondary" id="closeMyClubs">Close</button></div>
+  <div id="myClubsList" style="margin-top:15px"></div>
+ </div>`;
+ document.body.appendChild(box);box.querySelector('#closeMyClubs').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ let list=box.querySelector('#myClubsList'),clubs=currentClubs||[];
+ if(!clubs.length){list.innerHTML='<div class="card" style="box-shadow:none"><h3>No clubs linked yet</h3><p class="muted">When your account is linked to a club it will appear here.</p></div>';return}
+ list.innerHTML=clubs.map((club,i)=>{let a=accessLabel(club.access_status,club.trial_ends_at,club.access_ends_at);return `<div class="card" style="box-shadow:none"><div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><div id="clubBadgeView${i}">${clubBadgeHtml(club)}</div><div style="flex:1;min-width:190px"><h3 style="margin:0 0 5px">${esc(club.name||'Club')}</h3><div class="meta">${club.is_admin?'Club Admin':'Club member'} • ${esc(a.label)}</div></div><div style="display:flex;gap:7px;flex-wrap:wrap"><label class="btn secondary" style="cursor:pointer">Add / Change Badge<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-club-badge="${i}"></label>${getClubBadge(club.id)?`<button class="btn secondary" data-remove-badge="${i}">Remove Badge</button>`:''}</div></div></div>`}).join('');
+ list.querySelectorAll('[data-club-badge]').forEach(inp=>inp.onchange=async()=>{let club=clubs[+inp.dataset.clubBadge];if(!club||!inp.files?.[0])return;try{let data=await compressClubBadge(inp.files[0]);if(setClubBadge(club.id,data))showMyClubs()}catch(e){appAlert(e.message||'Could not save that badge.')}});
+ list.querySelectorAll('[data-remove-badge]').forEach(btn=>btn.onclick=()=>{let club=clubs[+btn.dataset.removeBadge];if(club&&confirm('Remove this club badge from this device?')){setClubBadge(club.id,'');showMyClubs()}})
+}
+
+async function showAccountHub(){
+ if(!currentUser){showAuthModal('scorer','signin');return}
+ await loadCurrentProfile();document.getElementById('accountHubModal')?.remove();
+ let a=accessState(),name=currentAccess?.display_name||'',email=currentUser.email||currentAccess?.email||'',roleName=(currentAppRole||'member').replace(/^./,x=>x.toUpperCase());
+ let box=document.createElement('div');box.className='modal';box.id='accountHubModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(620px,100%);max-height:90vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h2 style="margin:0">My Account</h2><p class="muted" style="margin:5px 0 0">Profile, access and shortcuts.</p></div><button class="btn secondary" id="closeAccountHub">Close</button></div>
+  <div class="card" style="box-shadow:none;margin-top:15px"><div class="field"><label>Display name</label><input id="accountDisplayName" value="${esc(name)}" placeholder="Your name"></div><div class="field"><label>Email</label><input value="${esc(email)}" disabled></div><div class="meta">Role: <b>${esc(roleName)}</b> • ${esc(a.label||'Access status unavailable')}</div><div style="margin-top:12px"><button class="btn primary" id="saveAccountProfile">Save Profile</button></div></div>
+  <div class="card" style="box-shadow:none"><h3 style="margin-top:0">Your Bowling</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="accountMyTournaments">My Tournaments</button><button class="btn secondary" id="accountMyClubs">My Clubs</button></div></div>
+  <div class="card" style="box-shadow:none"><h3 style="margin-top:0">Account Security</h3><p class="muted">Send a password reset link to your signed-in email address.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="accountResetPassword">Send Password Reset</button><button class="btn danger" id="accountSignOut">Sign Out</button></div></div>
+ </div>`;
+ document.body.appendChild(box);box.querySelector('#closeAccountHub').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ box.querySelector('#saveAccountProfile').onclick=async()=>{let display_name=box.querySelector('#accountDisplayName').value.trim();let {error}=await cloud.from('bowls_users').update({display_name}).eq('user_id',currentUser.id);if(error)return appAlert('Profile could not be saved: '+error.message);if(currentAccess)currentAccess.display_name=display_name;appToast('Profile saved ✓')};
+ box.querySelector('#accountMyTournaments').onclick=()=>{box.remove();showMyTournaments()};
+ box.querySelector('#accountMyClubs').onclick=()=>{box.remove();showMyClubs()};
+ box.querySelector('#accountResetPassword').onclick=async()=>{let {error}=await cloud.auth.resetPasswordForEmail(email,{redirectTo:location.origin});if(error)return appAlert(error.message);appAlert('Password reset email sent. Check your inbox.')};
+ box.querySelector('#accountSignOut').onclick=async()=>{box.remove();await signOutAccount()};
+}
+
 function accessLabel(status,trialEnd,accessEnd){
  let now=Date.now(),te=trialEnd?new Date(trialEnd).getTime():0,ae=accessEnd?new Date(accessEnd).getTime():0;
  if(status==='unlimited')return {active:true,label:'Full access • no expiry'};
@@ -955,14 +1008,21 @@ async function pushScoreDiffOrdered(before,after){
 async function auditScoreDiff(before,after){for(let k of new Set([...Object.keys(before||{}),...Object.keys(after||{})])){let a=before?.[k],b=after?.[k];if(JSON.stringify(a?.data??null)!==JSON.stringify(b?.data??null))await auditEvent('score_change',b?.target||a?.target||k,a?.data??null,b?.data??null)}}
 let pendingAuditBefore=null;
 async function saveScoresNow(saveForm,afterSave){
+ if(scoreSaveBusy){setSyncNotice('A score save is already in progress…',true);return false}
+ scoreSaveBusy=true;
  const saveRevision=formEditRevision,saveTab=tab;
- let before=scoreAuditSnapshot();saveForm();let after=scoreAuditSnapshot();
- localStorage.setItem(APPKEY,JSON.stringify(db));
- let ok=await pushScoreDiff(before,after);
- await auditScoreDiff(before,after);
- if(ok&&afterSave){if(saveRevision===formEditRevision&&saveTab===tab&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))afterSave();else setSyncNotice('Score saved ✓',true)}
- else if(!ok&&!navigator.onLine)setSyncNotice('Offline • score saved safely on this device • will sync when connection returns',false);
- else if(!ok)setSyncNotice('Score saved on this device • online sync is waiting to retry',false)
+ try{
+  let before=scoreAuditSnapshot();saveForm();let after=scoreAuditSnapshot();
+  let serialized=JSON.stringify(db);localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized;
+  if(remoteTournamentId&&canWriteRemoteTournament())queueOfflineState(navigator.onLine?'Score waiting for cloud confirmation':'Score saved offline');
+  let ok=await pushScoreDiff(before,after);
+  await auditScoreDiff(before,after);
+  if(ok&&afterSave){if(saveRevision===formEditRevision&&saveTab===tab&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))afterSave();else setSyncNotice('Score saved ✓',true)}
+  else if(!ok&&!navigator.onLine)setSyncNotice('Offline • score saved safely on this device • will sync when connection returns',false);
+  else if(!ok)setSyncNotice('Score saved on this device • online sync is waiting to retry',false);
+  return ok
+ }catch(e){console.error('Score save failed',e);queueOfflineState('Score changes waiting to sync');setSyncNotice('Score saved on this device • online sync is waiting to retry',false);return false}
+ finally{scoreSaveBusy=false}
 }
 async function openBestActiveTournament(){
  if(!cloud||!currentUser)return false;
@@ -1490,13 +1550,14 @@ function attachBowlsEndRules(root=document,onChange=()=>{}){root.querySelectorAl
 let liveAutoSaveTimer=null;
 function queueLiveAutoSave(saveForm,delay=450){
  if(!pendingAuditBefore)pendingAuditBefore=scoreAuditSnapshot();
- clearTimeout(liveAutoSaveTimer);
- // Capture edits now, while their form is still mounted. Only the network write waits.
+ clearTimeout(liveAutoSaveTimer);pendingLiveSaveForm=saveForm;
+ // Capture edits immediately so a refresh, lock-screen or signal loss cannot discard the score.
  saveForm();const after=scoreAuditSnapshot();
- localStorage.setItem(APPKEY,JSON.stringify(db));
+ try{let serialized=JSON.stringify(db);if(serialized!==lastLocalSerialized){localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized}}catch(e){console.error('Live score local save failed',e);appToast('This score could not be saved on this device.','warn');return}
+ if(remoteTournamentId&&canWriteRemoteTournament())queueOfflineState(navigator.onLine?'Live score waiting for cloud confirmation':'Live score saved offline');
  setSyncNotice('Live score changed • saving…',true);
  liveAutoSaveTimer=setTimeout(async()=>{
-  liveAutoSaveTimer=null;
+  liveAutoSaveTimer=null;pendingLiveSaveForm=null;
   let before=pendingAuditBefore||after;pendingAuditBefore=null;
   try{let ok=await pushScoreDiff(before,after);await auditScoreDiff(before,after);
    if(!ok)setSyncNotice('Score saved on this device • waiting to sync',false)
@@ -3050,9 +3111,10 @@ document.getElementById('authModeSignup').onclick=()=>setAuthMode('signup');
 document.getElementById('authSubmit').onclick=()=>authMode==='signup'?createAccount():signInAccount();
 document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signin')signInAccount()};
 document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signup')createAccount()};
-document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer','signin')};
+document.getElementById('accountBtn').onclick=()=>currentUser?showAccountHub():showAuthModal('scorer','signin');
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
+document.getElementById('myClubsBtn').onclick=showMyClubs;
 document.getElementById('accessBtn').onclick=showTournamentAccess;
 document.getElementById('openCodeBtn').onclick=()=>openTournamentByCode();
 document.getElementById('shareTournamentBtn').onclick=createShareableTournament;
@@ -3274,6 +3336,9 @@ function startTv(){
  if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
 window.addEventListener('offline',()=>updateConnectivityNotice());window.addEventListener('online',()=>{updateConnectivityNotice('Back online • checking for unsynced changes…');setTimeout(flushOfflineQueue,300)});
+// Build 141: preserve any score still inside the short autosave window when the browser is backgrounded or closed.
+window.addEventListener('pagehide',()=>{try{if(pendingLiveSaveForm){pendingLiveSaveForm();let serialized=JSON.stringify(db);localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized;if(remoteTournamentId&&canWriteRemoteTournament())queueOfflineState('Score preserved while app was closed')}}catch(e){console.warn('Page-hide score preservation failed',e)}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&navigator.onLine&&offlineQueueEntry())setTimeout(flushOfflineQueue,180)});
 let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});}
 // ===== Build 138 / basic regression checks =====
 function runCoreSelfTests(){
