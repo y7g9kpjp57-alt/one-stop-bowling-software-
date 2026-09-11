@@ -269,7 +269,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.09.139';
+const APP_VERSION='2026.09.11.140';
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1558,9 +1558,9 @@ function renderBuilder(s){
  <div id="stdSetup" class="${agg||x.tournamentType==='league'?'hidden':''}" style="margin-top:12px"><div id="koOnlyNote" class="${koOnly?'oknotice notice':'hidden'}"><b>Knockout Only:</b> enter teams, available rinks, start time and knockout game length. The app will calculate preliminary games, byes and the full bracket automatically.</div><div class="formgrid">
   <div class="field"><label>Teams / entries</label><input id="bTeams" type="number" min="2" max="200" value="${x.teamCount||16}"></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Preferred group size</label><input id="bGroup" type="number" min="3" max="12" value="${x.groupSize||4}"></div>
-  <div class="field"><label>Greens being used</label><input id="bGreens" type="number" min="1" max="20" value="${x.greensCount||1}"><div class="meta">How many separate greens / venues are in use.</div></div>
-  <div class="field"><label>Rinks per green</label><input id="bRinksPerGreen" type="number" min="1" max="30" value="${x.rinksPerGreen||x.rinks||6}"><div class="meta">Number available on each green.</div></div>
-  <div class="field"><label>Total available rinks</label><input id="bRinks" type="number" min="1" max="200" value="${x.rinks||6}" readonly><div class="meta" id="bRinksTotalHelp">${x.greensCount||1} green${(x.greensCount||1)===1?'':'s'} × ${x.rinksPerGreen||x.rinks||6} rinks = ${x.rinks||6} total concurrent rinks.</div></div>
+  <div class="field"><label>Greens being used</label><input id="bGreens" type="number" min="1" max="20" step="1" inputmode="numeric" enterkeyhint="done" value="${x.greensCount||1}"><div class="meta">How many separate greens / venues are in use.</div></div>
+  <div class="field"><label>Rinks per green</label><input id="bRinksPerGreen" type="number" min="1" max="30" step="1" inputmode="numeric" enterkeyhint="done" value="${x.rinksPerGreen||x.rinks||6}"><div class="meta">Number available on each green.</div></div>
+  <div class="field"><label>Total available rinks <span class="muted" style="font-size:12px">(calculated)</span></label><input id="bRinks" type="number" min="1" max="200" value="${x.rinks||6}" readonly tabindex="-1" aria-readonly="true" style="background:#f1f5f9;color:#334155;font-weight:800"><div class="meta" id="bRinksTotalHelp">${x.greensCount||1} green${(x.greensCount||1)===1?'':'s'} × ${x.rinksPerGreen||x.rinks||6} rinks = ${x.rinks||6} total concurrent rinks.</div></div>
   <div class="field"><label>Start time</label><input id="bStart" type="time" value="${x.start||'09:00'}"></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Minutes per game</label><input id="bMinutes" type="number" min="10" max="240" value="${x.minutes||60}"><div id="setupRecommendedTime" class="oknotice" style="margin-top:8px;padding:8px"></div><button type="button" class="btn success" id="useSetupRecommendedTime" style="margin-top:8px;width:100%">Use Recommended Time</button></div><div class="field"><label>Changeover between games</label><input id="bChangeover" type="number" min="0" max="30" value="${x.changeoverMinutes??5}"><div class="meta">Added after each game before the next session starts.</div></div><div class="field"><label>Lunch break</label><select id="bLunchEnabled"><option value="no" ${!x.lunchEnabled?'selected':''}>No lunch break</option><option value="yes" ${x.lunchEnabled?'selected':''}>Use lunch break</option></select><div class="meta">Stops a new session being scheduled through lunch.</div></div><div class="field"><label>Lunch starts</label><input id="bLunchStart" type="time" value="${x.lunchStart||'13:00'}"></div><div class="field"><label>Lunch duration (minutes)</label><input id="bLunchMinutes" type="number" min="5" max="180" step="5" value="${x.lunchMinutes??45}"></div>
   <div class="field"><label>Knockout minutes</label><input id="bKoMinutes" type="number" min="10" max="240" value="${x.knockoutMinutes||x.minutes||60}" data-manual="${x.knockoutMinutesManual?'1':'0'}"></div>
@@ -1665,14 +1665,30 @@ function updatePlanner(){
  }
  let endsInput=document.getElementById('bEnds'),gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes'),gameTypeInput=document.getElementById('bGame');
  let greensInput=document.getElementById('bGreens'),rinksPerGreenInput=document.getElementById('bRinksPerGreen'),totalRinksInput=document.getElementById('bRinks');
- const syncGreenCapacity=()=>{
-  let g=Math.max(1,+greensInput?.value||1),rpg=Math.max(1,+rinksPerGreenInput?.value||6),total=g*rpg;
-  if(totalRinksInput)totalRinksInput.value=total;
-  let h=document.getElementById('bRinksTotalHelp');if(h)h.textContent=`${g} green${g===1?'':'s'} × ${rpg} rinks = ${total} total concurrent rinks.`;
-  updatePlanner()
+ const capacityValue=(el,min,max)=>{
+  if(!el||String(el.value).trim()==='')return null;
+  let n=parseInt(el.value,10);
+  if(!Number.isFinite(n))return null;
+  return Math.min(max,Math.max(min,n));
  };
- if(greensInput)greensInput.addEventListener('input',syncGreenCapacity);
- if(rinksPerGreenInput)rinksPerGreenInput.addEventListener('input',syncGreenCapacity);
+ const syncGreenCapacity=(commit=false)=>{
+  let g=capacityValue(greensInput,1,20),rpg=capacityValue(rinksPerGreenInput,1,30),h=document.getElementById('bRinksTotalHelp');
+  if(commit){
+   if(greensInput&&g===null){g=1;greensInput.value='1'}else if(greensInput)greensInput.value=String(g);
+   if(rinksPerGreenInput&&rpg===null){rpg=1;rinksPerGreenInput.value='1'}else if(rinksPerGreenInput)rinksPerGreenInput.value=String(rpg);
+  }
+  if(g===null||rpg===null){
+   if(totalRinksInput)totalRinksInput.value='';
+   if(h)h.textContent='Enter greens and rinks per green to calculate the total available rinks.';
+   return;
+  }
+  let total=g*rpg;
+  if(totalRinksInput)totalRinksInput.value=String(total);
+  if(h)h.textContent=`${g} green${g===1?'':'s'} × ${rpg} rinks = ${total} total concurrent rinks.`;
+  updatePlanner();
+ };
+ [greensInput,rinksPerGreenInput].forEach(el=>{if(!el)return;el.addEventListener('input',()=>syncGreenCapacity(false));el.addEventListener('change',()=>syncGreenCapacity(true));el.addEventListener('blur',()=>syncGreenCapacity(true));});
+ syncGreenCapacity(false);
 
  document.querySelectorAll('#leagueSetup input,#leagueSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
  const recommendedMinutesFromEnds=(ends,gameType=(document.getElementById('bGame')?.value||'rinks'))=>suggestedGameMinutes(gameType,ends);
