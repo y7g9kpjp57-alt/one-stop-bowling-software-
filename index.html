@@ -269,7 +269,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.11.140';
+const APP_VERSION='2026.09.11.140'; // performance-tuned setup input debounce
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1652,6 +1652,15 @@ function updatePlanner(){
   let selectedGame=document.getElementById('bGame')?.value||'rinks',singles=selectedGame==='singles',recommendedGameMinutes=suggestedGameMinutes(selectedGame,v.ends);
   box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>${singles?'Singles planning allowance':'Recommended minutes per game'}:</b> ${recommendedGameMinutes} minutes <span class="muted">${`(${v.ends} ends × ${suggestedGameRate(selectedGame)} min per end, rounded up to nearest 5)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Playing capacity:</b> ${v.greens} green${v.greens===1?'':'s'} × ${v.rinksPerGreen} rinks = <b>${v.r} concurrent rinks</b></p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p>${v.lunchEnabled?`<p class="oknotice"><b>Lunch included:</b> ${v.lunchStart} for ${v.lunchMinutes} minutes. Finish estimates have been adjusted.</p>`:''}<div class="${cleanKo||rec.dayLast8?'oknotice':'notice'}"><b>${rec.dayLast8?'Same-day knockout recommendation':'Knockout fit'}:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
+ let plannerUpdateTimer=null;
+ const schedulePlannerUpdate=(delay=275)=>{
+  clearTimeout(plannerUpdateTimer);
+  plannerUpdateTimer=setTimeout(()=>{plannerUpdateTimer=null;updatePlanner()},delay);
+ };
+ const flushPlannerUpdate=()=>{
+  if(plannerUpdateTimer){clearTimeout(plannerUpdateTimer);plannerUpdateTimer=null}
+  updatePlanner();
+ };
  if(type.value==='wick64'){
   Object.assign(x,{greensCount:3,rinksPerGreen:6,rinks:18,teamCount:64,groupSize:4,manualGroups:16,gameType:'triples',ends:15,minutes:115,changeoverMinutes:5,eventFormat:'two_day',qualify:'top2',bestRunners:0,autoFillKnockout:false});
   let f={bTeams:64,bGroup:4,bGreens:3,bRinksPerGreen:6,bRinks:18,bEnds:15,bMinutes:115,bChangeover:5};
@@ -1685,12 +1694,12 @@ function updatePlanner(){
   let total=g*rpg;
   if(totalRinksInput)totalRinksInput.value=String(total);
   if(h)h.textContent=`${g} green${g===1?'':'s'} × ${rpg} rinks = ${total} total concurrent rinks.`;
-  updatePlanner();
+  if(commit)flushPlannerUpdate();else schedulePlannerUpdate();
  };
  [greensInput,rinksPerGreenInput].forEach(el=>{if(!el)return;el.addEventListener('input',()=>syncGreenCapacity(false));el.addEventListener('change',()=>syncGreenCapacity(true));el.addEventListener('blur',()=>syncGreenCapacity(true));});
  syncGreenCapacity(false);
 
- document.querySelectorAll('#leagueSetup input,#leagueSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
+ document.querySelectorAll('#leagueSetup input,#leagueSetup select').forEach(el=>{el.addEventListener('input',schedulePlannerUpdate);el.addEventListener('change',flushPlannerUpdate)});
  const recommendedMinutesFromEnds=(ends,gameType=(document.getElementById('bGame')?.value||'rinks'))=>suggestedGameMinutes(gameType,ends);
  const updateSetupRecommendedTime=()=>{
   let out=document.getElementById('setupRecommendedTime');if(!out)return;
@@ -1700,11 +1709,14 @@ function updatePlanner(){
  const syncSinglesSetup=()=>{let single=gameTypeInput?.value==='singles',box=document.getElementById('singles21Box'),help=document.getElementById('endsTimeHelp'),label=document.getElementById('bEndsLabel');if(box)box.classList.toggle('hidden',!single);if(endsInput)endsInput.classList.toggle('hidden',single);if(help)help.classList.toggle('hidden',single);if(label)label.textContent=single?'Singles scoring':'Ends';updateSetupRecommendedTime();updatePlanner()};
  if(gameTypeInput)gameTypeInput.addEventListener('change',syncSinglesSetup);
  if(endsInput){
-  endsInput.addEventListener('input',()=>{updateSetupRecommendedTime();updatePlanner()});
+  endsInput.addEventListener('input',()=>{updateSetupRecommendedTime();schedulePlannerUpdate()});
+  endsInput.addEventListener('change',flushPlannerUpdate);
  }
  if(gameMinutesInput&&koMinutesInput){
-  gameMinutesInput.addEventListener('input',()=>{if(koMinutesInput.dataset.manual!=='1'){koMinutesInput.value=gameMinutesInput.value;updatePlanner()}});
-  koMinutesInput.addEventListener('input',()=>{koMinutesInput.dataset.manual='1';updatePlanner()});
+  gameMinutesInput.addEventListener('input',()=>{if(koMinutesInput.dataset.manual!=='1')koMinutesInput.value=gameMinutesInput.value;schedulePlannerUpdate()});
+  gameMinutesInput.addEventListener('change',flushPlannerUpdate);
+  koMinutesInput.addEventListener('input',()=>{koMinutesInput.dataset.manual='1';schedulePlannerUpdate()});
+  koMinutesInput.addEventListener('change',flushPlannerUpdate);
  }
  let useSetupRecommended=document.getElementById('useSetupRecommendedTime');
  if(useSetupRecommended)useSetupRecommended.onclick=()=>{
@@ -1715,8 +1727,8 @@ function updatePlanner(){
   updateSetupRecommendedTime();updatePlanner()
  };
  updateSetupRecommendedTime();
- document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>el.addEventListener('input',updatePlanner));
- document.querySelectorAll('#twoDaySetup input').forEach(el=>el.addEventListener('input',updatePlanner));
+ document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>{el.addEventListener('input',schedulePlannerUpdate);el.addEventListener('change',flushPlannerUpdate)});
+ document.querySelectorAll('#twoDaySetup input').forEach(el=>{el.addEventListener('input',schedulePlannerUpdate);el.addEventListener('change',flushPlannerUpdate)});
  document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}setupDirty=true;updatePlanner()};
 
  document.getElementById('saveBuilder').onclick=()=>{
