@@ -269,7 +269,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.11.140'; // setup input performance: heavy planner runs on committed changes only
+const APP_VERSION='2026.09.11.140'; // setup performance: committed inputs + deferred qualification/planner recalculation
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1652,10 +1652,22 @@ function updatePlanner(){
   let selectedGame=document.getElementById('bGame')?.value||'rinks',singles=selectedGame==='singles',recommendedGameMinutes=suggestedGameMinutes(selectedGame,v.ends);
   box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>${singles?'Singles planning allowance':'Recommended minutes per game'}:</b> ${recommendedGameMinutes} minutes <span class="muted">${`(${v.ends} ends × ${suggestedGameRate(selectedGame)} min per end, rounded up to nearest 5)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Playing capacity:</b> ${v.greens} green${v.greens===1?'':'s'} × ${v.rinksPerGreen} rinks = <b>${v.r} concurrent rinks</b></p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p>${v.lunchEnabled?`<p class="oknotice"><b>Lunch included:</b> ${v.lunchStart} for ${v.lunchMinutes} minutes. Finish estimates have been adjusted.</p>`:''}<div class="${cleanKo||rec.dayLast8?'oknotice':'notice'}"><b>${rec.dayLast8?'Same-day knockout recommendation':'Knockout fit'}:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated final:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
- // Keep typing responsive on phones: heavy planner calculations run only
- // when a value is committed (change/blur), not on every keystroke.
+ // Keep typing responsive on phones. Heavy planner work is separated from
+ // the user's tap/change so Safari can paint the selection immediately.
+ let plannerDeferredTimer=null,plannerDeferredToken=0;
  const schedulePlannerUpdate=()=>{};
  const flushPlannerUpdate=()=>updatePlanner();
+ const deferPlannerUpdate=()=>{
+  const token=++plannerDeferredToken;
+  if(plannerDeferredTimer)clearTimeout(plannerDeferredTimer);
+  const status=document.getElementById('plannerStatus');
+  if(status){status.textContent='Calculating…';status.className='pill wait'}
+  plannerDeferredTimer=setTimeout(()=>{
+   plannerDeferredTimer=null;
+   if(token!==plannerDeferredToken)return;
+   requestAnimationFrame(()=>{if(token===plannerDeferredToken)updatePlanner()});
+  },35);
+ };
  if(type.value==='wick64'){
   Object.assign(x,{greensCount:3,rinksPerGreen:6,rinks:18,teamCount:64,groupSize:4,manualGroups:16,gameType:'triples',ends:15,minutes:115,changeoverMinutes:5,eventFormat:'two_day',qualify:'top2',bestRunners:0,autoFillKnockout:false});
   let f={bTeams:64,bGroup:4,bGreens:3,bRinksPerGreen:6,bRinks:18,bEnds:15,bMinutes:115,bChangeover:5};
@@ -1729,11 +1741,24 @@ function updatePlanner(){
  };
  updateSetupRecommendedTime();
  document.querySelectorAll('#stdSetup input,#stdSetup select').forEach(el=>{
-  if(el===greensInput||el===rinksPerGreenInput||el===endsInput||el===gameMinutesInput||el===koMinutesInput)return;
-  if(el.tagName==='SELECT')el.addEventListener('change',flushPlannerUpdate);
-  else{el.addEventListener('change',flushPlannerUpdate);el.addEventListener('blur',flushPlannerUpdate)}
+  if(el===greensInput||el===rinksPerGreenInput||el===endsInput||el===gameMinutesInput||el===koMinutesInput||el.id==='bBestRunners')return;
+  if(el.tagName==='SELECT'){
+   // Qualification/knockout/planner selectors can trigger the expensive optimiser.
+   // Defer that work briefly so the control itself responds instantly on mobile.
+   if(['bQualify','bAutoFillKo','bOptimise','bEvent','bDraw','bLunchEnabled'].includes(el.id))el.addEventListener('change',deferPlannerUpdate);
+   else el.addEventListener('change',flushPlannerUpdate);
+  }else{
+   el.addEventListener('change',flushPlannerUpdate);
+   el.addEventListener('blur',flushPlannerUpdate);
+  }
  });
  document.querySelectorAll('#twoDaySetup input').forEach(el=>{el.addEventListener('change',flushPlannerUpdate);el.addEventListener('blur',flushPlannerUpdate)});
+ const bestRunnersInput=document.getElementById('bBestRunners');
+ if(bestRunnersInput){
+  // Replace the heavier immediate response with a deferred recalculation after commit.
+  bestRunnersInput.addEventListener('change',deferPlannerUpdate);
+  bestRunnersInput.addEventListener('blur',deferPlannerUpdate);
+ }
  document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}setupDirty=true;updatePlanner()};
 
  document.getElementById('saveBuilder').onclick=()=>{
