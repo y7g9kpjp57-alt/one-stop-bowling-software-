@@ -269,7 +269,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.11.140'; // setup performance: committed inputs + deferred qualification/planner recalculation
+const APP_VERSION='2026.09.12.140'; // live: new sign-ups default to Public View and return to the app after email confirmation
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -756,11 +756,11 @@ async function pushCloudState(){
  }catch(e){console.error('Cloud save failed',e);setSyncNotice('Live sync temporarily unavailable • changes are still saved on this device',false)}
 }
 function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!el)return;el.textContent=msg;el.classList.toggle('oknotice',!!ok)}
-function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account'}
+function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account • new accounts start with Public View'}
 async function loadCurrentProfile(){
  if(!cloud||!currentUser){currentAppRole='public';currentClubs=[];updateAccountButton();return}
  let {data,error}=await cloud.from('bowls_users').select('role,display_name,email,trial_started_at,trial_ends_at,subscription_status,subscription_ends_at').eq('user_id',currentUser.id).maybeSingle();
- if(error){console.error('Profile load failed',error);currentAppRole='pending';currentAccess=null}else{currentAppRole=data?.role||'pending';currentAccess=data||null}
+ if(error){console.error('Profile load failed',error);currentAppRole='public';currentAccess=null}else{currentAppRole=data?.role||'public';currentAccess=data||null}
  currentClubs=[];
  try{let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)currentClubs=Array.isArray(cr.data)?cr.data:[]}catch(e){console.warn('Non-fatal app error',e)}
  updateAccountButton();
@@ -790,7 +790,7 @@ function setAuthMode(mode){
  authMode=mode==='signup'?'signup':'signin';
  let signup=authMode==='signup',title=document.getElementById('authTitle'),text=document.getElementById('authText'),name=document.getElementById('authName'),pw=document.getElementById('authPassword'),pw2=document.getElementById('authPassword2'),submit=document.getElementById('authSubmit'),si=document.getElementById('authModeSignin'),su=document.getElementById('authModeSignup'),err=document.getElementById('authError');
  title.textContent=signup?'Create your account':'Sign in';
- text.textContent=signup?'Create an account to start your 14-day trial and join or organise tournaments.':'Sign in to manage or score tournaments.';
+ text.textContent=signup?'Create an account for Public View access. An administrator can give you Scorer or Admin access later.':'Sign in to your account. Public View is available to all signed-in users; extra permissions are granted by an administrator.';
  name.classList.toggle('hidden',!signup);pw2.classList.toggle('hidden',!signup);
  pw.autocomplete=signup?'new-password':'current-password';
  submit.textContent=signup?'Create account':'Sign in';
@@ -839,7 +839,7 @@ async function checkApprovalStatus(){
  try{
   let {data,error}=await cloud.from('bowls_users').select('role,display_name,email,subscription_status,trial_started_at,trial_ends_at,subscription_ends_at').eq('user_id',currentUser.id).maybeSingle();
   if(error)throw error;
-  if(data){currentAppRole=data.role||'pending';currentAccess=data;updateAccountButton()}
+  if(data){currentAppRole=data.role||'public';currentAccess=data;updateAccountButton()}
   if(currentAppRole!=='pending'){
     stopApprovalWatch();
     if(status){status.style.color='#166534';status.innerHTML='<b>Approved ✓</b> Your account is now ready to use.'}
@@ -875,7 +875,11 @@ async function signInAccount(){
  if(error){err.textContent=error.message;return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');
  let q=new URLSearchParams(location.search),inviteCode=q.get('code'),join=q.get('join');
  if(inviteCode&&join==='scorer'){await openTournamentByCode(inviteCode);return}
- await requestRole(authRequestedRole||'scorer')
+ if((authRequestedRole||'public')==='public'){
+   role='public';tab='dashboard';setQueryRole('public');render();
+ }else{
+   await requestRole(authRequestedRole||'scorer');
+ }
 }
 async function createAccount(){
  let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,password2=document.getElementById('authPassword2').value,name=document.getElementById('authName').value.trim(),err=document.getElementById('authError'),submit=document.getElementById('authSubmit');err.textContent='';
@@ -884,15 +888,19 @@ async function createAccount(){
  if(password.length<6){err.textContent='Password must be at least 6 characters.';return}
  if(password!==password2){err.textContent='The two passwords do not match.';return}
  submit.disabled=true;submit.textContent='Creating account…';
- let {data,error}=await cloud.auth.signUp({email,password,options:{data:{display_name:name||email.split('@')[0]}}});
+ let returnUrl=location.origin+location.pathname;
+ let {data,error}=await cloud.auth.signUp({email,password,options:{
+   data:{display_name:name||email.split('@')[0]},
+   emailRedirectTo:returnUrl
+ }});
  submit.disabled=false;submit.textContent='Create account';
  if(error){err.textContent=error.message;return}
  if(!data.session){
    err.style.color='#166534';
-   err.innerHTML='<b>Account created ✓</b><br>Check your email and tap the confirmation link. Then return here and sign in. After sign-in, your account will show <b>Waiting for Admin Approval</b> until it is approved.';
+   err.innerHTML='<b>Account created ✓</b><br>Check your email and tap the confirmation link. You will be returned to One Stop Bowling Software. Your account starts with <b>Public View</b> access, and an administrator can upgrade your permissions later.';
    return
  }
- currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');if(currentAppRole==='pending')showPendingApprovalScreen('Your account has been created successfully and is now waiting for Admin approval.');else await requestRole(authRequestedRole||'scorer')
+ currentUser=data.user;await new Promise(r=>setTimeout(r,300));await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');role='public';tab='dashboard';setQueryRole('public');render();appAlert('Account created successfully. You now have Public View access. An administrator can give you Scorer or Admin access when required.','Welcome')
 }
 async function signOutAccount(){if(!cloud)return;await cloud.auth.signOut();currentUser=null;currentAppRole='public';currentAccess=null;currentClubs=[];accessNotificationCount=0;if(notificationRefreshTimer){clearInterval(notificationRefreshTimer);notificationRefreshTimer=null}role='public';tab='dashboard';updateAccountButton();render()}
 async function auditEvent(action,target,oldValue,newValue){
@@ -3074,7 +3082,7 @@ async function loadAdminExtras(){
  if(globalAdmin&&usersBox){
   let {data:users,error:uerr}=await cloud.from('bowls_users').select('user_id,email,display_name,role,created_at,trial_ends_at,subscription_status,subscription_ends_at').order('created_at',{ascending:true});
   if(uerr)usersBox.innerHTML='<p>Could not load accounts.</p>';
-  else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th></tr></thead><tbody>${(users||[]).map(u=>{let ua=u.role==='owner'?{active:true,label:'Owner access'}:accessLabel(u.subscription_status,u.trial_ends_at,u.subscription_ends_at);return `<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="pending" ${u.role==='pending'?'selected':''}>Pending</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td><td>${u.role==='owner'?'<span class="pill done">Owner access</span>':`<div><span class="pill ${ua.active?'done':'wait'}">${esc(ua.label)}</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px"><select data-user-access="${u.user_id}"><option value="trial" ${u.subscription_status==='trial'?'selected':''}>Trial</option><option value="active" ${u.subscription_status==='active'?'selected':''}>Until date</option><option value="unlimited" ${u.subscription_status==='unlimited'?'selected':''}>No expiry</option><option value="suspended" ${u.subscription_status==='suspended'?'selected':''}>Suspend</option></select><input type="date" data-user-end="${u.user_id}" value="${u.subscription_status==='trial'&&u.trial_ends_at?u.trial_ends_at.slice(0,10):u.subscription_status==='active'&&u.subscription_ends_at?u.subscription_ends_at.slice(0,10):''}"><button class="btn secondary" data-save-user-access="${u.user_id}">Save</button></div>`}</td></tr>`}).join('')}</tbody></table></div>`;
+  else usersBox.innerHTML=`<div class="tablewrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access</th></tr></thead><tbody>${(users||[]).map(u=>{let ua=u.role==='owner'?{active:true,label:'Owner access'}:accessLabel(u.subscription_status,u.trial_ends_at,u.subscription_ends_at);return `<tr><td>${esc(u.display_name||'')}</td><td>${esc(u.email||'')}</td><td>${u.role==='owner'?'<b>Owner</b>':`<select data-user-role="${u.user_id}"><option value="public" ${u.role==='public'||u.role==='pending'?'selected':''}>Public View</option><option value="scorer" ${u.role==='scorer'?'selected':''}>Scorer</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select>`}</td><td>${u.role==='owner'?'<span class="pill done">Owner access</span>':`<div><span class="pill ${ua.active?'done':'wait'}">${esc(ua.label)}</span></div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px"><select data-user-access="${u.user_id}"><option value="trial" ${u.subscription_status==='trial'?'selected':''}>Trial</option><option value="active" ${u.subscription_status==='active'?'selected':''}>Until date</option><option value="unlimited" ${u.subscription_status==='unlimited'?'selected':''}>No expiry</option><option value="suspended" ${u.subscription_status==='suspended'?'selected':''}>Suspend</option></select><input type="date" data-user-end="${u.user_id}" value="${u.subscription_status==='trial'&&u.trial_ends_at?u.trial_ends_at.slice(0,10):u.subscription_status==='active'&&u.subscription_ends_at?u.subscription_ends_at.slice(0,10):''}"><button class="btn secondary" data-save-user-access="${u.user_id}">Save</button></div>`}</td></tr>`}).join('')}</tbody></table></div>`;
   usersBox.querySelectorAll('[data-save-user-access]').forEach(b=>b.onclick=async()=>{
    let id=b.dataset.saveUserAccess,status=usersBox.querySelector(`[data-user-access="${id}"]`)?.value||'trial',date=usersBox.querySelector(`[data-user-end="${id}"]`)?.value||null;
    if(['trial','active'].includes(status)&&!date)return appAlert('Choose an end date.');
@@ -3108,7 +3116,7 @@ document.getElementById('authModeSignup').onclick=()=>setAuthMode('signup');
 document.getElementById('authSubmit').onclick=()=>authMode==='signup'?createAccount():signInAccount();
 document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signin')signInAccount()};
 document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signup')createAccount()};
-document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('scorer','signin')};
+document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('public','signin')};
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
 document.getElementById('accessBtn').onclick=showTournamentAccess;
