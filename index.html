@@ -3063,12 +3063,26 @@ function openPublicEntryModal(info){
   document.getElementById('publicEntryCard')?.remove();appendPublicEntryCard(document.getElementById('screen'));
  };
 }
-function openEntryQrModal(title,code){
+function entryShareMessage(title,code,closesAt){
+ let url=publicEntryUrl(code),name=String(title||competitionDisplayName(comp())||'Tournament').trim();
+ let lines=[`${name} – Online Entry Form`];
+ if(closesAt){let d=new Date(closesAt);if(!Number.isNaN(d.getTime()))lines.push(`Entries close: ${d.toLocaleString()}`)}
+ lines.push('Tap below to enter:',url);
+ return lines.join('\n');
+}
+async function shareEntryForm(title,code,closesAt){
+ let url=publicEntryUrl(code);if(!url)return appAlert('This tournament does not have an online code yet.');
+ let text=entryShareMessage(title,code,closesAt),name=String(title||competitionDisplayName(comp())||'Tournament').trim();
+ if(navigator.share){try{await navigator.share({title:`${name} – Online Entry Form`,text,url});return}catch(e){if(e?.name==='AbortError')return}}
+ try{await navigator.clipboard.writeText(text);appAlert('Entry form message copied ✓')}catch(e){appAlert(text,'Share Entry Form')}
+}
+function openEntryQrModal(title,code,closesAt){
  let url=publicEntryUrl(code);if(!url)return appAlert('This tournament does not have an online code yet.');
  document.getElementById('entryQrModal')?.remove();let box=document.createElement('div');box.className='modal';box.id='entryQrModal';
- box.innerHTML=`<div class="modalbox" style="width:min(560px,100%);max-height:92vh;overflow:auto;text-align:center"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start;text-align:left"><div><h2 style="margin:0">QR Code – Online Entry</h2><p class="muted" style="margin:5px 0 0">${esc(title||'Tournament')}</p></div><button class="btn secondary" id="closeEntryQr">Close</button></div><div id="entryQrBox" style="display:flex;justify-content:center;margin:18px auto"></div><div class="notice" style="text-align:left"><b>How to enter:</b><br>1. Unlock your phone.<br>2. Open the Camera app.<br>3. Point the camera at the QR code.<br>4. Tap the link/banner that appears.<br>5. Complete the entry form and submit.</div><div class="meta" style="margin-top:12px;word-break:break-all">${esc(url)}</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn primary" id="printEntryQr">Print QR Poster</button><button class="btn secondary" id="copyEntryLink">Copy Entry Link</button></div></div>`;
+ box.innerHTML=`<div class="modalbox" style="width:min(560px,100%);max-height:92vh;overflow:auto;text-align:center"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start;text-align:left"><div><h2 style="margin:0">QR Code – Online Entry</h2><p class="muted" style="margin:5px 0 0">${esc(title||'Tournament')}</p></div><button class="btn secondary" id="closeEntryQr">Close</button></div><div id="entryQrBox" style="display:flex;justify-content:center;margin:18px auto"></div><div class="notice" style="text-align:left"><b>How to enter:</b><br>1. Unlock your phone.<br>2. Open the Camera app.<br>3. Point the camera at the QR code.<br>4. Tap the link/banner that appears.<br>5. Complete the entry form and submit.</div><div class="meta" style="margin-top:12px;word-break:break-all">${esc(url)}</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn primary" id="printEntryQr">Print QR Poster</button><button class="btn success" id="shareEntryFormQr">Share Entry Form</button><button class="btn secondary" id="copyEntryLink">Copy Link Only</button></div></div>`;
  document.body.appendChild(box);renderEntryQr(document.getElementById('entryQrBox'),url,240);
  document.getElementById('closeEntryQr').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ document.getElementById('shareEntryFormQr').onclick=()=>shareEntryForm(title,code,closesAt);
  document.getElementById('copyEntryLink').onclick=async()=>{try{await navigator.clipboard.writeText(url);appAlert('Entry link copied ✓')}catch(e){appAlert(url,'Entry Link')}};
  document.getElementById('printEntryQr').onclick=()=>printEntryQrPoster(title,code)
 }
@@ -3101,7 +3115,7 @@ async function loadEntryManagementPanel(){
    <div class="field"><label>Public competition label</label><input id="entryPublicLabel" value="${esc(set.public_label||'')}" placeholder="e.g. Friday – Rinks"></div>
   </div>
   <button class="btn primary" id="saveEntrySettings" style="margin-top:10px">Save Entry Settings</button>
-  ${set.enabled?`<div class="notice" style="margin-top:12px"><b>Online entry link is active.</b> Share the link or print a QR poster for the clubhouse.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn success" id="showEntryQr">Show / Print QR Code</button><button class="btn secondary" id="copyEntryLinkAdmin">Copy Entry Link</button></div>`:`<div class="meta" style="margin-top:10px">Turn Online Entries on and save to enable the QR code and public entry link.</div>`}
+  ${set.enabled?`<div class="notice" style="margin-top:12px"><b>Online entry link is active.</b> Share the link or print a QR poster for the clubhouse.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn success" id="showEntryQr">Show / Print QR Code</button><button class="btn primary" id="shareEntryFormAdmin">Share Entry Form</button><button class="btn secondary" id="copyEntryLinkAdmin">Copy Link Only</button></div>`:`<div class="meta" style="margin-top:10px">Turn Online Entries on and save to enable the QR code and public entry link.</div>`}
  </details>
  <details style="margin-top:14px"><summary><b>Add a manual entry</b> — phone, paper or in person</summary>
   <div class="formgrid" style="margin-top:12px">
@@ -3114,7 +3128,9 @@ async function loadEntryManagementPanel(){
  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn success" id="importConfirmedEntries" ${confirmed?'':'disabled'}>Import Confirmed Entries (${confirmed})</button><button class="btn secondary" id="printEntryList" ${rows.some(x=>x.status!=='rejected')?'':'disabled'}>Print Entry List</button></div>
  <div style="margin-top:14px"><h3>Entries</h3>${rows.length?`<div class="tablewrap"><table><thead><tr><th>Club</th><th>Team / names</th><th>Source</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(e=>`<tr><td>${esc(e.club_name||'—')}</td><td><b>${esc(e.team_name||'—')}</b>${entryPlayersArray(e).length?`<div class="meta">${entryPlayersArray(e).map(esc).join(', ')}</div>`:''}</td><td>${e.source==='manual'?'Manual':'Online'}</td><td><span class="pill ${e.status==='pending'?'wait':e.status==='rejected'?'':'done'}">${esc(e.status)}</span></td><td>${e.status==='pending'?`<button class="btn success" data-entry-approve="${e.id}">Approve</button> <button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:e.status==='confirmed'?`<button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:''} <button class="btn secondary" data-entry-delete="${e.id}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No entries received yet.</p>'}</div>`;
  document.getElementById('saveEntrySettings').onclick=saveEntrySettingsFromPanel;
- let qrBtn=document.getElementById('showEntryQr');if(qrBtn)qrBtn.onclick=()=>openEntryQrModal(set.public_label||competitionDisplayName(comp())||'Tournament',remoteTournamentCode);
+ let entryTitle=set.public_label||competitionDisplayName(comp())||'Tournament';
+ let qrBtn=document.getElementById('showEntryQr');if(qrBtn)qrBtn.onclick=()=>openEntryQrModal(entryTitle,remoteTournamentCode,set.closes_at);
+ let shareEntry=document.getElementById('shareEntryFormAdmin');if(shareEntry)shareEntry.onclick=()=>shareEntryForm(entryTitle,remoteTournamentCode,set.closes_at);
  let copyEntry=document.getElementById('copyEntryLinkAdmin');if(copyEntry)copyEntry.onclick=async()=>{let u=publicEntryUrl(remoteTournamentCode);try{await navigator.clipboard.writeText(u);appAlert('Entry link copied ✓')}catch(e){appAlert(u,'Entry Link')}};
  document.getElementById('addManualEntry').onclick=addManualEntryFromPanel;
  document.getElementById('importConfirmedEntries').onclick=importConfirmedTournamentEntries;
