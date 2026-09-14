@@ -270,7 +270,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.14.144'; // main build: optional online/manual entries, QR entry poster, multi-team public entry, private admin review/import
+const APP_VERSION='2026.09.14.145'; // main build: online/manual entry choice moved into new-tournament setup, plus QR/share and private contact phone
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1007,10 +1007,11 @@ async function showNewTournamentWizard(){
  let clubs=[];
  if(cloud){let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error){clubs=Array.isArray(cr.data)?cr.data:[];cacheClubFeatures(clubs)}}
  let box=document.createElement('div');box.className='modal';box.id='newTournamentModal';
- box.innerHTML=`<div class="modalbox" style="width:min(620px,100%);max-height:90vh;overflow:auto">
+ box.innerHTML=`<div class="modalbox" style="width:min(660px,100%);max-height:90vh;overflow:auto">
   <h2 style="margin-top:0">New Tournament</h2>
   <p class="muted">Your current tournament will stay unchanged.</p>
   ${currentAppRole!=='owner'&&clubs.length?`<div class="oknotice notice"><b>Club Admin access:</b> ${clubs.map(x=>esc(x.name)).join(', ')}</div>`:''}
+  <div class="field" style="margin-bottom:14px"><label><b>How will entries be managed?</b></label><select id="ntEntryMode"><option value="manual">Manual entries / I already know my teams</option><option value="online">Online entries – collect entries first</option></select><div class="meta" id="ntEntryModeHelp">Choose Online Entries if you want to share an entry form or QR code before you know the final number of teams.</div></div>
   <div class="formgrid">
    <div class="field"><label>Tournament name</label><input id="ntName" placeholder="e.g. Alness Open 2026"></div>
    ${clubs.length?`<div class="field"><label>Club account</label><select id="ntClubAccount">${currentAppRole==='owner'?'<option value="">Personal / no club</option>':''}${clubs.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${x.access_active?'':' (access expired)'}</option>`).join('')}</select></div>`:''}
@@ -1018,24 +1019,50 @@ async function showNewTournamentWizard(){
    <div class="field"><label>Format</label><select id="ntType"><option value="standard">Round Robin + Knockout</option><option value="wick64">Triples Over 3 Greens</option><option value="knockout">Knockout Only</option><option value="aggregate">Team / District Match – Aggregate</option></select><div id="ntLeagueFeatureNote" class="meta" style="margin-top:5px"></div></div>
    <div class="field" id="ntEntriesField"><label>Entries / teams</label><input id="ntTeams" inputmode="numeric" min="2" value="16"></div>
   </div>
+  <div id="ntOnlineEntrySetup" class="hidden" style="margin-top:14px;padding:14px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc">
+   <h3 style="margin:0 0 6px">Online Entry Setup</h3>
+   <p class="muted" style="margin-top:0">Only the details needed to open entries are required now. You can complete groups, rinks, timings and qualification after the entries are in.</p>
+   <div class="formgrid">
+    <div class="field"><label>Tournament date (optional)</label><input id="ntEventDate" type="date"></div>
+    <div class="field"><label>Entries open (optional)</label><input id="ntEntryOpens" type="datetime-local"></div>
+    <div class="field"><label>Entries close</label><input id="ntEntryCloses" type="datetime-local"></div>
+    <div class="field"><label>Maximum entries (optional)</label><input id="ntEntryMax" type="number" min="1" placeholder="No limit"></div>
+    <div class="field"><label>Event / weekend name (optional)</label><input id="ntEntryEvent" placeholder="e.g. SSMBF Championship Weekend"></div>
+    <div class="field"><label>Public competition label (optional)</label><input id="ntEntryLabel" placeholder="e.g. Friday – Rinks"></div>
+   </div>
+   <div class="notice" style="margin-top:10px"><b>After creation:</b> the online entry form will be switched on automatically and you can share the entry link or print the QR poster straight away.</div>
+  </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn secondary" id="ntCancel">Cancel</button><button class="btn primary" id="ntCreate">Create Tournament</button></div>
  </div>`;
  document.body.appendChild(box);
- let type=document.getElementById('ntType'),clubSel=document.getElementById('ntClubAccount');
+ let type=document.getElementById('ntType'),clubSel=document.getElementById('ntClubAccount'),entryMode=document.getElementById('ntEntryMode');
  const syncLeagueFeature=()=>{
   let selected=clubSel?.value||(currentAppRole!=='owner'&&clubs.length===1?clubs[0].id:''),club=clubs.find(x=>String(x.id)===String(selected)),enabled=!!club?.enable_two_triples_league,existing=type.querySelector('option[value="league"]');
   if(enabled&&!existing){let o=document.createElement('option');o.value='league';o.textContent='Black Isle and District Indoor Bowling League';type.insertBefore(o,type.querySelector('option[value="knockout"]'))}
   if(!enabled&&existing){if(type.value==='league')type.value='standard';existing.remove()}
   let note=document.getElementById('ntLeagueFeatureNote');if(note)note.textContent=enabled?'Special indoor league format enabled for '+(club?.name||'this club')+'.':'Special indoor league format is only shown for clubs with it enabled.';
  };
- let toggle=()=>{syncLeagueFeature();let agg=type.value==='aggregate',wick=type.value==='wick64',entries=document.getElementById('ntEntriesField'),teams=document.getElementById('ntTeams');if(entries)entries.classList.toggle('hidden',agg);if(teams){teams.readOnly=wick;if(wick)teams.value=64}};type.onchange=toggle;if(clubSel)clubSel.onchange=toggle;toggle();
+ let toggle=()=>{
+  syncLeagueFeature();
+  let agg=type.value==='aggregate',wick=type.value==='wick64',online=entryMode.value==='online',entries=document.getElementById('ntEntriesField'),teams=document.getElementById('ntTeams'),onlineBox=document.getElementById('ntOnlineEntrySetup');
+  if(entries)entries.classList.toggle('hidden',agg||online);
+  if(onlineBox)onlineBox.classList.toggle('hidden',!online);
+  if(teams){teams.readOnly=wick;if(wick)teams.value=64}
+  let help=document.getElementById('ntEntryModeHelp');if(help)help.textContent=online?'Collect entries first. Detailed tournament setup can wait until you know the final entry numbers.':'Use this when you already know the number of teams and want to continue with the normal setup.';
+ };
+ type.onchange=toggle;entryMode.onchange=toggle;if(clubSel)clubSel.onchange=toggle;toggle();
  document.getElementById('ntCancel').onclick=()=>box.remove();
  document.getElementById('ntCreate').onclick=async()=>{
   let name=document.getElementById('ntName').value.trim();if(!name)return appAlert('Please enter a tournament name.');
-  let t=type.value,n=t==='wick64'?64:Math.max(2,+document.getElementById('ntTeams')?.value||16);
+  let online=entryMode.value==='online',t=type.value,n=t==='wick64'?64:(online?2:Math.max(2,+document.getElementById('ntTeams')?.value||16));
   let requestedClub=document.getElementById('ntClubAccount')?.value||(currentAppRole!=='owner'&&clubs.length===1?clubs[0].id:null);
   if(t==='league'&&!clubs.find(x=>String(x.id)===String(requestedClub))?.enable_two_triples_league)return appAlert('The 2-Triples Aggregate League format is not enabled for this club.');
+  if(online&&t==='aggregate')return appAlert('Online entry collection is not available for Aggregate Team / District matches. Choose Manual Entries for this format.');
+  let closes=document.getElementById('ntEntryCloses')?.value||null;
+  if(online&&!closes)return appAlert('Please enter an entry closing date/time.');
   let c=defaultComp();c.id='comp-'+Date.now();c.title=t==='league'?'Black Isle and District Indoor Bowling League':name;c.settings.clubName=document.getElementById('ntClub').value.trim();c.settings.tournamentType=t;c.settings.scoringMode='live_optional';
+  if(online){c.settings.entryMode='online';c.settings.eventDate=document.getElementById('ntEventDate')?.value||'';c.settings.entryCollectionPending=true}
+  else c.settings.entryMode='manual';
   if(t==='aggregate'){c.settings.teamCount=2;c.teams=[];ensureAggregate(c)}
   else{
    if(t==='wick64')Object.assign(c.settings,{specialPreset:'wick64',teamCount:64,groupSize:4,manualGroups:16,drawMethod:'manual',gameType:'triples',ends:15,start:'09:00',minutes:115,changeoverMinutes:5,greensCount:3,rinksPerGreen:6,rinks:18,eventFormat:'two_day',day1TargetFinish:'21:00',day2Start:'09:00',qualify:'top2',bestRunners:0,autoFillKnockout:false,wickGreenNames:['Green 1','Green 2','Green 3'],wickMainGreen:'Green 1',wickDay2Gap:20});
@@ -1053,8 +1080,14 @@ async function showNewTournamentWizard(){
   db.competitions.push(c);db.active=c.id;localStorage.setItem(APPKEY,JSON.stringify(db));
   let club=clubs.find(x=>x.id===row.club_id);
   setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'');
-  box.remove();role='admin';tab='builder';startRemoteRefresh();render();
-  appAlert('Tournament created ✓\\n\\nClub: '+(club?.name||c.settings.clubName||'Club')+'\\nTournament code: '+row.code+'\\n\\nNext step: complete Tournament Setup.')
+  if(online){
+   let opens=document.getElementById('ntEntryOpens')?.value||null,max=document.getElementById('ntEntryMax')?.value||'',event=document.getElementById('ntEntryEvent')?.value.trim()||'',label=document.getElementById('ntEntryLabel')?.value.trim()||'';
+   let entrySave=await cloud.rpc('bowls_set_entry_settings',{p_tournament:row.id,p_enabled:true,p_opens_at:opens?new Date(opens).toISOString():null,p_closes_at:new Date(closes).toISOString(),p_max_entries:max?Number(max):null,p_event_group:event||null,p_public_label:label||name});
+   if(entrySave.error){appAlert('Tournament created, but the online entry settings could not be saved: '+entrySave.error.message+'\n\nYou can still turn Online Entries on from Admin.');}
+  }
+  box.remove();role='admin';tab=online?'admin':'builder';startRemoteRefresh();render();
+  if(online)appAlert('Tournament created ✓\n\nOnline Entries are switched on.\nTournament code: '+row.code+'\n\nNext step: use Share Entry Form or Show / Print QR Code in Admin. You can complete the full tournament setup once your entries are in.');
+  else appAlert('Tournament created ✓\n\nClub: '+(club?.name||c.settings.clubName||'Club')+'\nTournament code: '+row.code+'\n\nNext step: complete Tournament Setup.')
  };
 }
 async function duplicateCurrentTournament(){
