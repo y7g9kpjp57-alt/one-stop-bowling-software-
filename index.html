@@ -188,8 +188,9 @@ body.simple-mode .bottom button{font-size:13px}
  .wrap{padding-bottom:calc(165px + env(safe-area-inset-bottom));}
  body.keyboard-open .ux-sticky,body.keyboard-open .bottom,body.keyboard-open .ux-save-toast{display:none!important}
  input,select,textarea{font-size:16px!important;scroll-margin-block:24px}
- .modal{overflow-y:auto;align-items:flex-start;padding-top:24px}
- .modalbox{margin:auto;max-height:calc(100dvh - 48px);overflow:auto}
+ .modal{overflow:hidden;align-items:flex-start;padding-top:24px;overscroll-behavior:none}
+ .modalbox{margin:auto;max-height:calc(100dvh - 48px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+ html:has(.modal:not(.hidden)),body:has(.modal:not(.hidden)){overflow:hidden;overscroll-behavior:none}
  .modalbox input:not([type=password]){letter-spacing:normal;text-align:left}
 }
 
@@ -270,7 +271,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.14.145'; // main build: online/manual entry choice moved into new-tournament setup, plus QR/share and private contact phone
+const APP_VERSION='2026.09.14.146'; // mobile modal scrolling fix: keep the background page locked while scrolling forms
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
