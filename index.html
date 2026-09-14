@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#082f49" />
 <title>One Stop Bowling Software</title>
-<!-- Build 139: performance-only smoothing; no user-facing feature/detail changes -->
+<!-- Build 143: online entries moved into the main build; QR entry poster/link and multi-team public entries added. Rollback snapshot retained from 142-test. -->
 <style>
 :root{--nav:#082f49;--blue:#0369a1;--sky:#e0f2fe;--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--green:#166534;--amber:#92400e;--red:#b91c1c}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
@@ -260,6 +260,7 @@ body.simple-mode .bottom button{font-size:13px}
 </div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
 // ===== Build 138 / UI feedback module =====
 function appToast(message,type='info',ms=4200){try{let old=document.querySelector('.app-toast');if(old)old.remove();let el=document.createElement('div');el.className='app-toast '+(type||'');el.textContent=String(message||'');document.body.appendChild(el);setTimeout(()=>el.remove(),ms)}catch(e){console.warn(message,e)}}
@@ -269,7 +270,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.12.140'; // live: new sign-ups default to Public View and return to the app after email confirmation
+const APP_VERSION='2026.09.14.143'; // main build: optional online/manual entries, QR entry poster, multi-team public entry, private admin review/import
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1287,7 +1288,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
@@ -2227,8 +2228,8 @@ function renderTeams(s){
   return
  }
  let positions=playerPositions(c.settings.gameType||'rinks');c.teams.forEach(t=>t.players=t.players||{});
- s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;
- document.getElementById('saveTeams').onclick=()=>{document.querySelectorAll('[data-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.team);if(t)t.name=i.value.trim()||t.name});document.querySelectorAll('[data-player-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.playerTeam);if(t){t.players=t.players||{};t.players[i.dataset.playerPos]=i.value.trim()}});saveDB();tab='draw';render();showSavedIndicator()}
+ s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="field" style="margin:8px 0 0 44px"><label>Club name (optional)</label><input data-team-club="${t.id}" value="${esc(t.clubName||'')}" placeholder="Club name" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px"></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;
+ document.getElementById('saveTeams').onclick=()=>{document.querySelectorAll('[data-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.team);if(t)t.name=i.value.trim()||t.name});document.querySelectorAll('[data-team-club]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.teamClub);if(t)t.clubName=i.value.trim()});document.querySelectorAll('[data-player-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.playerTeam);if(t){t.players=t.players||{};t.players[i.dataset.playerPos]=i.value.trim()}});saveDB();tab='draw';render();showSavedIndicator()}
 }
 
 function manualGroupLetters(c=comp()){let count=(c.settings.tournamentType||'standard')==='wick64'?16:Math.max(1,Math.min(20,+c.settings.manualGroups||Math.ceil(c.teams.length/Math.max(1,c.settings.groupSize||4))));return Array.from({length:count},(_,i)=>String.fromCharCode(65+i))}
@@ -2991,13 +2992,197 @@ function openAiTournamentReport(){
  };
 }
 
+
+function publicEntryState(info){
+ let now=Date.now(),opens=info?.opens_at?new Date(info.opens_at).getTime():null,closes=info?.closes_at?new Date(info.closes_at).getTime():null,
+     count=Number(info?.entry_count||0),max=info?.max_entries==null?null:Number(info.max_entries);
+ if(!info?.enabled)return {open:false,label:'Closed'};
+ if(opens&&now<opens)return {open:false,label:'Opens '+new Date(opens).toLocaleString()};
+ if(closes&&now>=closes)return {open:false,label:'Entries Closed'};
+ if(max&&count>=max)return {open:false,label:'Full'};
+ return {open:true,label:'Entries Open'};
+}
+function publicEntryPlayers(value){
+ return String(value||'').split(/\n|,/).map(x=>x.trim()).filter(Boolean).slice(0,8);
+}
+function publicEntryUrl(code=remoteTournamentCode){
+ let c=String(code||'').trim().toUpperCase();if(!c)return '';
+ try{let u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('code',c);u.searchParams.set('entry',c);u.searchParams.set('view','public');return u.toString()}
+ catch(e){return location.pathname+'?code='+encodeURIComponent(c)+'&entry='+encodeURIComponent(c)+'&view=public'}
+}
+function renderEntryQr(target,url,size=230){
+ if(!target)return false;target.innerHTML='';
+ if(typeof QRCode!=='function'){target.innerHTML='<div class="notice">QR code library did not load. The entry link still works.</div>';return false}
+ new QRCode(target,{text:url,width:size,height:size,correctLevel:QRCode.CorrectLevel.M});return true
+}
+function addPublicEntryTeamRow(container,index){
+ if(!container)return;
+ let row=document.createElement('div');row.className='card pe-team-row';row.style.cssText='box-shadow:none;padding:12px;margin-top:10px';
+ row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><b>Team ${index}</b>${index>1?'<button type="button" class="btn secondary pe-remove-team">Remove</button>':''}</div>
+  <div class="field" style="margin-top:10px"><label>Team name / skip name</label><input class="peTeam" maxlength="120" placeholder="e.g. Farmer"></div>
+  <div class="field" style="margin-top:10px"><label>Player names</label><textarea class="pePlayers" rows="4" placeholder="One player per line, or separate names with commas" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"></textarea></div>`;
+ container.appendChild(row);row.querySelector('.pe-remove-team')?.addEventListener('click',()=>{row.remove();[...container.querySelectorAll('.pe-team-row')].forEach((r,i)=>{let b=r.querySelector('b');if(b)b.textContent='Team '+(i+1)})})
+}
+async function appendPublicEntryCard(s){
+ if(!s||!cloud||!remoteTournamentCode||document.getElementById('publicEntryCard'))return;
+ let {data,error}=await cloud.rpc('bowls_public_entry_event',{p_code:remoteTournamentCode});
+ if(error||!data?.found||!Array.isArray(data.competitions)||!data.competitions.length)return;
+ let card=document.createElement('div');card.className='card';card.id='publicEntryCard';
+ let comps=data.competitions;
+ card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:start;flex-wrap:wrap"><div><h2 style="margin:0 0 5px">Tournament Entries</h2><p class="muted" style="margin:0">${esc(data.event_name||'Online entries')}</p></div><span class="pill done">${comps.reduce((n,x)=>n+Number(x.entry_count||0),0)} entries received</span></div>
+ <p class="muted">Only entry totals are shown publicly. Team/player names are kept private to the tournament administrators.</p>
+ <div>${comps.map((x,i)=>{let st=publicEntryState(x),count=Number(x.entry_count||0),max=x.max_entries==null?'':` / ${Number(x.max_entries)}`,close=x.closes_at?`<div class="meta">Closes ${esc(new Date(x.closes_at).toLocaleString())}</div>`:'';return `<div style="padding:12px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center"><div><b>${esc(x.title||'Competition')}</b><div class="meta">${count}${max} entries received • ${esc(st.label)}</div>${close}</div>${st.open?`<button class="btn primary" data-public-entry="${i}">Enter</button>`:`<span class="pill wait">${esc(st.label)}</span>`}</div>`}).join('')}</div>`;
+ s.appendChild(card);
+ card.querySelectorAll('[data-public-entry]').forEach(b=>b.onclick=()=>openPublicEntryModal(comps[Number(b.dataset.publicEntry)]));
+ let requested=(new URLSearchParams(location.search).get('entry')||'').trim().toUpperCase();
+ if(requested&&!window.__publicEntryAutoOpened){let match=comps.find(x=>String(x.code||'').trim().toUpperCase()===requested)||((requested===String(remoteTournamentCode||'').toUpperCase())?comps[0]:null);if(match&&publicEntryState(match).open){window.__publicEntryAutoOpened=true;setTimeout(()=>openPublicEntryModal(match),80)}}
+}
+function openPublicEntryModal(info){
+ document.getElementById('publicEntryModal')?.remove();
+ let box=document.createElement('div');box.className='modal';box.id='publicEntryModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(600px,100%);max-height:92vh;overflow:auto">
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><h2 style="margin:0">Enter ${esc(info.title||'Tournament')}</h2><p class="muted" style="margin:5px 0 0">Enter one team, or add more teams and submit them together.</p></div><button class="btn secondary" id="closePublicEntry">Close</button></div>
+  <div class="notice" style="margin-top:12px"><b>Privacy:</b> this form only stores the club, team and player names needed for the competition. It does not ask for phone numbers or email addresses.</div>
+  <div class="field"><label>Club name</label><input id="peClub" maxlength="120" placeholder="e.g. Ardross Alness"><div class="meta">Enter this once. It will be used for all teams below.</div></div>
+  <div id="peTeams"></div>
+  <button type="button" class="btn secondary" id="addPublicEntryTeam" style="width:100%;margin-top:10px">+ Add Another Team</button>
+  <div id="peError" class="notice hidden" style="margin-top:10px"></div>
+  <button class="btn primary" id="submitPublicEntry" style="width:100%;margin-top:12px">Submit Entry</button>
+ </div>`;
+ document.body.appendChild(box);let teamBox=document.getElementById('peTeams');addPublicEntryTeamRow(teamBox,1);
+ document.getElementById('addPublicEntryTeam').onclick=()=>addPublicEntryTeamRow(teamBox,teamBox.querySelectorAll('.pe-team-row').length+1);
+ document.getElementById('closePublicEntry').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ document.getElementById('submitPublicEntry').onclick=async()=>{
+  let club=document.getElementById('peClub').value.trim(),btn=document.getElementById('submitPublicEntry'),err=document.getElementById('peError');
+  let teams=[...teamBox.querySelectorAll('.pe-team-row')].map(r=>({row:r,team:r.querySelector('.peTeam')?.value.trim()||'',players:publicEntryPlayers(r.querySelector('.pePlayers')?.value||''),submitted:r.dataset.submitted==='1'})).filter(x=>!x.submitted&&(x.team||x.players.length));
+  if(!club&&!teams.length){err.textContent='Enter a club name and at least one team.';err.classList.remove('hidden');return}
+  if(!teams.length){err.textContent='Add at least one team name or player name.';err.classList.remove('hidden');return}
+  btn.disabled=true;err.classList.add('hidden');let done=0;
+  for(let t of teams){btn.textContent=`Submitting ${done+1} of ${teams.length}…`;let {error}=await cloud.rpc('bowls_submit_public_entry',{p_code:info.code,p_club_name:club||null,p_team_name:t.team||null,p_player_names:t.players});if(error){btn.disabled=false;btn.textContent='Submit Entry';err.textContent=(done?`${done} team${done===1?'':'s'} submitted successfully. `:'')+error.message;err.classList.remove('hidden');return}t.row.dataset.submitted='1';done++}
+  btn.disabled=false;btn.textContent='Submit Entry';box.remove();appAlert(`${done} team${done===1?'':'s'} received ✓ The organiser can now review and confirm ${done===1?'it':'them'}.`,'Entry Submitted');
+  document.getElementById('publicEntryCard')?.remove();appendPublicEntryCard(document.getElementById('screen'));
+ };
+}
+function openEntryQrModal(title,code){
+ let url=publicEntryUrl(code);if(!url)return appAlert('This tournament does not have an online code yet.');
+ document.getElementById('entryQrModal')?.remove();let box=document.createElement('div');box.className='modal';box.id='entryQrModal';
+ box.innerHTML=`<div class="modalbox" style="width:min(560px,100%);max-height:92vh;overflow:auto;text-align:center"><div style="display:flex;justify-content:space-between;gap:10px;align-items:start;text-align:left"><div><h2 style="margin:0">QR Code – Online Entry</h2><p class="muted" style="margin:5px 0 0">${esc(title||'Tournament')}</p></div><button class="btn secondary" id="closeEntryQr">Close</button></div><div id="entryQrBox" style="display:flex;justify-content:center;margin:18px auto"></div><div class="notice" style="text-align:left"><b>How to enter:</b><br>1. Unlock your phone.<br>2. Open the Camera app.<br>3. Point the camera at the QR code.<br>4. Tap the link/banner that appears.<br>5. Complete the entry form and submit.</div><div class="meta" style="margin-top:12px;word-break:break-all">${esc(url)}</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="btn primary" id="printEntryQr">Print QR Poster</button><button class="btn secondary" id="copyEntryLink">Copy Entry Link</button></div></div>`;
+ document.body.appendChild(box);renderEntryQr(document.getElementById('entryQrBox'),url,240);
+ document.getElementById('closeEntryQr').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
+ document.getElementById('copyEntryLink').onclick=async()=>{try{await navigator.clipboard.writeText(url);appAlert('Entry link copied ✓')}catch(e){appAlert(url,'Entry Link')}};
+ document.getElementById('printEntryQr').onclick=()=>printEntryQrPoster(title,code)
+}
+function printEntryQrPoster(title,code){
+ let url=publicEntryUrl(code);if(!url)return appAlert('This tournament does not have an online code yet.');
+ if(typeof QRCode!=='function')return appAlert('The QR code library has not loaded. Please try again when online.');
+ let temp=document.createElement('div');temp.style.cssText='position:fixed;left:-9999px;top:-9999px;background:#fff';document.body.appendChild(temp);new QRCode(temp,{text:url,width:320,height:320,correctLevel:QRCode.CorrectLevel.M});
+ setTimeout(()=>{let canvas=temp.querySelector('canvas'),img=temp.querySelector('img'),src=canvas?canvas.toDataURL('image/png'):img?.src||'';temp.remove();let w=window.open('','_blank');if(!w)return appAlert('Please allow pop-ups to print the QR poster.');w.document.write(`<!doctype html><html><head><title>${esc(title||'Tournament')} - Online Entry</title><style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#111;text-align:center;margin:0}h1{font-size:30px;margin:10px 0 6px}.sub{font-size:20px;margin-bottom:16px}.qr{width:320px;height:320px;max-width:75vw}.steps{max-width:650px;margin:20px auto;text-align:left;border:2px solid #111;border-radius:14px;padding:18px 24px;font-size:18px;line-height:1.55}.steps h2{margin:0 0 8px;text-align:center}.small{font-size:13px;color:#555;word-break:break-all;margin-top:12px}@media print{button{display:none}}</style></head><body><h1>${esc(title||'Tournament')}</h1><div class="sub"><b>Scan the QR code to enter</b></div><img class="qr" src="${src}" alt="Tournament entry QR code"><div class="steps"><h2>How to enter</h2><div><b>1.</b> Unlock your phone.</div><div><b>2.</b> Open the Camera app.</div><div><b>3.</b> Point the camera at the QR code above.</div><div><b>4.</b> Tap the link or banner that appears.</div><div><b>5.</b> Complete the entry form and press Submit Entry.</div></div><div class="small">If you cannot scan the code, use this link:<br>${esc(url)}</div><p><button onclick="window.print()">Print</button></p></body></html>`);w.document.close();setTimeout(()=>w.print(),350)},120)
+}
+function localDateTimeValue(v){
+ if(!v)return '';let d=new Date(v);if(Number.isNaN(d.getTime()))return '';
+ let p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function entryDisplayName(e){return String(e.team_name||e.club_name||'Entry').trim()}
+function entryPlayersArray(e){return Array.isArray(e.player_names)?e.player_names:[]}
+async function loadEntryManagementPanel(){
+ let box=document.getElementById('entryManagementPanel');if(!box||!cloud||!remoteTournamentId)return;
+ let [sr,er]=await Promise.all([cloud.rpc('bowls_get_entry_settings',{p_tournament:remoteTournamentId}),cloud.rpc('bowls_list_tournament_entries',{p_tournament:remoteTournamentId})]);
+ if(sr.error){box.innerHTML=`<div class="notice">Could not load entry settings: ${esc(sr.error.message)}</div>`;return}
+ if(er.error){box.innerHTML=`<div class="notice">Could not load entries: ${esc(er.error.message)}</div>`;return}
+ let set=sr.data||{},rows=er.data||[],pending=rows.filter(x=>x.status==='pending').length,confirmed=rows.filter(x=>x.status==='confirmed').length,imported=rows.filter(x=>x.status==='imported').length;
+ box.innerHTML=`<div class="oknotice notice"><b>${rows.filter(x=>x.status!=='rejected').length} current entries</b> • ${pending} pending • ${confirmed} ready to import • ${imported} imported</div>
+ <details open><summary><b>Public entry settings</b></summary>
+  <div class="formgrid" style="margin-top:12px">
+   <div class="field"><label>Online entries</label><select id="entryEnabled"><option value="no" ${set.enabled?'':'selected'}>Off</option><option value="yes" ${set.enabled?'selected':''}>On</option></select></div>
+   <div class="field"><label>Opening date/time (optional)</label><input id="entryOpens" type="datetime-local" value="${esc(localDateTimeValue(set.opens_at))}"></div>
+   <div class="field"><label>Closing date/time</label><input id="entryCloses" type="datetime-local" value="${esc(localDateTimeValue(set.closes_at))}"></div>
+   <div class="field"><label>Maximum entries (optional)</label><input id="entryMax" type="number" min="1" value="${set.max_entries??''}" placeholder="No limit"></div>
+   <div class="field"><label>Event / weekend name</label><input id="entryEventGroup" value="${esc(set.event_group||'')}" placeholder="e.g. SSMBF Championship Weekend"><div class="meta">Use the same event name on linked tournaments to show them together publicly.</div></div>
+   <div class="field"><label>Public competition label</label><input id="entryPublicLabel" value="${esc(set.public_label||'')}" placeholder="e.g. Friday – Rinks"></div>
+  </div>
+  <button class="btn primary" id="saveEntrySettings" style="margin-top:10px">Save Entry Settings</button>
+  ${set.enabled?`<div class="notice" style="margin-top:12px"><b>Online entry link is active.</b> Share the link or print a QR poster for the clubhouse.</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn success" id="showEntryQr">Show / Print QR Code</button><button class="btn secondary" id="copyEntryLinkAdmin">Copy Entry Link</button></div>`:`<div class="meta" style="margin-top:10px">Turn Online Entries on and save to enable the QR code and public entry link.</div>`}
+ </details>
+ <details style="margin-top:14px"><summary><b>Add a manual entry</b> — phone, paper or in person</summary>
+  <div class="formgrid" style="margin-top:12px">
+   <div class="field"><label>Club name</label><input id="manualEntryClub" placeholder="Club"></div>
+   <div class="field"><label>Team / skip name</label><input id="manualEntryTeam" placeholder="Team name"></div>
+   <div class="field" style="grid-column:1/-1"><label>Player names</label><textarea id="manualEntryPlayers" rows="4" placeholder="One per line or separated by commas" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"></textarea></div>
+  </div>
+  <button class="btn primary" id="addManualEntry">Add Manual Entry</button>
+ </details>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn success" id="importConfirmedEntries" ${confirmed?'':'disabled'}>Import Confirmed Entries (${confirmed})</button><button class="btn secondary" id="printEntryList" ${rows.some(x=>x.status!=='rejected')?'':'disabled'}>Print Entry List</button></div>
+ <div style="margin-top:14px"><h3>Entries</h3>${rows.length?`<div class="tablewrap"><table><thead><tr><th>Club</th><th>Team / names</th><th>Source</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(e=>`<tr><td>${esc(e.club_name||'—')}</td><td><b>${esc(e.team_name||'—')}</b>${entryPlayersArray(e).length?`<div class="meta">${entryPlayersArray(e).map(esc).join(', ')}</div>`:''}</td><td>${e.source==='manual'?'Manual':'Online'}</td><td><span class="pill ${e.status==='pending'?'wait':e.status==='rejected'?'':'done'}">${esc(e.status)}</span></td><td>${e.status==='pending'?`<button class="btn success" data-entry-approve="${e.id}">Approve</button> <button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:e.status==='confirmed'?`<button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:''} <button class="btn secondary" data-entry-delete="${e.id}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No entries received yet.</p>'}</div>`;
+ document.getElementById('saveEntrySettings').onclick=saveEntrySettingsFromPanel;
+ let qrBtn=document.getElementById('showEntryQr');if(qrBtn)qrBtn.onclick=()=>openEntryQrModal(set.public_label||competitionDisplayName(comp())||'Tournament',remoteTournamentCode);
+ let copyEntry=document.getElementById('copyEntryLinkAdmin');if(copyEntry)copyEntry.onclick=async()=>{let u=publicEntryUrl(remoteTournamentCode);try{await navigator.clipboard.writeText(u);appAlert('Entry link copied ✓')}catch(e){appAlert(u,'Entry Link')}};
+ document.getElementById('addManualEntry').onclick=addManualEntryFromPanel;
+ document.getElementById('importConfirmedEntries').onclick=importConfirmedTournamentEntries;
+ document.getElementById('printEntryList').onclick=()=>printTournamentEntryList(rows);
+ box.querySelectorAll('[data-entry-approve]').forEach(b=>b.onclick=()=>setTournamentEntryStatus(b.dataset.entryApprove,'confirmed'));
+ box.querySelectorAll('[data-entry-reject]').forEach(b=>b.onclick=()=>setTournamentEntryStatus(b.dataset.entryReject,'rejected'));
+ box.querySelectorAll('[data-entry-delete]').forEach(b=>b.onclick=()=>deleteTournamentEntry(b.dataset.entryDelete));
+}
+async function saveEntrySettingsFromPanel(){
+ let enabled=document.getElementById('entryEnabled').value==='yes',opens=document.getElementById('entryOpens').value||null,closes=document.getElementById('entryCloses').value||null,max=document.getElementById('entryMax').value,event=document.getElementById('entryEventGroup').value.trim(),label=document.getElementById('entryPublicLabel').value.trim();
+ let {error}=await cloud.rpc('bowls_set_entry_settings',{p_tournament:remoteTournamentId,p_enabled:enabled,p_opens_at:opens?new Date(opens).toISOString():null,p_closes_at:closes?new Date(closes).toISOString():null,p_max_entries:max?Number(max):null,p_event_group:event||null,p_public_label:label||null});
+ if(error)return appAlert(error.message);appAlert('Entry settings saved ✓');loadEntryManagementPanel()
+}
+async function addManualEntryFromPanel(){
+ let club=document.getElementById('manualEntryClub').value.trim(),team=document.getElementById('manualEntryTeam').value.trim(),players=publicEntryPlayers(document.getElementById('manualEntryPlayers').value);
+ if(!club&&!team)return appAlert('Enter a club name or team name.');
+ let {error}=await cloud.rpc('bowls_add_manual_entry',{p_tournament:remoteTournamentId,p_club_name:club||null,p_team_name:team||null,p_player_names:players});
+ if(error)return appAlert(error.message);loadEntryManagementPanel()
+}
+async function setTournamentEntryStatus(id,status){
+ let {error}=await cloud.rpc('bowls_set_entry_status',{p_tournament:remoteTournamentId,p_entry:id,p_status:status});
+ if(error)return appAlert(error.message);loadEntryManagementPanel()
+}
+async function deleteTournamentEntry(id){
+ if(!confirm('Delete this entry?'))return;
+ let {error}=await cloud.rpc('bowls_delete_tournament_entry',{p_tournament:remoteTournamentId,p_entry:id});
+ if(error)return appAlert(error.message);loadEntryManagementPanel()
+}
+function nextImportedTeamId(c){
+ let n=1,used=new Set((c.teams||[]).map(t=>String(t.id)));while(used.has('t'+n))n++;return 't'+n
+}
+async function importConfirmedTournamentEntries(){
+ let c=comp();
+ if((c.fixtures||[]).length||(c.knockout||[]).flat().length||(c.teams||[]).some(t=>t.group))return appAlert('Import entries before creating the draw or fixtures. This protects existing scores and schedules.');
+ let {data:rows,error}=await cloud.rpc('bowls_list_tournament_entries',{p_tournament:remoteTournamentId});
+ if(error)return appAlert(error.message);
+ let confirmed=(rows||[]).filter(e=>e.status==='confirmed'&&!(c.teams||[]).some(t=>String(t.entrySourceId||'')===String(e.id)));
+ if(!confirmed.length)return appAlert('There are no new confirmed entries to import.');
+ if(!confirm(`Import ${confirmed.length} confirmed entr${confirmed.length===1?'y':'ies'} into Teams & Players?`))return;
+ let placeholders=(c.teams||[]).filter(t=>/^Team\s+\d+$/i.test(String(t.name||'').trim())&&!t.entrySourceId),importedIds=[];
+ confirmed.forEach(e=>{
+  let t=placeholders.shift();
+  if(!t){t={id:nextImportedTeamId(c),name:'',group:'',drawPos:null,players:{}};c.teams.push(t)}
+  t.name=entryDisplayName(e);t.clubName=e.club_name||'';t.players={};entryPlayersArray(e).forEach((p,i)=>t.players[i]=String(p||'').trim());t.group='';t.drawPos=null;t.entrySourceId=e.id;importedIds.push(e.id)
+ });
+ c.settings.teamCount=c.teams.length;
+ localStorage.setItem(APPKEY,JSON.stringify(db));
+ let ok=true;if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament())ok=await pushRemoteTournament();
+ if(!ok)return appAlert('The names are safe on this device, but the online tournament save failed. They have not been marked as imported yet.');
+ let {error:markError}=await cloud.rpc('bowls_mark_entries_imported',{p_tournament:remoteTournamentId,p_entries:importedIds});
+ if(markError)return appAlert('Teams were imported into the tournament, but the entry list could not be marked as imported: '+markError.message);
+ appAlert(`${importedIds.length} entr${importedIds.length===1?'y':'ies'} imported into Teams & Players ✓`);loadEntryManagementPanel()
+}
+function printTournamentEntryList(rows){
+ let active=(rows||[]).filter(e=>e.status!=='rejected'),title=competitionDisplayName(comp())||'Tournament Entry List',w=window.open('','_blank');
+ if(!w)return appAlert('Please allow pop-ups to print the entry list.');
+ w.document.write(`<!doctype html><html><head><title>${esc(title)} - Entry List</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111}h1{margin-bottom:4px}.meta{color:#555;margin-bottom:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:left;vertical-align:top}th{background:#eee}@media print{button{display:none}}</style></head><body><h1>${esc(title)}</h1><div class="meta">${active.length} entries • printed ${esc(new Date().toLocaleString())}</div><table><thead><tr><th>No.</th><th>Club</th><th>Team</th><th>Players</th></tr></thead><tbody>${active.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.club_name||'')}</td><td>${esc(e.team_name||'')}</td><td>${entryPlayersArray(e).map(esc).join(', ')}</td></tr>`).join('')}</tbody></table><p><button onclick="window.print()">Print</button></p></body></html>`);
+ w.document.close();setTimeout(()=>w.print(),300)
+}
+
 function renderAdmin(s){
  let c=comp(),globalAdmin=['owner','admin'].includes(currentAppRole),tournamentAdmin=['owner','admin'].includes(remoteAccessRole);
  if(!globalAdmin&&!tournamentAdmin){s.innerHTML='<div class="card"><h2>Admin</h2><p>This account does not have Admin permission for this tournament.</p></div>';return}
  let archiveCard=c.archivedAt?`<div class="card"><h2>Archived Competition</h2><div class="oknotice notice"><b>Completed:</b> ${new Date(c.archivedAt).toLocaleString()}</div><p class="muted">This event is locked against further scoring changes.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="downloadArchive">Download Full Backup</button><button class="btn secondary" id="downloadSummary">Download Results Summary</button><button class="btn success" id="newAfterArchive">Start New Competition</button></div></div>`:`<div class="card"><h2>Finish Competition</h2><p class="muted">When the event is finished, archive it before starting the next one.</p><button class="btn success" id="completeArchive">Complete & Archive Competition</button></div>`;
+ let entryManagementCard=remoteTournamentId&&tournamentAdmin?`<div class="card"><h2>Online & Manual Entries</h2><p class="muted">Take entries online before the closing date, add paper/phone/in-person entries manually, then import confirmed names into Teams & Players without retyping them.</p><div id="entryManagementPanel"><p class="muted">Loading entry settings…</p></div></div>`:'';
  let clubOwnerCard=currentAppRole==='owner'?`<div class="card"><h2>Club Management</h2><p class="muted">Create a club and grant Club Admin access. Club Admins can create and manage their own club tournaments. You keep owner access to every club and tournament.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newClubName" placeholder="Club name" style="max-width:320px"><button class="btn primary" id="createClubBtn">Create Club</button></div><div id="clubAdminList" style="margin-top:14px"><p class="muted">Loading clubs…</p></div></div>`:'';
  let globalAccounts=globalAdmin?`<div class="card"><h2>Accounts & Permissions</h2><p class="muted">Global software roles. Club Admin rights are managed separately above.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div>`:'';
- s.innerHTML=`${archiveCard}${clubOwnerCard}${remoteTournamentId&&tournamentAdmin?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>'+(remoteClubName?' • Club: <b>'+esc(remoteClubName)+'</b>':'')+'. Approve scorers for this tournament.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}${globalAccounts}<div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
+ s.innerHTML=`${archiveCard}${entryManagementCard}${clubOwnerCard}${remoteTournamentId&&tournamentAdmin?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>'+(remoteClubName?' • Club: <b>'+esc(remoteClubName)+'</b>':'')+'. Approve scorers for this tournament.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}${globalAccounts}<div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
  let ca=document.getElementById('completeArchive');if(ca)ca.onclick=completeAndArchive;
  let da=document.getElementById('downloadArchive');if(da)da.onclick=()=>downloadCompetitionBackup(c);
  let ds=document.getElementById('downloadSummary');if(ds)ds.onclick=()=>downloadResultsSummary(c);
@@ -3006,7 +3191,8 @@ function renderAdmin(s){
  let reset=document.getElementById('resetComp');if(reset)reset.onclick=()=>{if(confirm('Reset this competition? Scores, draw and fixtures will be cleared.')){c.fixtures=[];c.knockout=[];c.teams.forEach((t,i)=>{t.group='';t.name='Team '+(i+1);t.players={}});saveDB();render()}};
  document.getElementById('signOutAdmin').onclick=signOutAccount;
  let cb=document.getElementById('createClubBtn');if(cb)cb.onclick=createClubFromAdmin;
- loadAdminExtras()
+ loadAdminExtras();
+ if(document.getElementById('entryManagementPanel'))loadEntryManagementPanel();
 }
 async function createClubFromAdmin(){
  let input=document.getElementById('newClubName'),name=input?.value.trim();if(!name)return appAlert('Enter the club name.');
