@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#082f49" />
 <title>One Stop Bowling Software</title>
-<!-- Build 143: online entries moved into the main build; QR entry poster/link and multi-team public entries added. Rollback snapshot retained from 142-test. -->
+<!-- Build 147 RC: stability/cleanup only. Build 146 retained untouched as the safe rollback point. -->
 <style>
 :root{--nav:#082f49;--blue:#0369a1;--sky:#e0f2fe;--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--green:#166534;--amber:#92400e;--red:#b91c1c}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
@@ -224,23 +224,28 @@ body.simple-mode .bottom button{font-size:13px}
 </main>
 <nav class="bottom" id="bottomNav"></nav>
 <div class="modal hidden" id="helpModal"><div class="helpbox">
-<div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><h2>One Stop Bowling Software – User Guide</h2><p class="muted" style="margin:0">Quick help for setting up and running a competition.</p></div><button class="btn secondary" id="helpClose">Close</button></div>
-<div class="help-quick"><b>Competition day – quick order</b><div class="help-steps"><span>Teams</span><span>Draw</span><span>Greens</span><span>Schedule</span><span>Scorecards</span><span>Scores</span><span>Tables</span><span>Knockout</span><span>TV Display</span></div></div>
-<details open><summary>1. Sign in & create a tournament</summary><div>Sign in, then tap <b>+ New Tournament</b>. Enter the tournament name, club/organiser, format and number of entries. Complete the detailed playing settings once under <b>Setup</b>.</div></details>
-<details><summary>2. Add teams</summary><div>Open <b>Teams</b> and enter the team/player names. Add individual player names too if you want them printed on scorecards.</div></details>
-<details><summary>3. Create the draw</summary><div>Open <b>Draw</b> and create the group draw. The software can place teams automatically, or you can adjust them manually.</div></details>
-<details><summary>4. Set up greens & rinks</summary><div>If you are using more than one green, use <b>Split / Edit Greens & Rinks</b>. Enter the venue names and assign the groups. Rink numbers restart from 1 on each green.</div></details>
-<details><summary>5. Set the playing schedule</summary><div>Open <b>Playing Schedule</b>. Check each game has the correct time, green and rink. Use <b>Quick Team Schedule</b> if you want to check one team at a time. Print or save the schedule when ready.</div></details>
-<details><summary>6. Print scorecards</summary><div>Open <b>Scorecards</b> and print the cards required for the event. These can include teams, players, rink, time, green and number of ends.</div></details>
-<details><summary>7. Give scorers access</summary><div>Open <b>Invite / Access</b>. A scorer signs in and requests access to the tournament. Approve them as <b>Scorer</b>, then use <b>Configure Scoring</b> to give them all matches, selected matches, selected rinks or selected sessions.</div></details>
-<details><summary>8. Enter scores</summary><div>Open <b>Scores</b> and select the correct green if required. Games are shown in rink order. Use <b>Quick Current Total</b> for a live score, optional <b>end-by-end scoring</b>, or enter the <b>Final Score</b>. Save the final result when the game is complete.</div></details>
-<details><summary>9. Tables & completing the groups</summary><div>The <b>Tables</b> update automatically as final results are saved. Once every group game is final, tap <b>Complete Group Stage & Continue</b> to confirm qualifiers and move into the knockout stage. If automatic knockout balancing is enabled, the app can add the best remaining teams to reach the next standard bracket size (4, 8, 16, 32 etc.); if there are not enough entries, the spare positions become byes.</div></details>
-<details><summary>10. Knockout & live draws</summary><div>Open <b>Knockout</b>. You can use an automatic draw, manual selection or a live draw. Score knockout games the same way as group games. When a round is finished, use <b>Complete Round & Continue</b> to move to the next stage.</div></details>
-<details><summary>11. Fixing a mistake</summary><div>If a result is wrong, re-open the relevant stage, correct the score and complete the stage again. If later knockout rounds depend on the wrong result, the software may clear those later rounds so the correct winner can progress.</div></details>
-<details><summary>12. TV Display</summary><div>Open <b>TV Display</b> for the public screen. Use <b>Auto</b> to switch naturally from groups to knockout, or force <b>Groups</b> / <b>Knockout</b>. On iPad, use Control Centre → <b>Screen Mirroring</b> to show the display on a compatible TV.</div></details>
-<details><summary>13. Offline mode & automatic sync</summary><div>If the internet drops during a tournament, keep working normally. Scores and tournament changes are saved on the device and marked as waiting to sync. When the connection returns, One Stop Bowling Software sends the queued local version online before normal live refreshing resumes. Watch the status bar for <b>Offline</b>, <b>Unsynced</b>, <b>Syncing</b> and <b>Synced</b>.</div></details>
-<details><summary>14. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
-<details><summary>15. AI Tournament Report</summary><div>In <b>Admin</b>, tap <b>AI Tournament Report</b> at any stage of the competition. Download or copy the structured report, then attach/paste it into ChatGPT to create a tournament write-up. The report only uses results currently stored in the tournament and does not invent missing scores.</div></details><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn secondary" onclick="startUxTour(true)">Show Guided Tour</button><button class="btn secondary" onclick="restoreSafeSnapshot()">Restore Last Safe Version</button></div>
+<div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><h2>One Stop Bowling Software – User Guide</h2><p class="muted" style="margin:0">Quick help for setting up, sharing and running a competition.</p></div><button class="btn secondary" id="helpClose">Close</button></div>
+<div class="help-quick"><b>Recommended order</b><div class="help-steps"><span>Create</span><span>Entries</span><span>Setup</span><span>Draw</span><span>Greens & Schedule</span><span>Scorecards</span><span>Scores</span><span>Tables</span><span>Knockout</span><span>Share / TV</span></div></div>
+<details open><summary>1. Create a tournament</summary><div>Sign in and tap <b>+ New Tournament</b>. One of the first choices is <b>How will entries be managed?</b><ul><li><b>Online Entries</b> — use this when you want to collect entries before you know the final number of teams.</li><li><b>Manual Entries / I already know my teams</b> — use the normal setup route when the entries are already known.</li></ul></div></details>
+<details><summary>2. Online entries, link & QR code</summary><div>If you choose <b>Online Entries</b>, enter the basic event details, opening/closing date and maximum entries if required. The app switches online entries on and takes you to <b>Admin → Online & Manual Entries</b>. Use <b>Share Entry Form</b>, <b>Copy Link Only</b> or <b>Show / Print QR Code</b>. Entrants can submit more than one team in the same form.</div></details>
+<details><summary>3. Contact phone numbers are private</summary><div>The public entry form can collect <b>one contact phone number per submission</b>. It is for the organiser to use if there is a cancellation, time change or other event issue. The number is visible in the organiser/admin entry list but is <b>not shown publicly</b> on tournament pages, team lists, scoreboards or shared links.</div></details>
+<details><summary>4. Review entries & continue setup</summary><div>Online entries can be reviewed from <b>Admin → Online & Manual Entries</b>. Once you know the final entries, continue with the tournament setup. This avoids guessing group sizes, greens and rink requirements before the entries are known.</div></details>
+<details><summary>5. Add or edit teams manually</summary><div>Open <b>Teams</b> to enter or edit team/player names. Add individual player names if you want them printed on scorecards. Manual entries can also be added from the Admin entry area if someone enters by phone, paper or in person.</div></details>
+<details><summary>6. Complete Setup</summary><div>Open <b>Setup</b> and confirm the playing format, number of ends or target score, group settings, timings and any qualification rules. Check these settings before creating the draw.</div></details>
+<details><summary>7. Create the draw</summary><div>Open <b>Draw</b> and create the group draw. The software can place teams automatically, or you can adjust the draw manually before moving on.</div></details>
+<details><summary>8. Greens, rinks & playing schedule</summary><div>If you are using more than one green, use <b>Split / Edit Greens & Rinks</b>. Enter the venue names and assign groups. Rink numbers restart from 1 on each green. Then open <b>Playing Schedule</b> and check every game has the correct time, green and rink. <b>Quick Team Schedule</b> is useful for checking one team at a time.</div></details>
+<details><summary>9. Print scorecards</summary><div>Open <b>Scorecards</b> and print the cards required for the event. These can include teams, players, rink, time, green and number of ends.</div></details>
+<details><summary>10. Give scorers access</summary><div>Open <b>Invite / Access</b>. A scorer signs in and requests access to the tournament. Approve them as <b>Scorer</b>, then use <b>Configure Scoring</b> to give them all matches, selected matches, selected rinks or selected sessions.</div></details>
+<details><summary>11. Enter scores</summary><div>Open <b>Scores</b> and select the correct green if required. Games are shown in rink order. Use <b>Quick Current Total</b> for a live score, optional <b>end-by-end scoring</b>, or enter the <b>Final Score</b>. Save the final result when the game is complete.</div></details>
+<details><summary>12. Tables & completing the groups</summary><div>The <b>Tables</b> update automatically as final results are saved. Once every group game is final, tap <b>Complete Group Stage & Continue</b> to confirm qualifiers and move into the knockout stage. Where enabled, the app can balance the knockout to a standard bracket size and use byes when required.</div></details>
+<details><summary>13. Knockout & live draws</summary><div>Open <b>Knockout</b>. You can use an automatic draw, manual selection or a live draw. Score knockout games the same way as group games. When a round is finished, use <b>Complete Round & Continue</b> to move to the next stage.</div></details>
+<details><summary>14. Sharing, public view & TV Display</summary><div>Use <b>Share Tournament</b> to give people access to the public tournament view. The tournament code can also be used to follow the event. <b>TV Display</b> provides a public screen and can switch between group and knockout information. On iPad, Screen Mirroring can be used with a compatible TV.</div></details>
+<details><summary>15. Offline mode & automatic sync</summary><div>If the internet drops during a tournament, keep working normally. Changes are saved on the device and marked as waiting to sync. When the connection returns, the queued local changes are sent online before normal live refreshing resumes. Watch the status bar for <b>Offline</b>, <b>Unsynced</b>, <b>Syncing</b> and <b>Synced</b>.</div></details>
+<details><summary>16. Backup, restore & fixing a mistake</summary><div>Use <b>Backup</b> before major tournament-day changes if you want an additional local copy. If a result is wrong, re-open the relevant stage, correct the score and complete the stage again. If later knockout rounds depend on the wrong result, the software may clear those later rounds so the correct winner can progress. <b>Restore Last Safe Version</b> is also available from this guide.</div></details>
+<details><summary>17. Simple Mode</summary><div><b>Simple Mode</b> reduces the number of advanced controls shown on screen. It is useful for clubs or volunteers who only need the core tournament-day actions. You can switch back to the full view when advanced settings are required.</div></details>
+<details><summary>18. AI Tournament Report & Smart Promotion Poster</summary><div>In <b>Admin</b>, <b>AI Tournament Report</b> creates a structured summary from the results currently stored in the tournament. Copy or download it and use it in ChatGPT for a Facebook post, website article or press report. Where available, the <b>Smart Promotion Poster</b> can be used to create promotional material from the tournament details.</div></details>
+<details><summary>19. Archive a finished tournament</summary><div>When the competition is complete, archive it. You can still view old results, tables, scorecards and knockout information later. Active tournaments stay above archived tournaments in the list.</div></details>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn secondary" onclick="startUxTour(true)">Show Guided Tour</button><button class="btn secondary" onclick="restoreSafeSnapshot()">Restore Last Safe Version</button></div>
 </div></div>
 <div class="modal hidden" id="authModal"><div class="modalbox">
 <h3 id="authTitle">Sign in</h3>
@@ -271,7 +276,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.14.146'; // mobile modal scrolling fix: keep the background page locked while scrolling forms
+const APP_VERSION='2026.09.14.147'; // stability / cleanup release candidate: refreshed guide, safe dead-code cleanup, no tournament-logic changes
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -751,12 +756,7 @@ async function completeAndArchive(){
  }else render()
 }
 
-async function pushCloudState(){
- try{
-  let {error}=await cloud.from('bowls_live_state').upsert({id:LIVE_STATE_ID,state:db,updated_at:new Date().toISOString()},{onConflict:'id'});
-  if(error)throw error;setSyncNotice('Live sync connected • changes shared with all devices • Build '+APP_VERSION,true);
- }catch(e){console.error('Cloud save failed',e);setSyncNotice('Live sync temporarily unavailable • changes are still saved on this device',false)}
-}
+
 function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!el)return;el.textContent=msg;el.classList.toggle('oknotice',!!ok)}
 function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account • new accounts start with Public View'}
 async function loadCurrentProfile(){
@@ -856,10 +856,7 @@ async function checkApprovalStatus(){
  }
 }
 
-function showAccountCreatedPending(){
- let msg='Your account has been created successfully. Once your email is confirmed, sign in and your account will remain pending until an Admin approves it.';
- showPendingApprovalScreen(msg);
-}
+
 
 async function requestRole(target){
  if(target==='public'){role='public';tab='dashboard';setQueryRole('public');render();return}
@@ -1091,16 +1088,7 @@ async function showNewTournamentWizard(){
   else appAlert('Tournament created ✓\n\nClub: '+(club?.name||c.settings.clubName||'Club')+'\nTournament code: '+row.code+'\n\nNext step: complete Tournament Setup.')
  };
 }
-async function duplicateCurrentTournament(){
- let source=comp(),copy=JSON.parse(JSON.stringify(source));copy.id='comp-'+Date.now();copy.title=((source.title||'Untitled competition')+' Copy');copy.created=new Date().toISOString();copy.archivedAt=null;copy.archivedBy=null;copy.status='active';
- copy.fixtures=[];copy.knockout=[];copy.aggregateScores=[];copy.groups=[];copy.teams=(copy.teams||[]).map((t,i)=>({...t,id:'t'+(i+1),group:'',name:t.name||('Team '+(i+1))}));
- let state={competitions:[copy],active:copy.id};
- if(currentUser&&cloud){
-   let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:copy.title,p_state:state});
-   if(!error){let row=Array.isArray(data)?data[0]:data;if(row){db=state;localStorage.setItem(APPKEY,JSON.stringify(db));setRemoteTournament(row.id,row.code,'owner');startRemoteRefresh();tab='builder';render();appAlert('Tournament duplicated.\\n\\nNew tournament code: '+row.code);return}}
- }
- db.competitions.push(copy);db.active=copy.id;saveDB();tab='builder';render();
-}
+
 
 function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competitions.find(c=>c.id===db.active)||db.competitions[0]}
 function competitionDisplayName(c){return c?.settings?.tournamentType==='league'?'Black Isle and District Indoor Bowling League':(c?.title||'').trim()}
@@ -1482,7 +1470,6 @@ function buildKnockoutFirstRound(q){
 function liveEntries(obj){obj.liveEnds=obj.liveEnds||[];return obj.liveEnds}
 function isSingles(c=comp()){return c?.settings?.gameType==='singles'}
 function scoringEnds(c=comp()){return isSingles(c)?45:Math.max(1,+c?.settings?.ends||12)}
-function singlesTarget(c=comp()){return isSingles(c)?21:null}
 function autoCompleteSinglesFromLive(obj,c=comp()){
  if(!isSingles(c)||!obj||completed(obj))return false;
  let ls=liveScore(obj);
@@ -1522,7 +1509,6 @@ function wireLiveTotalButtons(saveNow){
  document.querySelectorAll('[data-apply-live-total]').forEach(btn=>btn.onclick=()=>saveNow());
 }
 
-function scoringLabel(c=comp()){return 'End-by-End / Anytime Scoring'}
 function currentScore(obj){
  let l=liveScore(obj),hasCheckpoint=obj.liveTotalA!==''&&obj.liveTotalA!=null&&obj.liveTotalB!==''&&obj.liveTotalB!=null;
  let hasEnds=(obj.liveEnds||[]).some(e=>e&&((e.a!==''&&e.a!=null)||(e.b!==''&&e.b!=null)));
@@ -2024,10 +2010,6 @@ function scheduledSessionStarts(c=comp(),count=1){
  return out;
 }
 function sessionStartTime(c=comp(),session=1){return scheduledSessionStarts(c,Math.max(1,+session||1))[Math.max(0,(+session||1)-1)]}
-function scheduleFinishTime(c=comp(),sessions=0){if(!sessions)return c.settings?.start||'09:00';let starts=scheduledSessionStarts(c,sessions),last=minutesOfDay(starts[starts.length-1]);return minutesToClock(last+Math.max(1,+c.settings.minutes||80))}
-
-
-
 function wick64GroupGreen(group,c=comp()){
  let greens=(c.settings.wickGreenNames||['Green 1','Green 2','Green 3']).slice(0,3);
  let idx=Math.max(0,String(group||'A').toUpperCase().charCodeAt(0)-65);
@@ -2209,7 +2191,7 @@ function advanceKnockoutOnly(c=comp()){
 }
 function knockoutEntryReady(v){return v!=null&&!/^Winner\s+/i.test(String(v))}
 function suggestedGroup(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode='balanced',eventFormat='same_day',day1Target='21:00',day2Start='09:00',preferredGroup=4,lunchEnabled=false,lunchStart='13:00',lunchMinutes=0){return groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners,mode,eventFormat,day1Target,day2Start,preferredGroup,lunchEnabled,lunchStart,lunchMinutes)[0]||{g:Math.max(3,Math.min(preferredGroup||4,n)),p:fullTournamentPlan(n,Math.max(3,Math.min(preferredGroup||4,n)),rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat,day1Target,day2Start,lunchEnabled,lunchStart,lunchMinutes)}}
-function generateTournament(){generateDraw();generateFixtures()}
+
 function roundRobin(teams){let list=[...teams];if(list.length%2)list.push(null);let n=list.length,rounds=[];for(let r=0;r<n-1;r++){let games=[];for(let i=0;i<n/2;i++){let a=list[i],b=list[n-1-i];if(a&&b)games.push([a,b])}rounds.push(games);list=[list[0],list[n-1],...list.slice(1,n-1)]}return rounds}
 function addMinutes(t,m){let [h,mi]=t.split(':').map(Number),tot=h*60+mi+m;return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0')}
 function teamName(id,c=comp()){if(id&&typeof id==='object')return id.name||teamName(id.id,c);let v=String(id??'');let t=c.teams.find(t=>String(t.id)===v)||c.teams.find(t=>String(t.name)===v);if(t)return t.name;if(/^t\d+$/i.test(v)){let n=parseInt(v.replace(/\D/g,''),10);return c.teams[n-1]?.name||v}if(/^\d+$/.test(v)){let n=parseInt(v,10);return c.teams[n-1]?.name||v}return v||'TBC'}
@@ -2360,7 +2342,7 @@ function openQuickTeamSchedule(){
  let screen=document.getElementById('screen');screen.insertBefore(box,screen.children[1]||null);
  const venueOpts=v=>venues.map(x=>`<option value="${esc(x)}" ${x===v?'selected':''}>${esc(x)}</option>`).join('');
  function getOpponent(f,id){return String(f.a)===String(id)?f.b:f.a}
- function setOpponent(f,id,newOpp){if(String(f.a)===String(id))f.b=newOpp;else f.a=newOpp;f.nameA=teamName(f.a,c);f.nameB=teamName(f.b,c)}
+ 
  function currentTeamId(){return document.getElementById('qtsTeam').value}
  function syncVisibleRows(){
    [...box.querySelectorAll('[data-qts]')].forEach(el=>{let f=work.find(x=>String(x.id)===String(el.dataset.qts));if(!f)return;let v=el.querySelector('[data-qv]'),ss=el.querySelector('[data-qs]'),r=el.querySelector('[data-qr]');if(v)f.venue=v.value;if(ss){f.session=+ss.value;f.start=sessionStartTime(c,f.session)}if(r)f.rink=+r.value});
@@ -3485,7 +3467,7 @@ function tvKnockoutUpcomingHTML(c){
  if(!rows.length)return knockoutPotentialNextHTML(c);
  return `<div class="tv-card"><h2>Up Next${batch.nextTime?` • ${batch.nextTime}`:''}</h2><div class="tv-big-list">${rows.map(m=>`<div class="tv-match"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="tv-muted" style="font-size:16px">${esc(m.roundName||m.label||'')} • ${esc(knockoutVenueName(m,c))} • Rink ${m.rink||'—'}</div></div><div class="score">vs<div class="tv-muted" style="font-size:14px;text-align:center">${m.start||''}</div></div><div class="right"><b>${esc(knockoutRefName(m.b,c))}</b></div></div>`).join('')}</div></div>`
 }
-function tvKnockoutLiveHTML(c){return tvKnockoutSessionHTML(c)}
+
 function tvKnockoutDrawHTML(c){
  let rounds=c.knockout||[];
  if(!rounds.length)return '<div class="tv-empty">The knockout draw has not been generated yet.</div>';
@@ -3517,7 +3499,7 @@ function tvFinalStageHTML(c){
  </div>`
 }
 
-function tvFinalsHTML(c){return tvKnockoutDrawHTML(c)}
+
 let tvPage=0,tvTimer=null,tvPaused=false,tvDisplayMode='auto';
 function tvModeStorageKey(c=comp()){return 'oneStopBowlsTvMode:'+(remoteTournamentCode||c?.id||'local')}
 function loadTvDisplayMode(c=comp()){try{let v=localStorage.getItem(tvModeStorageKey(c));if(['auto','groups','knockout'].includes(v))tvDisplayMode=v}catch(e){console.warn('Non-fatal app error',e)}return tvDisplayMode}
