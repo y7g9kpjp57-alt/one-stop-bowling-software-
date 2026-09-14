@@ -270,7 +270,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.14.143'; // main build: optional online/manual entries, QR entry poster, multi-team public entry, private admin review/import
+const APP_VERSION='2026.09.14.144'; // main build: optional online/manual entries, QR entry poster, multi-team public entry, private admin review/import
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -3042,8 +3042,9 @@ function openPublicEntryModal(info){
  let box=document.createElement('div');box.className='modal';box.id='publicEntryModal';
  box.innerHTML=`<div class="modalbox" style="width:min(600px,100%);max-height:92vh;overflow:auto">
   <div style="display:flex;justify-content:space-between;gap:10px;align-items:start"><div><h2 style="margin:0">Enter ${esc(info.title||'Tournament')}</h2><p class="muted" style="margin:5px 0 0">Enter one team, or add more teams and submit them together.</p></div><button class="btn secondary" id="closePublicEntry">Close</button></div>
-  <div class="notice" style="margin-top:12px"><b>Privacy:</b> this form only stores the club, team and player names needed for the competition. It does not ask for phone numbers or email addresses.</div>
+  <div class="notice" style="margin-top:12px"><b>Privacy:</b> this form stores one contact phone number for the organiser, plus the club, team and player names needed for the competition. The phone number is private and is never shown on the public tournament pages.</div>
   <div class="field"><label>Club name</label><input id="peClub" maxlength="120" placeholder="e.g. Ardross Alness"><div class="meta">Enter this once. It will be used for all teams below.</div></div>
+  <div class="field"><label>Contact phone number</label><input id="pePhone" type="tel" inputmode="tel" maxlength="40" placeholder="e.g. 07700 900123"><div class="meta">One contact number for this submission. Only the tournament organiser can see it.</div></div>
   <div id="peTeams"></div>
   <button type="button" class="btn secondary" id="addPublicEntryTeam" style="width:100%;margin-top:10px">+ Add Another Team</button>
   <div id="peError" class="notice hidden" style="margin-top:10px"></div>
@@ -3053,12 +3054,13 @@ function openPublicEntryModal(info){
  document.getElementById('addPublicEntryTeam').onclick=()=>addPublicEntryTeamRow(teamBox,teamBox.querySelectorAll('.pe-team-row').length+1);
  document.getElementById('closePublicEntry').onclick=()=>box.remove();box.onclick=e=>{if(e.target===box)box.remove()};
  document.getElementById('submitPublicEntry').onclick=async()=>{
-  let club=document.getElementById('peClub').value.trim(),btn=document.getElementById('submitPublicEntry'),err=document.getElementById('peError');
+  let club=document.getElementById('peClub').value.trim(),phone=document.getElementById('pePhone').value.trim(),btn=document.getElementById('submitPublicEntry'),err=document.getElementById('peError');
   let teams=[...teamBox.querySelectorAll('.pe-team-row')].map(r=>({row:r,team:r.querySelector('.peTeam')?.value.trim()||'',players:publicEntryPlayers(r.querySelector('.pePlayers')?.value||''),submitted:r.dataset.submitted==='1'})).filter(x=>!x.submitted&&(x.team||x.players.length));
   if(!club&&!teams.length){err.textContent='Enter a club name and at least one team.';err.classList.remove('hidden');return}
+  if(!phone){err.textContent='Enter one contact phone number for the organiser.';err.classList.remove('hidden');return}
   if(!teams.length){err.textContent='Add at least one team name or player name.';err.classList.remove('hidden');return}
   btn.disabled=true;err.classList.add('hidden');let done=0;
-  for(let t of teams){btn.textContent=`Submitting ${done+1} of ${teams.length}…`;let {error}=await cloud.rpc('bowls_submit_public_entry',{p_code:info.code,p_club_name:club||null,p_team_name:t.team||null,p_player_names:t.players});if(error){btn.disabled=false;btn.textContent='Submit Entry';err.textContent=(done?`${done} team${done===1?'':'s'} submitted successfully. `:'')+error.message;err.classList.remove('hidden');return}t.row.dataset.submitted='1';done++}
+  for(let t of teams){btn.textContent=`Submitting ${done+1} of ${teams.length}…`;let {error}=await cloud.rpc('bowls_submit_public_entry',{p_code:info.code,p_club_name:club||null,p_team_name:t.team||null,p_player_names:t.players,p_contact_phone:phone});if(error){btn.disabled=false;btn.textContent='Submit Entry';err.textContent=(done?`${done} team${done===1?'':'s'} submitted successfully. `:'')+error.message;err.classList.remove('hidden');return}t.row.dataset.submitted='1';done++}
   btn.disabled=false;btn.textContent='Submit Entry';box.remove();appAlert(`${done} team${done===1?'':'s'} received ✓ The organiser can now review and confirm ${done===1?'it':'them'}.`,'Entry Submitted');
   document.getElementById('publicEntryCard')?.remove();appendPublicEntryCard(document.getElementById('screen'));
  };
@@ -3100,7 +3102,7 @@ function entryDisplayName(e){return String(e.team_name||e.club_name||'Entry').tr
 function entryPlayersArray(e){return Array.isArray(e.player_names)?e.player_names:[]}
 async function loadEntryManagementPanel(){
  let box=document.getElementById('entryManagementPanel');if(!box||!cloud||!remoteTournamentId)return;
- let [sr,er]=await Promise.all([cloud.rpc('bowls_get_entry_settings',{p_tournament:remoteTournamentId}),cloud.rpc('bowls_list_tournament_entries',{p_tournament:remoteTournamentId})]);
+ let [sr,er]=await Promise.all([cloud.rpc('bowls_get_entry_settings',{p_tournament:remoteTournamentId}),cloud.rpc('bowls_list_tournament_entries_v2',{p_tournament:remoteTournamentId})]);
  if(sr.error){box.innerHTML=`<div class="notice">Could not load entry settings: ${esc(sr.error.message)}</div>`;return}
  if(er.error){box.innerHTML=`<div class="notice">Could not load entries: ${esc(er.error.message)}</div>`;return}
  let set=sr.data||{},rows=er.data||[],pending=rows.filter(x=>x.status==='pending').length,confirmed=rows.filter(x=>x.status==='confirmed').length,imported=rows.filter(x=>x.status==='imported').length;
@@ -3121,12 +3123,13 @@ async function loadEntryManagementPanel(){
   <div class="formgrid" style="margin-top:12px">
    <div class="field"><label>Club name</label><input id="manualEntryClub" placeholder="Club"></div>
    <div class="field"><label>Team / skip name</label><input id="manualEntryTeam" placeholder="Team name"></div>
+   <div class="field"><label>Contact phone (optional)</label><input id="manualEntryPhone" type="tel" inputmode="tel" maxlength="40" placeholder="Contact number"><div class="meta">Private to tournament admins.</div></div>
    <div class="field" style="grid-column:1/-1"><label>Player names</label><textarea id="manualEntryPlayers" rows="4" placeholder="One per line or separated by commas" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"></textarea></div>
   </div>
   <button class="btn primary" id="addManualEntry">Add Manual Entry</button>
  </details>
  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn success" id="importConfirmedEntries" ${confirmed?'':'disabled'}>Import Confirmed Entries (${confirmed})</button><button class="btn secondary" id="printEntryList" ${rows.some(x=>x.status!=='rejected')?'':'disabled'}>Print Entry List</button></div>
- <div style="margin-top:14px"><h3>Entries</h3>${rows.length?`<div class="tablewrap"><table><thead><tr><th>Club</th><th>Team / names</th><th>Source</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(e=>`<tr><td>${esc(e.club_name||'—')}</td><td><b>${esc(e.team_name||'—')}</b>${entryPlayersArray(e).length?`<div class="meta">${entryPlayersArray(e).map(esc).join(', ')}</div>`:''}</td><td>${e.source==='manual'?'Manual':'Online'}</td><td><span class="pill ${e.status==='pending'?'wait':e.status==='rejected'?'':'done'}">${esc(e.status)}</span></td><td>${e.status==='pending'?`<button class="btn success" data-entry-approve="${e.id}">Approve</button> <button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:e.status==='confirmed'?`<button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:''} <button class="btn secondary" data-entry-delete="${e.id}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No entries received yet.</p>'}</div>`;
+ <div style="margin-top:14px"><h3>Entries</h3>${rows.length?`<div class="tablewrap"><table><thead><tr><th>Club</th><th>Team / names</th><th>Contact phone</th><th>Source</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(e=>`<tr><td>${esc(e.club_name||'—')}</td><td><b>${esc(e.team_name||'—')}</b>${entryPlayersArray(e).length?`<div class="meta">${entryPlayersArray(e).map(esc).join(', ')}</div>`:''}</td><td>${esc(e.contact_phone||'—')}</td><td>${e.source==='manual'?'Manual':'Online'}</td><td><span class="pill ${e.status==='pending'?'wait':e.status==='rejected'?'':'done'}">${esc(e.status)}</span></td><td>${e.status==='pending'?`<button class="btn success" data-entry-approve="${e.id}">Approve</button> <button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:e.status==='confirmed'?`<button class="btn secondary" data-entry-reject="${e.id}">Reject</button>`:''} <button class="btn secondary" data-entry-delete="${e.id}">Delete</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">No entries received yet.</p>'}</div>`;
  document.getElementById('saveEntrySettings').onclick=saveEntrySettingsFromPanel;
  let entryTitle=set.public_label||competitionDisplayName(comp())||'Tournament';
  let qrBtn=document.getElementById('showEntryQr');if(qrBtn)qrBtn.onclick=()=>openEntryQrModal(entryTitle,remoteTournamentCode,set.closes_at);
@@ -3145,9 +3148,9 @@ async function saveEntrySettingsFromPanel(){
  if(error)return appAlert(error.message);appAlert('Entry settings saved ✓');loadEntryManagementPanel()
 }
 async function addManualEntryFromPanel(){
- let club=document.getElementById('manualEntryClub').value.trim(),team=document.getElementById('manualEntryTeam').value.trim(),players=publicEntryPlayers(document.getElementById('manualEntryPlayers').value);
+ let club=document.getElementById('manualEntryClub').value.trim(),team=document.getElementById('manualEntryTeam').value.trim(),phone=document.getElementById('manualEntryPhone')?.value.trim()||'',players=publicEntryPlayers(document.getElementById('manualEntryPlayers').value);
  if(!club&&!team)return appAlert('Enter a club name or team name.');
- let {error}=await cloud.rpc('bowls_add_manual_entry',{p_tournament:remoteTournamentId,p_club_name:club||null,p_team_name:team||null,p_player_names:players});
+ let {error}=await cloud.rpc('bowls_add_manual_entry_v2',{p_tournament:remoteTournamentId,p_club_name:club||null,p_team_name:team||null,p_player_names:players,p_contact_phone:phone||null});
  if(error)return appAlert(error.message);loadEntryManagementPanel()
 }
 async function setTournamentEntryStatus(id,status){
@@ -3165,7 +3168,7 @@ function nextImportedTeamId(c){
 async function importConfirmedTournamentEntries(){
  let c=comp();
  if((c.fixtures||[]).length||(c.knockout||[]).flat().length||(c.teams||[]).some(t=>t.group))return appAlert('Import entries before creating the draw or fixtures. This protects existing scores and schedules.');
- let {data:rows,error}=await cloud.rpc('bowls_list_tournament_entries',{p_tournament:remoteTournamentId});
+ let {data:rows,error}=await cloud.rpc('bowls_list_tournament_entries_v2',{p_tournament:remoteTournamentId});
  if(error)return appAlert(error.message);
  let confirmed=(rows||[]).filter(e=>e.status==='confirmed'&&!(c.teams||[]).some(t=>String(t.entrySourceId||'')===String(e.id)));
  if(!confirmed.length)return appAlert('There are no new confirmed entries to import.');
@@ -3187,7 +3190,7 @@ async function importConfirmedTournamentEntries(){
 function printTournamentEntryList(rows){
  let active=(rows||[]).filter(e=>e.status!=='rejected'),title=competitionDisplayName(comp())||'Tournament Entry List',w=window.open('','_blank');
  if(!w)return appAlert('Please allow pop-ups to print the entry list.');
- w.document.write(`<!doctype html><html><head><title>${esc(title)} - Entry List</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111}h1{margin-bottom:4px}.meta{color:#555;margin-bottom:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:left;vertical-align:top}th{background:#eee}@media print{button{display:none}}</style></head><body><h1>${esc(title)}</h1><div class="meta">${active.length} entries • printed ${esc(new Date().toLocaleString())}</div><table><thead><tr><th>No.</th><th>Club</th><th>Team</th><th>Players</th></tr></thead><tbody>${active.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.club_name||'')}</td><td>${esc(e.team_name||'')}</td><td>${entryPlayersArray(e).map(esc).join(', ')}</td></tr>`).join('')}</tbody></table><p><button onclick="window.print()">Print</button></p></body></html>`);
+ w.document.write(`<!doctype html><html><head><title>${esc(title)} - Entry List</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111}h1{margin-bottom:4px}.meta{color:#555;margin-bottom:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:left;vertical-align:top}th{background:#eee}@media print{button{display:none}}</style></head><body><h1>${esc(title)}</h1><div class="meta">${active.length} entries • printed ${esc(new Date().toLocaleString())}</div><table><thead><tr><th>No.</th><th>Club</th><th>Team</th><th>Players</th><th>Contact phone</th></tr></thead><tbody>${active.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.club_name||'')}</td><td>${esc(e.team_name||'')}</td><td>${entryPlayersArray(e).map(esc).join(', ')}</td><td>${esc(e.contact_phone||'')}</td></tr>`).join('')}</tbody></table><p><button onclick="window.print()">Print</button></p></body></html>`);
  w.document.close();setTimeout(()=>w.print(),300)
 }
 
