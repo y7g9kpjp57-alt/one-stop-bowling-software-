@@ -253,7 +253,27 @@ body.simple-mode .bottom button{font-size:13px}
 .home-current-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .home-section-title{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:900;margin:18px 2px 8px}
 @media(max-width:760px){.home-welcome{padding:20px 16px}.home-welcome-inner{grid-template-columns:1fr}.home-welcome h2{font-size:28px}.home-actions{grid-template-columns:1fr}.home-current-actions .btn{flex:1 1 160px}}
+
+/* Build 156: true product-style landing screen */
+.home-landing{display:none}
+body.home-mode .home-landing{display:block;margin-bottom:12px}
+body.home-mode .toolbar{display:none!important}
+body.home-mode #tabs{display:none!important}
+body.home-mode .wrap{padding-top:18px}
+body.home-mode #syncNotice{margin:0 0 12px;font-size:12px;padding:10px 12px;border-radius:12px}
+body.home-mode #screen{margin-top:8px}
+body.home-mode .home-welcome{margin:0}
+body.home-mode .home-current{margin-bottom:8px}
+@media(max-width:760px){
+ body.home-mode .wrap{padding:14px 12px 96px}
+ body.home-mode .home-welcome{border-radius:20px;padding:22px 18px}
+ body.home-mode .home-welcome h2{font-size:30px}
+ body.home-mode .home-welcome p{font-size:14px}
+ body.home-mode .home-action{min-height:68px;border-radius:16px}
+ body.home-mode .home-current{border-radius:18px}
+}
 </style>
+<!-- Build 156: dashboard now opens as a true landing screen; old utility toolbar hidden on Home. -->
 <!-- Build 155: redesigned product-style welcome/home screen. Tournament, scoring, draw and sync logic unchanged. -->
 <!-- Build 151: added in-app Feedback / Report Issue form and Admin feedback inbox. No tournament, scoring, draw or schedule logic changed. -->
 <!-- Build 137: simplified guided flow; removed progress strip; completed tabs get a check; saves advance to next step -->
@@ -264,6 +284,7 @@ body.simple-mode .bottom button{font-size:13px}
   <div class="rolebar"><button data-role="public" class="active">Public View</button><button data-role="scorer">Scorer</button><button data-role="admin">Admin</button><button id="accountBtn">Sign in</button></div>
 </header>
 <main class="wrap">
+  <section id="homeLanding" class="home-landing"></section>
   <div class="notice" id="syncNotice">Offline mode: tournaments and scores are saved on this device. Use Backup regularly to save a copy you can restore on another device.</div>
   <div class="toolbar">
     <select id="competitionSelect" class="grow"></select>
@@ -337,7 +358,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.15.155'; // redesigned welcome/home screen; tournament and sync logic unchanged
+const APP_VERSION='2026.09.15.156'; // redesigned welcome/home screen; tournament and sync logic unchanged
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1446,7 +1467,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='dashboard')appendWelcomeHome(s,c);if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard')appendWelcomeHome(homeLanding,c)}if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
