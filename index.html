@@ -231,7 +231,30 @@ body.simple-mode .bottom button{font-size:13px}
   .card{padding:12px;border-radius:13px}
   .scoreline{gap:5px}
 }
+
+/* Build 155: product-style welcome / home screen */
+.home-welcome{background:linear-gradient(135deg,#082f49 0%,#0b4f7a 58%,#0e7490 100%);color:#fff;border:0;overflow:hidden;position:relative;padding:28px}
+.home-welcome:after{content:"";position:absolute;width:260px;height:260px;border:38px solid rgba(255,255,255,.07);border-radius:50%;right:-100px;top:-110px;pointer-events:none}
+.home-welcome-inner{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.8fr);gap:24px;align-items:center}
+.home-eyebrow{font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#bae6fd;margin-bottom:8px}
+.home-welcome h2{font-size:34px;line-height:1.05;margin:0 0 10px;color:#fff}
+.home-welcome p{font-size:16px;line-height:1.55;margin:0;max-width:680px;color:#e0f2fe}
+.home-actions{display:grid;gap:10px}
+.home-action{width:100%;border:1px solid rgba(255,255,255,.24);border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.10);color:#fff;text-align:left;cursor:pointer;display:flex;gap:12px;align-items:center;font:inherit;transition:.15s ease}
+.home-action:hover{background:rgba(255,255,255,.18);transform:translateY(-1px)}
+.home-action.primary-home{background:#fff;color:#082f49;border-color:#fff}
+.home-action-icon{font-size:22px;line-height:1}
+.home-action strong{display:block;font-size:15px}.home-action span{display:block;font-size:12px;opacity:.82;margin-top:2px}
+.home-current{margin-top:14px;border:1px solid #bfdbfe;background:linear-gradient(180deg,#fff,#f8fbff)}
+.home-current-top{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.home-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#075985;background:#e0f2fe;border-radius:999px;padding:5px 9px}
+.home-status-dot{width:7px;height:7px;border-radius:50%;background:#0284c7;display:inline-block}
+.home-current h3{margin:8px 0 4px;font-size:20px}.home-current .meta{margin:0}
+.home-current-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.home-section-title{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:900;margin:18px 2px 8px}
+@media(max-width:760px){.home-welcome{padding:20px 16px}.home-welcome-inner{grid-template-columns:1fr}.home-welcome h2{font-size:28px}.home-actions{grid-template-columns:1fr}.home-current-actions .btn{flex:1 1 160px}}
 </style>
+<!-- Build 155: redesigned product-style welcome/home screen. Tournament, scoring, draw and sync logic unchanged. -->
 <!-- Build 151: added in-app Feedback / Report Issue form and Admin feedback inbox. No tournament, scoring, draw or schedule logic changed. -->
 <!-- Build 137: simplified guided flow; removed progress strip; completed tabs get a check; saves advance to next step -->
 </head>
@@ -314,7 +337,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.15.154'; // realtime sync: score patches are pushed live; polling reduced to safety fallback
+const APP_VERSION='2026.09.15.155'; // redesigned welcome/home screen; tournament and sync logic unchanged
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -1423,7 +1446,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);if(tab==='dashboard')appendWelcomeHome(s,c);if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
@@ -1996,6 +2019,43 @@ function appendHealthCheckCard(s,c=comp()){
  if(role!=='admin'||tab!=='dashboard'||!s||document.getElementById('healthCheckCard'))return;let h=tournamentHealth(c),card=document.createElement('div');card.className='card';card.id='healthCheckCard';
  card.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0 0 4px">🩺 Tournament Health Check</h3><p class="muted" style="margin:0">${h.issues.length?`${h.issues.length} item${h.issues.length===1?'':'s'} may need attention.`:'No obvious problems found.'}</p></div><button class="btn ${h.issues.length?'primary':'success'}" id="runHealthCheck">Run Health Check</button></div>`;s.appendChild(card);document.getElementById('runHealthCheck').onclick=openTournamentHealthCheck
 }
+function appendWelcomeHome(s,c=comp()){
+ if(tab!=='dashboard'||!s||document.getElementById('homeWelcome'))return;
+ let signedIn=!!currentUser;
+ let isAdmin=role==='admin';
+ let isScorer=role==='scorer';
+ let hasRemote=!!remoteTournamentId;
+ let title=competitionDisplayName(c)||c.title||'Current Tournament';
+ let total=(c.fixtures||[]).length;
+ let done=(c.fixtures||[]).filter(completed).length;
+ let status=hasRemote?'Current competition':'Ready when you are';
+ let hero=document.createElement('div');
+ hero.id='homeWelcome';hero.className='card home-welcome noPrint';
+ let actions=isAdmin?`
+   <button class="home-action primary-home" id="homeNewTournament"><span class="home-action-icon">＋</span><span><strong>Start a Tournament</strong><span>Create a new competition from setup to final.</span></span></button>
+   <button class="home-action" id="homeMyTournaments"><span class="home-action-icon">▦</span><span><strong>Open Tournament</strong><span>Choose from your saved competitions.</span></span></button>
+   <button class="home-action" id="homeJoinCode"><span class="home-action-icon">⌕</span><span><strong>Join / View Live</strong><span>Open a competition using its code.</span></span></button>`:
+  isScorer?`
+   <button class="home-action primary-home" id="homeScoring"><span class="home-action-icon">⚡</span><span><strong>Enter Scores</strong><span>Go straight to your scoring screen.</span></span></button>
+   <button class="home-action" id="homeMyTournaments"><span class="home-action-icon">▦</span><span><strong>My Tournaments</strong><span>Open another competition.</span></span></button>
+   <button class="home-action" id="homeJoinCode"><span class="home-action-icon">⌕</span><span><strong>Join by Code</strong><span>Open a competition using its code.</span></span></button>`:`
+   <button class="home-action primary-home" id="homeJoinCode"><span class="home-action-icon">●</span><span><strong>Join / View Live Tournament</strong><span>Enter a tournament code to follow the action.</span></span></button>
+   ${signedIn?'<button class="home-action" id="homeMyTournaments"><span class="home-action-icon">▦</span><span><strong>My Tournaments</strong><span>Open a competition you already have access to.</span></span></button>':'<button class="home-action" id="homeSignIn"><span class="home-action-icon">↪</span><span><strong>Sign In</strong><span>Access tournaments and scoring permissions.</span></span></button>'}`;
+ hero.innerHTML=`<div class="home-welcome-inner"><div><div class="home-eyebrow">One Stop Bowling</div><h2>Run bowls. Not paperwork.</h2><p>Set up competitions, manage draws, enter scores and share live results — all from one place.</p></div><div class="home-actions">${actions}</div></div>`;
+ s.prepend(hero);
+ let current=document.createElement('div');current.className='card home-current noPrint';
+ current.innerHTML=`<div class="home-current-top"><div><div class="home-status"><span class="home-status-dot"></span>${esc(status)}</div><h3>${esc(title)}</h3><p class="meta">${total?`${done} of ${total} games complete`:(hasRemote?'Tournament open and ready':'Start a new tournament or open an existing one.')}${remoteTournamentCode?` • Code ${esc(remoteTournamentCode)}`:''}</p></div></div><div class="home-current-actions">${hasRemote?`<button class="btn primary" id="homeContinue">Continue ${isScorer?'Scoring':'Tournament'}</button>`:''}${isAdmin?'<button class="btn secondary" id="homeSetup">Tournament Setup</button>':''}${hasRemote?'<button class="btn secondary" id="homeLiveResults">View Results</button>':''}</div>`;
+ hero.insertAdjacentElement('afterend',current);
+ document.getElementById('homeNewTournament')?.addEventListener('click',showNewTournamentWizard);
+ document.getElementById('homeMyTournaments')?.addEventListener('click',showMyTournaments);
+ document.getElementById('homeJoinCode')?.addEventListener('click',()=>openTournamentByCode());
+ document.getElementById('homeSignIn')?.addEventListener('click',()=>document.getElementById('accountBtn')?.click());
+ document.getElementById('homeScoring')?.addEventListener('click',()=>{tab=scoringHomeTab(c);render()});
+ document.getElementById('homeContinue')?.addEventListener('click',()=>{tab=isScorer?scoringHomeTab(c):(isAdmin?uxNextAction(c).tab:'fixtures');render()});
+ document.getElementById('homeSetup')?.addEventListener('click',()=>{tab='builder';render()});
+ document.getElementById('homeLiveResults')?.addEventListener('click',()=>{tab='tables';render()});
+}
+
 function renderDashboard(s){
  let c=comp();
  if(isAggregate(c)){
