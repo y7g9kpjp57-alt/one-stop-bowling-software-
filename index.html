@@ -305,6 +305,7 @@ body.simple-mode .bottom button{font-size:13px}
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
+// Build 153: cloud revision guard protects concurrent edits from silent overwrite.
 // ===== Build 138 / UI feedback module =====
 function appToast(message,type='info',ms=4200){try{let old=document.querySelector('.app-toast');if(old)old.remove();let el=document.createElement('div');el.className='app-toast '+(type||'');el.textContent=String(message||'');document.body.appendChild(el);setTimeout(()=>el.remove(),ms)}catch(e){console.warn(message,e)}}
 function appAlert(message,title='One Stop Bowling Software'){try{let old=document.querySelector('.app-modal-backdrop');if(old)old.remove();let bg=document.createElement('div');bg.className='app-modal-backdrop';bg.innerHTML=`<div class="app-modal-card" role="dialog" aria-modal="true"><h3>${title}</h3><p></p><div class="app-modal-actions"><button class="btn primary" data-app-ok>OK</button></div></div>`;bg.querySelector('p').textContent=String(message||'');let close=()=>bg.remove();bg.querySelector('[data-app-ok]').onclick=close;bg.onclick=e=>{if(e.target===bg)close()};document.body.appendChild(bg);setTimeout(()=>bg.querySelector('[data-app-ok]')?.focus(),0)}catch(e){console.warn(message,e)}}
@@ -313,8 +314,8 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.14.151'; // feedback/report-an-issue release; tournament logic unchanged
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',clubFeatureCache={};
+const APP_VERSION='2026.09.15.153'; // stability hardening: cloud revision guard prevents silent overwrites
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
 let offlineSyncBusy=false;
@@ -324,7 +325,7 @@ function offlineQueueEntry(){let q=loadOfflineQueue();return remoteTournamentId?
 function offlinePendingCount(){return offlineQueueEntry()?1:0}
 function queueOfflineState(reason='Local changes waiting to sync'){
  if(!remoteTournamentId)return;
- let q=loadOfflineQueue();q[remoteTournamentId]={id:remoteTournamentId,code:remoteTournamentCode||'',title:comp()?.title||'Tournament',state:JSON.parse(JSON.stringify(db)),updatedAt:new Date().toISOString(),reason};saveOfflineQueue(q);updateConnectivityNotice();
+ let q=loadOfflineQueue();q[remoteTournamentId]={id:remoteTournamentId,code:remoteTournamentCode||'',title:comp()?.title||'Tournament',state:JSON.parse(JSON.stringify(db)),baseRevision:remoteRevision,updatedAt:new Date().toISOString(),reason};saveOfflineQueue(q);updateConnectivityNotice();
 }
 function clearOfflineState(id=remoteTournamentId){if(!id)return;let q=loadOfflineQueue();if(q[id]){delete q[id];saveOfflineQueue(q)}updateConnectivityNotice()}
 function updateConnectivityNotice(custom=''){
@@ -342,8 +343,11 @@ async function flushOfflineQueue(){
  try{
   // Always push the queued local snapshot before allowing remote polling again.
   cloudApplying=true;db=entry.state?.competitions?.length?entry.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
-  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||entry.title||'')});
+  let {data,error}=await cloud.rpc('bowls_save_tournament_v2',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||entry.title||''),p_expected_revision:Number(entry.baseRevision??remoteRevision)||0});
   if(error)throw error;
+  let result=Array.isArray(data)?data[0]:data;
+  if(result?.conflict){await handleRemoteConflict(result.state,result.revision,'offline changes');return false}
+  if(result?.revision!=null)setRemoteRevision(result.revision);
   remoteLastPushAt=Date.now();clearOfflineState();setSyncNotice(`Synced • all changes saved online • Build ${APP_VERSION}`,true);setTimeout(refreshRemoteTournament,900);return true;
  }catch(e){console.error('Offline sync failed',e);setSyncNotice(`Online but sync failed • changes are still safe on this device • Build ${APP_VERSION}`,false);return false}
  finally{offlineSyncBusy=false}
@@ -374,6 +378,17 @@ function loadDB(){
  return {competitions:[defaultComp()],active:null}
 }
 function canWriteCloud(){return !!currentUser&&['owner','admin','scorer'].includes(currentAppRole)}
+function setRemoteRevision(value){remoteRevision=Math.max(0,Number(value)||0);try{localStorage.setItem('bowlsRemoteRevision',String(remoteRevision))}catch(e){console.warn('Could not store tournament revision',e)}}
+async function handleRemoteConflict(remoteState,revision,source='changes'){
+ try{localStorage.setItem(`${APPKEY}_conflict_backup_${remoteTournamentId||'local'}_${Date.now()}`,JSON.stringify(db))}catch(e){console.warn('Could not create conflict backup',e)}
+ setRemoteRevision(revision);clearOfflineState();remotePushRequested=false;
+ if(remoteState?.competitions?.length){cloudApplying=true;db=remoteState;let serialized=JSON.stringify(db);localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized;cloudApplying=false}
+ setSyncNotice(`Sync conflict detected • latest online version loaded safely • Build ${APP_VERSION}`,false);
+ if(typeof render==='function')render();
+ appAlert(`Another organiser or scorer changed this tournament before your ${source} reached the cloud.
+
+To prevent anyone's work being silently overwritten, the latest online version has been loaded. Your previous local copy has also been preserved on this device as a conflict backup.`,'Sync conflict protected');
+}
 let lastLocalSerialized='';
 try{lastLocalSerialized=localStorage.getItem(APPKEY)||''}catch(e){console.warn('Could not initialise local save cache',e)}
 function scheduleRemoteTournamentPush(delay=220){
@@ -403,8 +418,11 @@ async function pushRemoteTournament(){
  let snapshotSerialized='';
  try{snapshotSerialized=JSON.stringify(stateSnapshot)}catch(e){snapshotSerialized=''}
  try{
-  let {error}=await cloud.rpc('bowls_save_tournament',{p_id:remoteTournamentId,p_state:stateSnapshot,p_title:(stateSnapshot.competitions?.find(c=>c.id===stateSnapshot.active)||stateSnapshot.competitions?.[0])?.title||''});
+  let {data,error}=await cloud.rpc('bowls_save_tournament_v2',{p_id:remoteTournamentId,p_state:stateSnapshot,p_title:(stateSnapshot.competitions?.find(c=>c.id===stateSnapshot.active)||stateSnapshot.competitions?.[0])?.title||'',p_expected_revision:remoteRevision});
   if(error)throw error;
+  let result=Array.isArray(data)?data[0]:data;
+  if(result?.conflict){await handleRemoteConflict(result.state,result.revision,'changes');return false}
+  if(result?.revision!=null)setRemoteRevision(result.revision);
   remoteLastPushAt=Date.now();
   let pending=offlineQueueEntry(),pendingSerialized='';
   try{pendingSerialized=pending?.state?JSON.stringify(pending.state):''}catch(e){pendingSerialized=''}
@@ -419,7 +437,7 @@ async function pushRemoteTournament(){
   return false
  }finally{remoteSaveBusy=false}
 }
-function setRemoteTournament(id,code,accessRole,clubId='',clubName=''){
+function setRemoteTournament(id,code,accessRole,clubId='',clubName='',revision=null){
  remoteTournamentId=id||'';remoteTournamentCode=(code||'').toUpperCase();remoteAccessRole=accessRole||'public';
  remoteClubId=clubId||'';remoteClubName=clubName||'';
  localStorage.setItem('bowlsRemoteTournamentId',remoteTournamentId);
@@ -427,6 +445,7 @@ function setRemoteTournament(id,code,accessRole,clubId='',clubName=''){
  localStorage.setItem('bowlsRemoteAccessRole',remoteAccessRole);
  localStorage.setItem('bowlsRemoteClubId',remoteClubId);
  localStorage.setItem('bowlsRemoteClubName',remoteClubName);
+ if(revision!=null)setRemoteRevision(revision);
 }
 function cacheClubFeatures(clubs=[]){(clubs||[]).forEach(c=>{if(c?.id)clubFeatureCache[String(c.id)]={twoTriplesLeague:!!c.enable_two_triples_league,name:c.name||''}})}
 function clubTwoTriplesEnabled(clubId=remoteClubId){return !!clubFeatureCache[String(clubId||'')]?.twoTriplesLeague}
@@ -446,7 +465,7 @@ async function createShareableTournament(){
  let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:(comp().title||''),p_state:db});
  if(error){appAlert(error.message);return}
  let row=Array.isArray(data)?data[0]:data;if(!row){appAlert('Could not create tournament code.');return}
- setRemoteTournament(row.id,row.code,'owner');setTournamentNotice();appAlert('Tournament code: '+row.code+'\n\nShare this code with scorers and spectators.');render();
+ setRemoteTournament(row.id,row.code,'owner','','',0);setTournamentNotice();appAlert('Tournament code: '+row.code+'\n\nShare this code with scorers and spectators.');render();
 }
 function startRemoteRefresh(){
  if(remoteRefreshTimer)clearInterval(remoteRefreshTimer);
@@ -454,7 +473,7 @@ function startRemoteRefresh(){
 }
 async function openTournamentByCode(code=null){
  code=(code||prompt('Enter tournament code')||'').trim().toUpperCase();if(!code)return false;
- let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:code});
+ let {data,error}=await cloud.rpc('bowls_get_tournament_by_code_v2',{p_code:code});
  if(error){appAlert(error.message);return false}
  let row=Array.isArray(data)?data[0]:data;if(!row){appAlert('Tournament code not found.');return false}
  let access='public';
@@ -463,7 +482,7 @@ async function openTournamentByCode(code=null){
    if(!je){let jr=Array.isArray(j)?j[0]:j;if(jr?.role)access=jr.role==='admin'?'owner':jr.role}
  }
  cloudApplying=true;db=row.state?.competitions?.length?row.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
- setRemoteTournament(row.id,row.code,access,row.club_id||'',row.club_name||'');
+ setRemoteTournament(row.id,row.code,access,row.club_id||'',row.club_name||'',row.revision??0);
  if(new URLSearchParams(location.search).get('join')==='scorer'&&!currentUser){
   setTimeout(()=>{if(confirm('This is a scorer invite. Sign in or create an account to request scoring access?'))showAuthModal('scorer')},300)
  }
@@ -521,10 +540,11 @@ async function refreshRemoteTournament(){
  // Remote polling used to rebuild the scoring screen every 2.5 seconds and collapse <details>.
  let openLiveScoring=!!document.querySelector('details[open] [data-live-a],details[open] [data-live-b],details[open] [data-stdko-end-a],details[open] [data-stdko-end-b]');
  if(editing||openLiveScoring)return;
- let {data,error}=await cloud.rpc('bowls_get_tournament_by_code',{p_code:remoteTournamentCode});
+ let {data,error}=await cloud.rpc('bowls_get_tournament_by_code_v2',{p_code:remoteTournamentCode});
  if(error)return;let row=Array.isArray(data)?data[0]:data;if(!row?.state?.competitions?.length)return;
  if(requestedCode!==remoteTournamentCode||requestedTab!==tab||editRevision!==formEditRevision||scoringRefreshBlocked())return;
- if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
+ if(row.revision!=null)setRemoteRevision(row.revision);
+ if(JSON.stringify(row.state)!==JSON.stringify(db)){cloudApplying=true;db=row.state;let serialized=JSON.stringify(db);localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized;cloudApplying=false;if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()}
 }
 
 
@@ -542,17 +562,9 @@ function tournamentCreatedLabel(row){
  return d&&!Number.isNaN(d.getTime())?d.toLocaleDateString():'—'
 }
 async function openSavedTournament(row){
- if(!row?.state?.competitions?.length)return appAlert('This tournament has no saved tournament data.');
- if(cloud){let cr=await cloud.rpc('bowls_list_clubs');if(!cr.error)cacheClubFeatures(Array.isArray(cr.data)?cr.data:[])}
- cloudApplying=true;db=JSON.parse(JSON.stringify(row.state));localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
- let access=row.access_role||'public';
- setRemoteTournament(row.id,row.code,access);
- startRemoteRefresh();
- role=['owner','admin'].includes(access)?'admin':access==='scorer'?'scorer':'public';
- tab='dashboard';setupDirty=false;
- setTournamentNotice();
+ if(!row?.code)return appAlert('This tournament has no tournament code.');
  document.getElementById('myTournamentsModal')?.remove();
- render()
+ return await openTournamentByCode(row.code);
 }
 async function duplicateSavedTournament(row){
  if(!currentUser)return showAuthModal('admin');
@@ -699,7 +711,7 @@ async function deleteTournamentPermanently(id,title='Tournament'){
  let {error}=await cloud.rpc('bowls_delete_tournament',{p_id:id});
  if(error)return appAlert('Tournament was NOT deleted: '+error.message);
  if(String(remoteTournamentId)===String(id)){
-   setRemoteTournament('','','public','','');
+   setRemoteTournament('','','public','','',0);
    let remaining=db.competitions||[];
    if(remaining.length){db.active=remaining[0].id}else{let n=defaultComp();remaining.push(n);db.active=n.id}
    localStorage.setItem(APPKEY,JSON.stringify(db));
@@ -982,7 +994,7 @@ async function pushScoreDiffOrdered(before,after){
   else if(k.startsWith('fixture:')){kind='fixture';item=k.slice(8)}
   else if(k.startsWith('ko:')){kind='knockout';item=k.slice(3)}
   else continue;
-  let {error}=await cloud.rpc('bowls_patch_score',{
+  let {data,error}=await cloud.rpc('bowls_patch_score_v2',{
    p_id:remoteTournamentId,
    p_comp_id:c.id,
    p_kind:kind,
@@ -990,6 +1002,7 @@ async function pushScoreDiffOrdered(before,after){
    p_patch:scorePatchData(b)
   });
   if(error){console.error('Score patch failed',error);ok=false}
+  else {let result=Array.isArray(data)?data[0]:data;if(result?.revision!=null)setRemoteRevision(result.revision)}
  }
  if(ok){remoteLastPushAt=Date.now();clearOfflineState();setTournamentNotice();setTimeout(refreshRemoteTournament,700)}
  else {queueOfflineState('Score changes waiting to sync');setSyncNotice('Score saved on this device • waiting to sync online',false);}
@@ -1114,7 +1127,7 @@ async function showNewTournamentWizard(){
   if(!row)return appAlert('Could not create tournament. No tournament was returned by the server.');
   db.competitions.push(c);db.active=c.id;localStorage.setItem(APPKEY,JSON.stringify(db));
   let club=clubs.find(x=>x.id===row.club_id);
-  setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'');
+  setRemoteTournament(row.id,row.code,'owner',row.club_id||'',club?.name||'',0);
   if(online){
    let opens=document.getElementById('ntEntryOpens')?.value||null,max=document.getElementById('ntEntryMax')?.value||'',event=document.getElementById('ntEntryEvent')?.value.trim()||'',label=document.getElementById('ntEntryLabel')?.value.trim()||'';
    let entrySave=await cloud.rpc('bowls_set_entry_settings',{p_tournament:row.id,p_enabled:true,p_opens_at:opens?new Date(opens).toISOString():null,p_closes_at:new Date(closes).toISOString(),p_max_entries:max?Number(max):null,p_event_group:event||null,p_public_label:label||name});
