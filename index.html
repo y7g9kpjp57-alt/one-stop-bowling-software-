@@ -314,8 +314,8 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.15.153'; // stability hardening: cloud revision guard prevents silent overwrites
-let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
+const APP_VERSION='2026.09.15.154'; // realtime sync: score patches are pushed live; polling reduced to safety fallback
+let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
 let offlineSyncBusy=false;
@@ -348,7 +348,7 @@ async function flushOfflineQueue(){
   let result=Array.isArray(data)?data[0]:data;
   if(result?.conflict){await handleRemoteConflict(result.state,result.revision,'offline changes');return false}
   if(result?.revision!=null)setRemoteRevision(result.revision);
-  remoteLastPushAt=Date.now();clearOfflineState();setSyncNotice(`Synced • all changes saved online • Build ${APP_VERSION}`,true);setTimeout(refreshRemoteTournament,900);return true;
+  remoteLastPushAt=Date.now();clearOfflineState();setSyncNotice(`Synced • all changes saved online • Build ${APP_VERSION}`,true);return true;
  }catch(e){console.error('Offline sync failed',e);setSyncNotice(`Online but sync failed • changes are still safe on this device • Build ${APP_VERSION}`,false);return false}
  finally{offlineSyncBusy=false}
 }
@@ -465,11 +465,74 @@ async function createShareableTournament(){
  let {data,error}=await cloud.rpc('bowls_create_tournament',{p_title:(comp().title||''),p_state:db});
  if(error){appAlert(error.message);return}
  let row=Array.isArray(data)?data[0]:data;if(!row){appAlert('Could not create tournament code.');return}
- setRemoteTournament(row.id,row.code,'owner','','',0);setTournamentNotice();appAlert('Tournament code: '+row.code+'\n\nShare this code with scorers and spectators.');render();
+ setRemoteTournament(row.id,row.code,'owner','','',0);startRemoteRefresh();setTournamentNotice();appAlert('Tournament code: '+row.code+'\n\nShare this code with scorers and spectators.');render();
+}
+function stopRemoteRefresh(){
+ if(remoteRefreshTimer){clearInterval(remoteRefreshTimer);remoteRefreshTimer=null}
+ if(realtimeRenderTimer){clearTimeout(realtimeRenderTimer);realtimeRenderTimer=null}
+ if(realtimeFullRefreshTimer){clearTimeout(realtimeFullRefreshTimer);realtimeFullRefreshTimer=null}
+ if(cloudChannel&&cloud){try{cloud.removeChannel(cloudChannel)}catch(e){console.warn('Realtime channel cleanup failed',e)}cloudChannel=null}
+}
+function scheduleRealtimeRender(delay=120){
+ if(realtimeRenderTimer)clearTimeout(realtimeRenderTimer);
+ realtimeRenderTimer=setTimeout(()=>{
+  realtimeRenderTimer=null;
+  if(document.hidden||scoringRefreshBlocked()||(tab==='builder'&&setupDirty)){scheduleRealtimeRender(500);return}
+  if(new URLSearchParams(location.search).get('tv')==='1')renderTv();else render()
+ },delay)
+}
+function findRealtimeScoreItem(compId,kind,itemId){
+ let c=(db.competitions||[]).find(x=>String(x.id)===String(compId));if(!c)return null;
+ if(kind==='aggregate')return (c.aggregateScores||[]).find(x=>String(x.rink)===String(itemId))||null;
+ if(kind==='fixture')return (c.fixtures||[]).find(x=>String(x.id)===String(itemId))||null;
+ if(kind==='knockout')return (c.knockout||[]).flat().find(x=>String(x.id)===String(itemId))||null;
+ return null
+}
+function persistRealtimeState(){
+ try{let serialized=JSON.stringify(db);localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized}catch(e){console.warn('Realtime local cache save failed',e)}
+}
+function handleRealtimeScorePatch(message){
+ let m=message?.payload||message||{};
+ if(!m||String(m.tournament_id||'')!==String(remoteTournamentId||''))return;
+ let rev=Number(m.revision||0)||0;
+ // Score broadcasts are idempotent, so apply them even if our own save has already advanced the global revision.
+ // That avoids missing another scorer's slightly earlier broadcast that arrives just after our RPC response.
+ if(rev&&remoteRevision&&rev>remoteRevision+1){scheduleRealtimeFullRefresh(120);return}
+ let target=findRealtimeScoreItem(m.comp_id,m.kind,m.item);
+ if(!target){scheduleRealtimeFullRefresh(120);return}
+ Object.assign(target,m.patch||{});
+ if(rev&&rev>remoteRevision)setRemoteRevision(rev);
+ persistRealtimeState();scheduleRealtimeRender()
+}
+function scheduleRealtimeFullRefresh(delay=180){
+ if(realtimeFullRefreshTimer)clearTimeout(realtimeFullRefreshTimer);
+ realtimeFullRefreshTimer=setTimeout(async()=>{
+  realtimeFullRefreshTimer=null;
+  if(document.hidden||scoringRefreshBlocked()||(tab==='builder'&&setupDirty)||remoteSaveBusy){scheduleRealtimeFullRefresh(600);return}
+  await refreshRemoteTournament()
+ },delay)
+}
+function handleRealtimeFullRefresh(message){
+ let m=message?.payload||message||{};
+ if(!m||String(m.tournament_id||'')!==String(remoteTournamentId||''))return;
+ let rev=Number(m.revision||0)||0;
+ if(rev&&rev<=remoteRevision)return;
+ scheduleRealtimeFullRefresh(120)
 }
 function startRemoteRefresh(){
- if(remoteRefreshTimer)clearInterval(remoteRefreshTimer);
- remoteRefreshTimer=setInterval(refreshRemoteTournament,2500);
+ stopRemoteRefresh();
+ if(!cloud||!remoteTournamentId)return;
+ try{
+  cloudChannel=cloud.channel('tournament:'+remoteTournamentId)
+   .on('broadcast',{event:'score_patch'},handleRealtimeScorePatch)
+   .on('broadcast',{event:'full_refresh'},handleRealtimeFullRefresh)
+   .subscribe(status=>{
+    if(status==='SUBSCRIBED')setTournamentNotice();
+    else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncNotice(`Realtime connection interrupted • automatic fallback active • Build ${APP_VERSION}`,false)
+   });
+ }catch(e){console.warn('Realtime subscription failed; using fallback refresh',e)}
+ // Realtime is primary. This slow poll is only a safety net for missed websocket events.
+ remoteRefreshTimer=setInterval(refreshRemoteTournament,60000);
 }
 async function openTournamentByCode(code=null){
  code=(code||prompt('Enter tournament code')||'').trim().toUpperCase();if(!code)return false;
@@ -1004,7 +1067,7 @@ async function pushScoreDiffOrdered(before,after){
   if(error){console.error('Score patch failed',error);ok=false}
   else {let result=Array.isArray(data)?data[0]:data;if(result?.revision!=null)setRemoteRevision(result.revision)}
  }
- if(ok){remoteLastPushAt=Date.now();clearOfflineState();setTournamentNotice();setTimeout(refreshRemoteTournament,700)}
+ if(ok){remoteLastPushAt=Date.now();clearOfflineState();setTournamentNotice()}
  else {queueOfflineState('Score changes waiting to sync');setSyncNotice('Score saved on this device • waiting to sync online',false);}
  return ok
 }
