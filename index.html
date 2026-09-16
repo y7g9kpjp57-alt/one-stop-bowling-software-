@@ -359,7 +359,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.16.160'; // adds manual Sync Now control for queued cloud changes
+const APP_VERSION='2026.09.16.161'; // adds visible cloud sync diagnostics while preserving queued local changes
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -367,6 +367,17 @@ let offlineSyncBusy=false;
 function loadOfflineQueue(){try{return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY)||'{}')||{}}catch(e){return {}}}
 function saveOfflineQueue(q){try{localStorage.setItem(OFFLINE_QUEUE_KEY,JSON.stringify(q||{}))}catch(e){console.error('Offline queue save failed',e)}}
 function offlineQueueEntry(){let q=loadOfflineQueue();return remoteTournamentId?q[remoteTournamentId]||null:null}
+let lastSyncError='';
+function syncErrorText(e){
+ if(!e)return 'Unknown cloud error';
+ let parts=[];
+ if(e.message)parts.push(String(e.message));
+ if(e.details)parts.push(String(e.details));
+ if(e.hint)parts.push('Hint: '+String(e.hint));
+ if(e.code)parts.push('Code: '+String(e.code));
+ if(!parts.length){try{parts.push(JSON.stringify(e))}catch(_){parts.push(String(e))}}
+ return parts.filter(Boolean).join(' • ').slice(0,900);
+}
 function offlinePendingCount(){return offlineQueueEntry()?1:0}
 function queueOfflineState(reason='Local changes waiting to sync'){
  if(!remoteTournamentId)return;
@@ -390,11 +401,12 @@ async function flushOfflineQueue(){
   cloudApplying=true;db=entry.state?.competitions?.length?entry.state:db;localStorage.setItem(APPKEY,JSON.stringify(db));cloudApplying=false;
   let {data,error}=await cloud.rpc('bowls_save_tournament_v2',{p_id:remoteTournamentId,p_state:db,p_title:(comp().title||entry.title||''),p_expected_revision:Number(entry.baseRevision??remoteRevision)||0});
   if(error)throw error;
+  lastSyncError='';
   let result=Array.isArray(data)?data[0]:data;
   if(result?.conflict){await handleRemoteConflict(result.state,result.revision,'offline changes');return false}
   if(result?.revision!=null)setRemoteRevision(result.revision);
   remoteLastPushAt=Date.now();clearOfflineState();setSyncNotice(`Synced • all changes saved online • Build ${APP_VERSION}`,true);return true;
- }catch(e){console.error('Offline sync failed',e);setSyncNotice(`Online but sync failed • changes are still safe on this device • Build ${APP_VERSION}`,false);return false}
+ }catch(e){console.error('Offline sync failed',e);lastSyncError=syncErrorText(e);setSyncNotice(`Online but sync failed • ${lastSyncError} • changes are still safe on this device • Build ${APP_VERSION}`,false);return false}
  finally{offlineSyncBusy=false}
 }
 function defaultRankingSeasonLabel(d=new Date()){
@@ -475,6 +487,7 @@ async function pushRemoteTournament(){
  try{
   let {data,error}=await cloud.rpc('bowls_save_tournament_v2',{p_id:remoteTournamentId,p_state:stateSnapshot,p_title:(stateSnapshot.competitions?.find(c=>c.id===stateSnapshot.active)||stateSnapshot.competitions?.[0])?.title||'',p_expected_revision:remoteRevision});
   if(error)throw error;
+  lastSyncError='';
   let result=Array.isArray(data)?data[0]:data;
   if(result?.conflict){await handleRemoteConflict(result.state,result.revision,'changes');return false}
   if(result?.revision!=null)setRemoteRevision(result.revision);
@@ -487,8 +500,9 @@ async function pushRemoteTournament(){
   return true
  }catch(e){
   console.error('Tournament cloud save failed',e);
+  lastSyncError=syncErrorText(e);
   queueOfflineState('Cloud save failed');
-  setSyncNotice('Cloud save failed • 1 change waiting to sync • changes remain on this device',false);
+  setSyncNotice(`Cloud save failed • ${lastSyncError} • 1 change waiting to sync • changes remain on this device`,false);
   return false
  }finally{remoteSaveBusy=false}
 }
@@ -944,7 +958,7 @@ async function syncNow(){
  }
  let ok=await flushOfflineQueue();
  if(ok){appToast('Tournament synced successfully.','success');return true}
- if(offlinePendingCount())appAlert('The change is still safely stored on this device and has not been deleted. Please keep your backup file. You can retry Sync Now.','Sync not completed');
+ if(offlinePendingCount())appAlert(`The change is still safely stored on this device and has not been deleted. Please keep your backup file.\n\nCloud error: ${lastSyncError||'No detailed error was returned by the cloud service.'}\n\nYou can retry Sync Now.`, 'Sync not completed');
  return false
 }
 function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account • new accounts start with Public View'}
