@@ -2855,7 +2855,7 @@ function prepareScorecardPrint(){
  // Keep both paper sizes portrait for reliable iPhone/AirPrint sizing. A4 uses 2x2; A3 uses 3x3 at roughly the same tall-card proportions.
  let perPage=isA3?9:4,cols=isA3?3:2,rows=isA3?3:2,pageW=isA3?297:210,pageH=isA3?420:297,pageMargin=5,pad=1,gap=3;
  // Keep each generated sheet inside Safari/AirPrint's printable box. The @page margin owns the outer margin; the sheet must not equal the full physical paper height.
- let sheetW=pageW-(pageMargin*2)-6,sheetH=pageH-(pageMargin*2)-18;
+ let sheetW=pageW-(pageMargin*2)-6,sheetH=isA3?pageH-(pageMargin*2)-18:pageH-(pageMargin*2)-28;
  let usableH=sheetH-(pad*2)-(gap*(rows-1)),cardH=usableH/rows;
  let pages=[];for(let i=0;i<cards.length;i+=perPage)pages.push(cards.slice(i,i+perPage));
  let css=`
