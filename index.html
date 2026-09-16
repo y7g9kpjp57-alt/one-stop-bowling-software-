@@ -358,7 +358,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.15.156'; // redesigned welcome/home screen; tournament and sync logic unchanged
+const APP_VERSION='2026.09.16.157'; // player-based season rankings; ranking tournaments selectable in setup
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -398,7 +398,7 @@ async function flushOfflineQueue(){
 }
 const defaultComp=()=>({
  id:'comp-'+Date.now(),title:'Bowls Competition',created:new Date().toISOString(),
- settings:{clubName:'Your Bowls Club',tournamentType:'standard',scoringMode:'live_optional',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:6,ends:12,start:'09:00',minutes:60,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:60,knockoutMinutesManual:false,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,autoFillKnockout:true,optimise:'balanced'},
+ settings:{clubName:'Your Bowls Club',tournamentType:'standard',rankingTournament:false,rankingSeason:String(new Date().getFullYear()),scoringMode:'live_optional',teamIdentifierMode:'home_away',aggregateSideA:'District A',aggregateSideB:'District B',aggregateRinks:6,gameType:'rinks',drawMethod:'auto',manualGroups:4,teamCount:16,groupSize:4,rinks:6,ends:12,start:'09:00',minutes:60,changeoverMinutes:5,lunchEnabled:false,lunchStart:'13:00',lunchMinutes:45,knockoutMinutes:60,knockoutMinutesManual:false,targetFinish:'21:00',eventFormat:'same_day',day1TargetFinish:'21:00',day2Start:'09:00',winPts:2,drawPts:1,qualify:'winner_best_runner',bestRunners:4,autoFillKnockout:true,optimise:'balanced'},
 teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})),fixtures:[],knockout:[],drawSeed:1
 });
 let formEditRevision=0,lastFormEditAt=0,scoreWritesPending=0;
@@ -1351,17 +1351,17 @@ function scorerResultConfirmation(item,c=comp(),isKo=false){
 }
 function tabsFor(){
  let league=(comp()?.settings?.tournamentType||'standard')==='league';
- if(role==='public')return league?[['dashboard','Home','⌂'],['tables','Table','▤'],['fixtures','Fixtures','▦']]:[['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆']];
+ if(role==='public')return league?[['dashboard','Home','⌂'],['tables','Table','▤'],['fixtures','Fixtures','▦'],['rankings','Rankings','★']]:[['dashboard','Home','⌂'],['tables','Tables','▤'],['fixtures','Fixtures','▦'],['knockout','Finals','🏆'],['rankings','Rankings','★']];
  if(role==='scorer'){
-  if(league)return [['quick','League Scores','⚡'],['fixtures','Fixtures','▦'],['tables','Table','▤']];
+  if(league)return [['quick','League Scores','⚡'],['fixtures','Fixtures','▦'],['tables','Table','▤'],['rankings','Rankings','★']];
   let ko=scoringHomeTab()==='knockout';
-  return ko?[['knockout','Knockout Scores','🏆'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['quick','Group Scores','⚡']]:[['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['knockout','Knockout','🏆']]
+  return ko?[['knockout','Knockout Scores','🏆'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['quick','Group Scores','⚡'],['rankings','Rankings','★']]:[['quick','Quick Score','⚡'],['fixtures','Fixtures','▦'],['tables','Tables','▤'],['knockout','Knockout','🏆'],['rankings','Rankings','★']]
  }
  let ko=scoringHomeTab()==='knockout';
- if(league)return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Generate Fixtures','▦'],['schedule','Schedule','📅'],['quick','Scores','⚡'],['tables','Table','▤'],['admin','Admin','🔐']];
- if(simpleModeOn())return ko?[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['knockout','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆']]:[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['quick','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆']];
- if(ko)return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['knockout','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['admin','Admin','🔐']];
- return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]
+ if(league)return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Generate Fixtures','▦'],['schedule','Schedule','📅'],['quick','Scores','⚡'],['tables','Table','▤'],['rankings','Rankings','★'],['admin','Admin','🔐']];
+ if(simpleModeOn())return ko?[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['knockout','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆'],['rankings','Rankings','★']]:[['dashboard','Home','⌂'],['builder','Setup','⚙'],['teams','Players / Teams','👥'],['draw','Draw','🎲'],['quick','Enter Scores','⚡'],['tables','Results','▤'],['knockout','Finals','🏆'],['rankings','Rankings','★']];
+ if(ko)return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['knockout','Scores','⚡'],['tables','Tables','▤'],['rankings','Rankings','★'],['scorecards','Scorecards','🖨'],['admin','Admin','🔐']];
+ return [['dashboard','Dashboard','⌂'],['builder','Setup','⚙'],['teams','Teams','👥'],['draw','Draw','🎲'],['schedule','Rinks','▦'],['quick','Scores','⚡'],['tables','Tables','▤'],['rankings','Rankings','★'],['scorecards','Scorecards','🖨'],['knockout','Knockout','🏆'],['admin','Admin','🔐']]
 }
 
 function updateAdminRoleBadge(){
@@ -1467,7 +1467,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard')appendWelcomeHome(homeLanding,c)}if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard')appendWelcomeHome(homeLanding,c)}if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
@@ -1691,7 +1691,7 @@ function queueLiveAutoSave(saveForm,delay=450){
 }
 
 function renderBuilder(s){
- let c=comp(),x=c.settings;x.scoringMode='live_optional';x.tournamentType=x.tournamentType||'standard';x.optimise=x.optimise||'balanced';x.qualify=x.qualify||'winner_best_runner';x.bestRunners=Number.isFinite(+x.bestRunners)?+x.bestRunners:4;x.autoFillKnockout=x.autoFillKnockout!==false;x.day1TargetFinish=x.day1TargetFinish||'21:00';x.day2Start=x.day2Start||'09:00';x.changeoverMinutes=Number.isFinite(+x.changeoverMinutes)?Math.max(0,+x.changeoverMinutes):5;x.greensCount=Math.max(1,+x.greensCount||1);x.rinksPerGreen=Math.max(1,+x.rinksPerGreen||(+x.rinks||6));x.rinks=x.greensCount*x.rinksPerGreen;x.lunchEnabled=!!x.lunchEnabled;x.lunchStart=x.lunchStart||'13:00';x.lunchMinutes=Number.isFinite(+x.lunchMinutes)?Math.max(0,+x.lunchMinutes):45;
+ let c=comp(),x=c.settings;x.scoringMode='live_optional';x.tournamentType=x.tournamentType||'standard';x.optimise=x.optimise||'balanced';x.qualify=x.qualify||'winner_best_runner';x.bestRunners=Number.isFinite(+x.bestRunners)?+x.bestRunners:4;x.autoFillKnockout=x.autoFillKnockout!==false;x.day1TargetFinish=x.day1TargetFinish||'21:00';x.day2Start=x.day2Start||'09:00';x.changeoverMinutes=Number.isFinite(+x.changeoverMinutes)?Math.max(0,+x.changeoverMinutes):5;x.greensCount=Math.max(1,+x.greensCount||1);x.rinksPerGreen=Math.max(1,+x.rinksPerGreen||(+x.rinks||6));x.rinks=x.greensCount*x.rinksPerGreen;x.lunchEnabled=!!x.lunchEnabled;x.lunchStart=x.lunchStart||'13:00';x.lunchMinutes=Number.isFinite(+x.lunchMinutes)?Math.max(0,+x.lunchMinutes):45;x.rankingTournament=!!x.rankingTournament;x.rankingSeason=String(x.rankingSeason||new Date().getFullYear());
  let agg=x.tournamentType==='aggregate',koOnly=x.tournamentType==='knockout';
  s.innerHTML=`<div class="card"><h2>Tournament Setup</h2><p class="muted">End-by-end / anytime scoring is always enabled. Scores can be updated during the game, with the final result confirmed when the match is complete.</p>
  <div class="formgrid">
@@ -1700,6 +1700,8 @@ function renderBuilder(s){
   <div class="field"><label>Tournament type</label><select id="bType"><option value="standard" ${(!agg&&!koOnly&&x.tournamentType!=='wick64'&&x.tournamentType!=='league')?'selected':''}>Round Robin + Knockout</option><option value="wick64" ${x.tournamentType==='wick64'?'selected':''}>Triples Over 3 Greens</option>${(x.tournamentType==='league'||clubTwoTriplesEnabled())?`<option value="league" ${x.tournamentType==='league'?'selected':''}>Black Isle and District Indoor Bowling League</option>`:''}<option value="knockout" ${koOnly?'selected':''}>Knockout Only</option><option value="aggregate" ${agg?'selected':''}>Team / District Match – Aggregate</option></select></div>
   <div class="field"><label>Scoring mode</label><div style="padding:10px;border:1px solid #cbd5e1;border-radius:9px;background:#ecfdf5;color:#065f46;font-weight:800">End-by-End / Anytime Scoring</div><input type="hidden" id="bScoring" value="live_optional"></div>
   <div class="field"><label>Game format</label><select id="bGame"><option value="singles" ${x.gameType==='singles'?'selected':''}>Singles</option><option value="pairs" ${x.gameType==='pairs'?'selected':''}>Pairs</option><option value="triples" ${x.gameType==='triples'?'selected':''}>Triples</option><option value="rinks" ${x.gameType==='rinks'?'selected':''}>Rinks / Fours</option></select><div class="meta">Singles is available when required, but other formats remain the normal tournament setup.</div></div>
+  <div class="field"><label>Season ranking event</label><select id="bRankingTournament"><option value="no" ${!x.rankingTournament?'selected':''}>No — normal tournament</option><option value="yes" ${x.rankingTournament?'selected':''}>Yes — count towards player rankings</option></select><div class="meta">Only tournaments marked Yes feed the separate Season Rankings table.</div></div>
+  <div class="field"><label>Ranking season</label><input id="bRankingSeason" value="${esc(x.rankingSeason||String(new Date().getFullYear()))}" placeholder="e.g. 2026"><div class="meta">Use the same season label for all ranking events that belong together.</div></div>
   <div class="field" id="endsSetupField"><label id="bEndsLabel">${x.gameType==='singles'?'Singles scoring':'Ends'}</label><div id="singles21Box" class="${x.gameType==='singles'?'oknotice':'hidden'}" style="padding:10px;margin:0"><b>First to 21 shots</b><div class="meta">No fixed number of ends. The scorer has 45 end rows available and the game is recognised as complete once a player reaches 21 or more shots.</div></div><input id="bEnds" class="${x.gameType==='singles'?'hidden':''}" type="number" min="1" max="40" value="${x.ends||12}"><div id="endsTimeHelp" class="meta ${x.gameType==='singles'?'hidden':''}">Recommended game time is based on the selected discipline and rounded UP to the nearest 5 minutes. Tap Use Recommended Time if you want to apply it.</div></div>
  </div>
  <div id="aggSetup" class="${agg?'':'hidden'}" style="margin-top:12px"><div class="formgrid">
@@ -1949,7 +1951,7 @@ function updatePlanner(){
 
  document.getElementById('saveBuilder').onclick=()=>{
   if(type.value==='league'&&!resizeLeagueTeams(c,Number(document.getElementById('bLeagueTeams').value)))return;
-  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
+  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.rankingTournament=document.getElementById('bRankingTournament')?.value==='yes';x.rankingSeason=(document.getElementById('bRankingSeason')?.value.trim()||String(new Date().getFullYear()));x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
   if(type.value==='wick64'){
    let names=[document.getElementById('bWickGreen1')?.value.trim()||'Green 1',document.getElementById('bWickGreen2')?.value.trim()||'Green 2',document.getElementById('bWickGreen3')?.value.trim()||'Green 3'];
    Object.assign(x,{specialPreset:'wick64',gameType:'triples',ends:15,teamCount:64,groupSize:4,manualGroups:16,greensCount:3,rinksPerGreen:6,rinks:18,start:'09:00',minutes:115,changeoverMinutes:5,drawMethod:'manual',eventFormat:'two_day',qualify:'top2',bestRunners:0,autoFillKnockout:false,wickGreenNames:names,wickMainGreen:document.getElementById('bWickMainGreen')?.value.trim()||names[0],day2Start:document.getElementById('bWickDay2Start')?.value||'09:00',wickDay2Gap:Math.max(0,+document.getElementById('bWickDay2Gap')?.value||20)});
@@ -2884,6 +2886,72 @@ function reopenKnockoutRoundStage(ri){
  c.knockoutLiveDrawDone=c.knockoutLiveDrawDone||{};Object.keys(c.knockoutLiveDrawDone).forEach(k=>{if(+k>ri)delete c.knockoutLiveDrawDone[k]});
  saveDB();render()
 }
+
+// ===== Build 157: player-based season rankings =====
+const DEFAULT_RANKING_POINTS={winner:20,runner:15,semi:10,quarter:6,last16:3,group:1};
+let rankingSeasonSelected='';
+function rankingPlayerNames(team,c){
+ let vals=Object.values(team?.players||{}).map(v=>String(v||'').trim()).filter(Boolean);
+ if(vals.length)return [...new Set(vals)];
+ if((c?.settings?.gameType||'')==='singles'){
+  let n=String(team?.name||'').trim();if(n&&!/^Team\s+\d+$/i.test(n))return [n]
+ }
+ return []
+}
+function rankingTeamStageMap(c){
+ let map=new Map();(c.teams||[]).forEach(t=>map.set(String(t.id),{stage:'group',points:DEFAULT_RANKING_POINTS.group,label:'Group stage'}));
+ let rounds=(c.knockout||[]).filter(r=>Array.isArray(r)&&r.length);
+ if(!rounds.length)return map;
+ rounds.forEach((round,ri)=>{
+  let fromFinal=rounds.length-1-ri;
+  let stage=fromFinal===0?'runner':fromFinal===1?'semi':fromFinal===2?'quarter':fromFinal===3?'last16':'last16';
+  let label=fromFinal===0?'Final':fromFinal===1?'Semi-final':fromFinal===2?'Quarter-final':fromFinal===3?'Last 16':(round[0]?.roundName||'Knockout');
+  let pts=stage==='runner'?DEFAULT_RANKING_POINTS.runner:stage==='semi'?DEFAULT_RANKING_POINTS.semi:stage==='quarter'?DEFAULT_RANKING_POINTS.quarter:DEFAULT_RANKING_POINTS.last16;
+  round.forEach(m=>[m.a,m.b].forEach(ref=>{let id=typeof ref==='object'?(ref?.id||ref?.teamId):ref;if(!id)return;let cur=map.get(String(id));if(!cur||pts>cur.points)map.set(String(id),{stage,points:pts,label})}));
+ });
+ let final=rounds[rounds.length-1]?.[0];
+ if(final&&completed(final)){
+  let w=koWinner(final);let id=typeof w==='object'?(w?.id||w?.teamId):w;
+  if(id)map.set(String(id),{stage:'winner',points:DEFAULT_RANKING_POINTS.winner,label:'Winner'});
+ }
+ return map
+}
+function rankingTournamentRows(c){
+ if(!c?.settings?.rankingTournament)return [];
+ let stages=rankingTeamStageMap(c),rows=[];
+ (c.teams||[]).forEach(t=>{
+  let players=rankingPlayerNames(t,c),st=stages.get(String(t.id))||{stage:'group',points:DEFAULT_RANKING_POINTS.group,label:'Group stage'};
+  players.forEach(name=>rows.push({name,team:t.name||'',club:t.clubName||'',points:st.points,stage:st.stage,finish:st.label,event:c.title||'Tournament',eventId:c.id}))
+ });
+ return rows
+}
+function seasonRankingData(season){
+ let events=(db.competitions||[]).filter(c=>c?.settings?.rankingTournament&&String(c.settings.rankingSeason||new Date().getFullYear())===String(season));
+ let byPlayer=new Map();
+ events.forEach(c=>rankingTournamentRows(c).forEach(r=>{
+  let key=r.name.trim().toLocaleLowerCase();if(!key)return;
+  let row=byPlayer.get(key)||{name:r.name,club:r.club||'',events:{},played:0,total:0,wins:0,finals:0,semis:0,bestPoints:-1,bestFinish:''};
+  row.events[r.eventId]={title:r.event,points:r.points,finish:r.finish};row.club=row.club||r.club||'';
+  byPlayer.set(key,row)
+ }));
+ let rows=[...byPlayer.values()];
+ rows.forEach(row=>{
+  let vals=Object.values(row.events);row.played=vals.length;row.total=vals.reduce((a,e)=>a+(+e.points||0),0);row.wins=vals.filter(e=>e.finish==='Winner').length;row.finals=vals.filter(e=>['Winner','Final'].includes(e.finish)).length;row.semis=vals.filter(e=>['Winner','Final','Semi-final'].includes(e.finish)).length;
+  let best=vals.slice().sort((a,b)=>b.points-a.points)[0];row.bestPoints=best?.points||0;row.bestFinish=best?.finish||''
+ });
+ rows.sort((a,b)=>b.total-a.total||b.wins-a.wins||b.finals-a.finals||b.bestPoints-a.bestPoints||a.name.localeCompare(b.name));
+ return {events,rows}
+}
+function renderRankings(s){
+ let seasons=[...new Set((db.competitions||[]).filter(c=>c?.settings?.rankingTournament).map(c=>String(c.settings.rankingSeason||new Date().getFullYear())))].sort().reverse();
+ let currentSeason=String(rankingSeasonSelected||comp()?.settings?.rankingSeason||seasons[0]||new Date().getFullYear());if(!seasons.includes(currentSeason)&&seasons.length)currentSeason=seasons[0];rankingSeasonSelected=currentSeason;
+ let {events,rows}=seasonRankingData(currentSeason),eventCols=events.map((e,i)=>({id:e.id,title:e.title||('Event '+(i+1))}));
+ let missing=events.reduce((n,c)=>n+(c.teams||[]).filter(t=>rankingPlayerNames(t,c).length===0&&String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())).length,0);
+ s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2 style="margin-bottom:4px">Season Rankings</h2><p class="muted" style="margin:0">A separate player performance table built only from tournaments marked as ranking events.</p></div><div class="field" style="min-width:160px"><label>Season</label><select id="rankingSeasonPick">${(seasons.length?seasons:[currentSeason]).map(x=>`<option value="${esc(x)}" ${x===currentSeason?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div><div class="oknotice notice" style="margin-top:12px"><b>Points:</b> Winner 20 • Runner-up 15 • Semi-final 10 • Quarter-final 6 • Last 16 3 • Group stage 1</div>${events.length?`<p class="muted">${events.length} ranking tournament${events.length===1?'':'s'} included: ${events.map(e=>esc(e.title||'Tournament')).join(' • ')}</p>`:'<div class="notice" style="margin-top:12px"><b>No ranking tournaments in this season yet.</b><br>Open Tournament Setup and set <b>Season ranking event</b> to Yes.</div>'}${missing?`<div class="notice" style="margin-top:10px"><b>${missing} team${missing===1?'':'s'} have no player names.</b> Add individual player names under Players / Teams so they can appear in the ranking table.</div>`:''}</div>${rows.length?`<div class="card"><div class="tablewrap"><table><thead><tr><th>Pos</th><th>Player</th><th>Club</th><th>Played</th>${eventCols.map(e=>`<th>${esc(e.title)}</th>`).join('')}<th>Total</th><th>Best Finish</th><th>Wins</th><th>Finals</th><th>SF+</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><b>${i+1}</b></td><td><b>${esc(r.name)}</b></td><td>${esc(r.club||'—')}</td><td>${r.played}</td>${eventCols.map(e=>{let x=r.events[e.id];return `<td>${x?`<b>${x.points}</b><div class="meta">${esc(x.finish)}</div>`:'—'}</td>`}).join('')}<td><b>${r.total}</b></td><td>${esc(r.bestFinish||'—')}</td><td>${r.wins}</td><td>${r.finals}</td><td>${r.semis}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+ let pick=document.getElementById('rankingSeasonPick');if(pick)pick.onchange=()=>{rankingSeasonSelected=pick.value;renderRankings(s)}
+}
+// ===== End season rankings =====
+
 function renderTables(s){
  let lc=comp();
  if((lc.settings.tournamentType||'standard')==='league'){
