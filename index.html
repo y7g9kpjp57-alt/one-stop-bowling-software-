@@ -359,7 +359,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.16.169'; // scorecard print pagination fix; native print sheet handles sharing
+const APP_VERSION='2026.09.16.170'; // scorecard print pagination fix; native print sheet handles sharing
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -2855,16 +2855,16 @@ function prepareScorecardPrint(){
  // Keep both paper sizes portrait for reliable iPhone/AirPrint sizing. A4 uses 2x2; A3 uses 3x3 at roughly the same tall-card proportions.
  let perPage=isA3?9:4,cols=isA3?3:2,rows=isA3?3:2,pageW=isA3?297:210,pageH=isA3?420:297,pageMargin=5,pad=1,gap=3;
  // Keep each generated sheet inside Safari/AirPrint's printable box. The @page margin owns the outer margin; the sheet must not equal the full physical paper height.
- let sheetW=pageW-(pageMargin*2),sheetH=pageH-(pageMargin*2);
+ let sheetW=pageW-(pageMargin*2)-2,sheetH=pageH-(pageMargin*2)-6;
  let usableH=sheetH-(pad*2)-(gap*(rows-1)),cardH=usableH/rows;
  let pages=[];for(let i=0;i<cards.length;i+=perPage)pages.push(cards.slice(i,i+perPage));
  let css=`
   @page{size:${paper} portrait;margin:${pageMargin}mm}
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif}
-  .sheet{width:${sheetW}mm;height:${sheetH}mm;padding:${pad}mm;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);gap:${gap}mm;overflow:hidden;break-after:page;page-break-after:always}
-  .sheet:last-child{break-after:auto;page-break-after:auto}
-  .scorecard{width:100%;height:100%;min-height:0;overflow:hidden;background:#fff;display:flex;flex-direction:column;border:1.5px solid #111;padding:2.2mm;break-inside:avoid;page-break-inside:avoid;color:#111}
+  .sheet{width:${sheetW}mm;height:${sheetH}mm;padding:${pad}mm;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);gap:${gap}mm;overflow:hidden;break-after:auto;page-break-after:auto}
+  .sheet + .sheet{break-before:page;page-break-before:always}
+    .scorecard{width:100%;height:100%;min-height:0;overflow:hidden;background:#fff;display:flex;flex-direction:column;border:1.5px solid #111;padding:2.2mm;break-inside:avoid;page-break-inside:avoid;color:#111}
   .scorecard-title{text-align:center;font-size:10px;font-weight:800;border:1.5px solid #111;padding:1.2mm;margin-bottom:1.2mm;text-transform:uppercase}
   .scorecard-info{display:grid;grid-template-columns:1fr 1fr;gap:.8mm 3mm;font-size:6.8px;margin-bottom:1mm;line-height:1.1}
   .scorecard-info div{border-bottom:1px dotted #333;min-height:3.4mm}
@@ -2882,7 +2882,7 @@ function prepareScorecardPrint(){
   .print-toolbar .back{background:#fff;color:#073b59}.print-toolbar .print{background:#0b79b2;color:#fff;border:1px solid #fff}
   .paper-note{font-size:13px;font-weight:700}
   @media screen{body{background:#d7dce2;padding:0 8px 8px}.sheet{margin:8px auto 10px;box-shadow:0 2px 12px #777;transform-origin:top center}}
-  @media print{html,body{margin:0!important;padding:0!important;width:auto!important;height:auto!important}.print-toolbar{display:none!important}.sheet{margin:0!important;box-shadow:none!important}.sheet:last-of-type{break-after:auto!important;page-break-after:auto!important}}
+  @media print{html,body{margin:0!important;padding:0!important;width:auto!important;height:auto!important}.print-toolbar{display:none!important}.sheet{margin:0!important;box-shadow:none!important}.sheet{break-after:auto!important;page-break-after:auto!important}.sheet + .sheet{break-before:page!important;page-break-before:always!important}}
  `;
  let note=paper+' • '+perPage+' tall scorecards per sheet • portrait';
  let html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(c.title)+' - Scorecards</title><style>'+css+'</style></head><body><div class="print-toolbar"><button class="back" onclick="if(window.opener&&!window.opener.closed){window.close()}else if(history.length>1){history.back()}else{window.close()}">← Back to App</button><span class="paper-note">'+note+'</span><button class="print" onclick="window.print()">🖨 Print / Share / Save PDF</button></div>'+pages.map(pg=>'<section class="sheet">'+pg.join('')+'</section>').join('')+'<script>async function shareScorecards(){try{const clone=document.documentElement.cloneNode(true);clone.querySelectorAll(\'.print-toolbar,script\').forEach(x=>x.remove());const content=\'<!doctype html>\'+clone.outerHTML;const file=new File([content],\'one-stop-bowling-scorecards.html\',{type:\'text/html\'});if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){await navigator.share({title:document.title,files:[file]});return}if(navigator.share){await navigator.share({title:document.title,text:\'One Stop Bowling scorecards\'});return}alert(\'Sharing is not available in this browser. Use Print / Save PDF instead.\')}catch(e){if(e&&e.name!==\'AbortError\')alert(\'Could not open sharing. Use Print / Save PDF instead.\')}}<\\/script></body></html>';
