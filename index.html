@@ -1601,7 +1601,11 @@ function baseQualifiers(c=comp()){
   groups.forEach(g=>{let rows=st[g]||[];if(rows[1])out.push({...rows[1],group:g,pos:2,qualificationType:'automatic'})});
  }else if(mode==='winner_best_runner'&&best>0){
   let runners=groups.map(g=>{let r=(st[g]||[])[1];return r?{...r,group:g,pos:2,qualificationType:'best-runner'}:null}).filter(Boolean);
-  runners.sort((a,b)=>compareStandingRows(c,a,b));
+  // Uneven groups must not reward a runner-up simply for having played more games.
+  // Compare points percentage first, then shot difference per game, then shots scored per game.
+  const runnerRate=(r,key)=>r.p>0?(+r[key]||0)/r.p:0;
+  const runnerPtsPct=r=>{let maxPts=Math.max(1,(+c.settings?.winPts||2)*Math.max(0,+r.p||0));return maxPts?((+r.pts||0)/maxPts):0};
+  runners.sort((a,b)=>runnerPtsPct(b)-runnerPtsPct(a)||runnerRate(b,'sd')-runnerRate(a,'sd')||runnerRate(b,'sf')-runnerRate(a,'sf')||compareStandingRows(c,a,b));
   out.push(...runners.slice(0,best));
  }
  return out;
@@ -1859,9 +1863,9 @@ function updatePlanner(){
   let groupSummaryParts=Object.entries(groupCounts).sort((a,b)=>+b[0]-+a[0]).map(([size,count])=>`${count} group${count===1?'':'s'} of ${size}`);
   let groupSummary=`${p.sizes.length} group${p.sizes.length===1?'':'s'}: ${groupSummaryParts.join(' and ')}`;
   let koText=(p.koRounds||[]).map(r=>r.name).join(' → ')||'No knockout';
-  let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=rec.dayLast8?`Day-tournament target: ${p.sizes.length} group winners + ${rec.recommendedBest} best runner${rec.recommendedBest===1?'':'s'} = 8 qualifiers for a straight quarter-final.`:(cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`);
+  let cleanKo=isStandardKnockoutSize(p.qualifiers),targetKo=nextStandardKnockoutSize(p.qualifiers),koAdvice=rec.dayLast4?`Recommended: ${p.sizes.length} group winners + 1 best runner-up = 4 qualifiers for a straight semi-final. Best runner-up is ranked fairly across uneven groups by points percentage, then shot difference per game, then shots scored per game.`:rec.dayLast8?`Day-tournament target: ${p.sizes.length} group winners + ${rec.recommendedBest} best runner${rec.recommendedBest===1?'':'s'} = 8 qualifiers for a straight quarter-final.`:(cleanKo?`Clean ${p.qualifiers}-team knockout — no balancing needed.`:`${p.qualifiers} normal qualifiers; automatic balancing can fill to ${targetKo}.`);
   let selectedGame=document.getElementById('bGame')?.value||'rinks',singles=selectedGame==='singles',recommendedGameMinutes=suggestedGameMinutes(selectedGame,v.ends);
-  box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>${singles?'Singles planning allowance':'Recommended minutes per game'}:</b> ${recommendedGameMinutes} minutes <span class="muted">${(document.getElementById('bShortMat')?.value==='yes')?`(Short Mat: ${v.ends} ends • ${formatTimingRate(suggestedGameRate(selectedGame,true))} • rounded up to nearest 5)`: `(${v.ends} ends × ${suggestedGameRate(selectedGame,false)} min per end, rounded up to nearest 5)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Playing capacity:</b> ${v.greens} green${v.greens===1?'':'s'} × ${v.rinksPerGreen} rinks = <b>${v.r} concurrent rinks</b></p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p>${v.lunchEnabled?`<p class="oknotice"><b>Lunch included:</b> ${v.lunchStart} for ${v.lunchMinutes} minutes. Finish estimates have been adjusted.</p>`:''}<div class="${cleanKo||rec.dayLast8?'oknotice':'notice'}"><b>${rec.dayLast8?'Same-day knockout recommendation':'Knockout fit'}:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated tournament finish:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
+  box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>${singles?'Singles planning allowance':'Recommended minutes per game'}:</b> ${recommendedGameMinutes} minutes <span class="muted">${(document.getElementById('bShortMat')?.value==='yes')?`(Short Mat: ${v.ends} ends • ${formatTimingRate(suggestedGameRate(selectedGame,true))} • rounded up to nearest 5)`: `(${v.ends} ends × ${suggestedGameRate(selectedGame,false)} min per end, rounded up to nearest 5)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${rec.g}</b><span>Recommended group size</span></div><div class="kpi"><b>${p.sizes.length}</b><span>Groups</span></div><div class="kpi"><b>${p.groupGames}</b><span>Group games</span></div><div class="kpi"><b>${p.util}%</b><span>Rink utilisation</span></div></div><p><b>Group sizes:</b> ${groupSummary}</p><p class="muted" style="margin-top:-5px"><b>Exact split:</b> ${groupText}</p><p><b>Playing capacity:</b> ${v.greens} green${v.greens===1?'':'s'} × ${v.rinksPerGreen} rinks = <b>${v.r} concurrent rinks</b></p><p><b>Group stage finish:</b> ${p.groupFinish} &nbsp; • &nbsp; <b>Qualifiers:</b> ${p.qualifiers}</p>${v.lunchEnabled?`<p class="oknotice"><b>Lunch included:</b> ${v.lunchStart} for ${v.lunchMinutes} minutes. Finish estimates have been adjusted.</p>`:''}<div class="${cleanKo||rec.dayLast8||rec.dayLast4?'oknotice':'notice'}"><b>${rec.dayLast8||rec.dayLast4?'Same-day knockout recommendation':'Knockout fit'}:</b> ${koAdvice}</div><p><b>Knockout:</b> ${koText}</p><p><b>Estimated tournament finish:</b> ${p.finalFinish} &nbsp; • &nbsp; <b>Back-to-back games:</b> ${p.backToBack||0}</p>${p.spare?`<p class="muted">Unused rink slots across group sessions: ${p.spare}</p>`:''}${!ok?`<div class="notice"><b>Target warning:</b> this setup is estimated to run ${Math.max(p.overBy||0,p.day1OverBy||0)} minutes beyond a target. Try Shortest Day, fewer/larger groups, more rinks or shorter games.</div>`:''}`;
  }
  // Keep typing responsive on phones. Heavy planner work is separated from
  // the user's tap/change so Safari can paint the selection immediately.
@@ -2351,8 +2355,11 @@ function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners
   // Build 120: for a one-day event with a substantial field, prefer to leave the groups
   // with exactly 8 qualifiers wherever the number of groups makes that practical.
   let dayLast8=eventFormat!=='two_day'&&n>=16&&groupCount<=8;
-  let recQualify=dayLast8?'winner_best_runner':qualify;
-  let recBest=dayLast8?Math.max(0,8-groupCount):bestRunners;
+  // For three groups, recommend the clean four-team route: three group winners
+  // plus one best runner-up, then straight to Semi-finals (not a Quarter-final).
+  let dayLast4=eventFormat!=='two_day'&&groupCount===3;
+  let recQualify=(dayLast8||dayLast4)?'winner_best_runner':qualify;
+  let recBest=dayLast8?Math.max(0,8-groupCount):(dayLast4?1:bestRunners);
   let p=fullTournamentPlan(n,g,rinks,minutes,koMinutes,start,target,recQualify,recBest,eventFormat,day1Target,day2Start,lunchEnabled,lunchStart,lunchMinutes),
       min=Math.min(...p.sizes),max=Math.max(...p.sizes),avg=n/p.sizes.length;
   if(min<3&&n>=3)continue;
@@ -2377,7 +2384,7 @@ function groupOptions(n,rinks,minutes,koMinutes,start,target,qualify,bestRunners
   if(mode==='shortest')score=structurePenalty+evenPenalty+latePenalty+p.totalSessions*850+(100-p.util)*2+bracketPenalty+last8Penalty;
   else if(mode==='games')score=structurePenalty+evenPenalty+latePenalty-p.groupGames*250+p.totalSessions*10+(100-p.util)+bracketPenalty+last8Penalty;
   else score=structurePenalty+evenPenalty+latePenalty+extraGamesPenalty+(100-p.util)*.4+p.totalSessions*2+p.backToBack*.5+bracketPenalty+last8Penalty;
-  candidates.push({g,p,score,structureClass,preferredDistance,cleanBracket:clean,bracketFill,practical:allPractical,sweet:allSweet,recommendedQualify:recQualify,recommendedBest:recBest,recommendedAutoFill:dayLast8?false:null,dayLast8});
+  candidates.push({g,p,score,structureClass,preferredDistance,cleanBracket:clean,bracketFill,practical:allPractical,sweet:allSweet,recommendedQualify:recQualify,recommendedBest:recBest,recommendedAutoFill:(dayLast8||dayLast4)?false:null,dayLast8,dayLast4});
  }
  return candidates.sort((a,b)=>a.structureClass-b.structureClass||a.preferredDistance-b.preferredDistance||a.score-b.score||Number(b.cleanBracket)-Number(a.cleanBracket)||a.bracketFill-b.bracketFill||a.p.totalSessions-b.p.totalSessions||b.p.util-a.p.util);
 }
