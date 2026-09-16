@@ -359,7 +359,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.16.161'; // adds visible cloud sync diagnostics while preserving queued local changes
+const APP_VERSION='2026.09.16.162'; // adds visible cloud sync diagnostics while preserving queued local changes
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -2822,7 +2822,25 @@ function prepareScorecardPrint(){
  g.classList.remove('print-4','print-6','print-8');
  let ends=scoringEnds(comp());
  g.classList.add(ends<=12?'print-8':ends<=18?'print-6':'print-4');
- setTimeout(()=>window.print(),50);
+ document.body.classList.add('printing-scorecards');
+ let style=document.getElementById('scorecardPrintLandscape');
+ if(!style){
+  style=document.createElement('style');style.id='scorecardPrintLandscape';
+  style.textContent=`@media print{
+   @page{size:A4 landscape;margin:6mm}
+   body.printing-scorecards .scorecards-grid{display:grid!important;align-items:start;gap:3mm!important}
+   body.printing-scorecards .scorecard{box-sizing:border-box!important;height:auto!important;max-height:186mm!important;overflow:hidden!important;break-inside:avoid!important;page-break-inside:avoid!important;break-after:auto!important}
+   body.printing-scorecards .scorecards-grid.print-8{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+   body.printing-scorecards .scorecards-grid.print-6{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+   body.printing-scorecards .scorecards-grid.print-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+   body.printing-scorecards .scorecards-grid.print-4 .scorecard{padding:2.5mm!important}
+   body.printing-scorecards .scorecards-grid.print-4 .score-table tr{height:6.2mm!important}
+  }`;
+  document.head.appendChild(style);
+ }
+ let cleanup=()=>document.body.classList.remove('printing-scorecards');
+ window.addEventListener('afterprint',cleanup,{once:true});
+ setTimeout(()=>window.print(),80);
 }
 
 function matchSideInfo(c=comp()){
@@ -2851,7 +2869,7 @@ function renderScorecards(s){let c=comp(),tt=(c.settings.tournamentType||'standa
  let fs=tt==='knockout'?(c.knockout||[]).flat().map(m=>({...m,game:m.label||'',group:m.roundName||'Knockout'})):c.fixtures;
  if(!fs.length){s.innerHTML=`<div class="card"><h2>Scorecards</h2><p>${tt==='knockout'?'Generate the knockout draw first.':'Generate the draw and rink schedule first.'}</p></div>`;return}
  let desc=tt==='knockout'?'Two portrait scorecards per knockout match — one for each team, with the second card mirrored. Later rounds show the winning-source labels until the teams are known.':'Two portrait scorecards per scheduled game — Team A v Team B and a mirrored Team B v Team A card.';
- s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} A3 landscape automatically fits 8, 6 or 4 cards per sheet depending on the number of ends.</p><div class="scorecard-actions"><button class="btn primary" id="printCards">Print ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${fs.map(f=>scorecardCard(f,false,false)+scorecardCard(f,false,true)).join('')}</div>`;
+ s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} A4 landscape keeps each scorecard together and automatically adjusts the number of cards across the sheet depending on the number of ends.</p><div class="scorecard-actions"><button class="btn primary" id="printCards">Print ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${fs.map(f=>scorecardCard(f,false,false)+scorecardCard(f,false,true)).join('')}</div>`;
  document.getElementById('printCards').onclick=prepareScorecardPrint;
  document.getElementById('showBlanks').onclick=()=>{document.getElementById('cardsGrid').innerHTML=Array.from({length:4},()=>scorecardCard({game:'',group:'',start:'',rink:'',a:'',b:''},true)).join('');document.getElementById('printCards').textContent='Print Blank Scorecards'}
 }
