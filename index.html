@@ -359,7 +359,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.16.159'; // ranking seasons now support editable October-to-February date ranges
+const APP_VERSION='2026.09.16.160'; // adds manual Sync Now control for queued cloud changes
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -924,7 +924,29 @@ async function completeAndArchive(){
 }
 
 
-function setSyncNotice(msg,ok){let el=document.getElementById('syncNotice');if(!el)return;el.textContent=msg;el.classList.toggle('oknotice',!!ok)}
+function setSyncNotice(msg,ok){
+ let el=document.getElementById('syncNotice');if(!el)return;
+ el.replaceChildren();
+ let text=document.createElement('span');text.textContent=msg;el.appendChild(text);
+ el.classList.toggle('oknotice',!!ok);
+ let needsSync=offlinePendingCount()>0||/sync failed|unsynced|change waiting/i.test(String(msg||''));
+ if(needsSync&&navigator.onLine){
+  let btn=document.createElement('button');btn.type='button';btn.className='btn secondary';btn.textContent=offlineSyncBusy?'Syncing…':'🔄 Sync Now';btn.disabled=offlineSyncBusy;
+  btn.style.cssText='margin-left:10px;padding:7px 12px;min-height:auto;font-size:14px;vertical-align:middle';
+  btn.onclick=async()=>{btn.disabled=true;btn.textContent='Syncing…';let ok=await syncNow();if(!ok&&offlinePendingCount()){btn.disabled=false;btn.textContent='🔄 Sync Now'}};
+  el.appendChild(btn);
+ }
+}
+async function syncNow(){
+ if(!navigator.onLine){updateConnectivityNotice();appToast('You are offline. Your change is still saved on this device.','warn');return false}
+ if(!offlineQueueEntry()){
+  let ok=await pushRemoteTournament();if(ok){setSyncNotice(`Synced • all changes saved online • Build ${APP_VERSION}`,true);appToast('Tournament synced successfully.','success')}return !!ok
+ }
+ let ok=await flushOfflineQueue();
+ if(ok){appToast('Tournament synced successfully.','success');return true}
+ if(offlinePendingCount())appAlert('The change is still safely stored on this device and has not been deleted. Please keep your backup file. You can retry Sync Now.','Sync not completed');
+ return false
+}
 function updateAccountButton(){let b=document.getElementById('accountBtn');if(!b)return;b.textContent=currentUser?(currentUser.email||'Account'):'Sign in';b.title=currentUser?`${currentAppRole} account • tap to sign out`:'Sign in / create account • new accounts start with Public View'}
 async function loadCurrentProfile(){
  if(!cloud||!currentUser){currentAppRole='public';currentClubs=[];updateAccountButton();return}
@@ -2006,7 +2028,7 @@ function updatePlanner(){
   if(type.value==='aggregate'){x.aggregateSideA=document.getElementById('bSideA').value.trim()||'Side A';x.aggregateSideB=document.getElementById('bSideB').value.trim()||'Side B';x.aggregateRinks=Math.max(1,+document.getElementById('bAggRinks').value||6);ensureAggregate(c)}
   else if(type.value!=='wick64'&&type.value!=='league'){let v=plannerValues(),oldCount=c.teams.length,oldGroup=+x.groupSize||4,oldDraw=x.drawMethod;x.teamCount=v.n;x.groupSize=Math.max(3,+document.getElementById('bGroup').value||4);x.greensCount=v.greens;x.rinksPerGreen=v.rinksPerGreen;x.rinks=v.r;x.start=v.start;x.minutes=v.m;x.changeoverMinutes=v.buffer;x.lunchEnabled=v.lunchEnabled;x.lunchStart=v.lunchStart;x.lunchMinutes=v.lunchMinutes;x.knockoutMinutes=v.koManual?v.km:v.m;x.knockoutMinutesManual=v.koManual;x.teamIdentifierMode=document.getElementById('bTeamIdentifier')?.value||'home_away';x.drawMethod=document.getElementById('bDraw').value;x.eventFormat=v.event;x.targetFinish=v.target;x.optimise=v.mode;x.qualify=v.qualify;x.bestRunners=v.best;x.autoFillKnockout=v.autoFill;x.day1TargetFinish=v.day1;x.day2Start=v.day2;
    if(oldCount<x.teamCount){for(let i=oldCount;i<x.teamCount;i++)c.teams.push({id:'t'+(i+1),name:'Team '+(i+1),group:'',players:{}})}else if(oldCount>x.teamCount)c.teams=c.teams.slice(0,x.teamCount);
-   if(oldCount!==x.teamCount||oldGroup!==x.groupSize||oldDraw!==x.drawMethod||oldTournamentType!==x.tournamentType){c.teams.forEach(t=>t.group='');c.fixtures=[];c.knockout=[];c.knockoutByes=[];c.manualHistory=[];c.manualDrawConfirmed=false}else if(c.fixtures?.length){c.fixtures.forEach(f=>f.start=sessionStartTime(c,+f.session||1))}
+   let exactSizes=Array.isArray(x.recommendedGroupSizes)?x.recommendedGroupSizes.map(Number).filter(z=>Number.isFinite(z)&&z>0):[];let exactValid=exactSizes.length&&exactSizes.reduce((a,b)=>a+b,0)===x.teamCount;let currentCounts=Object.values(c.teams.reduce((m,t)=>{if(t.group)m[t.group]=(m[t.group]||0)+1;return m},{})).sort((a,b)=>b-a);let wantedCounts=exactValid?[...exactSizes].sort((a,b)=>b-a):[];let splitMismatch=exactValid&&c.teams.some(t=>t.group)&&JSON.stringify(currentCounts)!==JSON.stringify(wantedCounts);if(oldCount!==x.teamCount||oldGroup!==x.groupSize||oldDraw!==x.drawMethod||oldTournamentType!==x.tournamentType||splitMismatch){c.teams.forEach(t=>t.group='');c.fixtures=[];c.knockout=[];c.knockoutByes=[];c.manualHistory=[];c.manualDrawConfirmed=false}else if(c.fixtures?.length){c.fixtures.forEach(f=>f.start=sessionStartTime(c,+f.session||1))}
   }
   setupDirty=false;saveDB();tab='teams';render();showSavedIndicator()
  };
@@ -2564,7 +2586,7 @@ function renderTeams(s){
  document.getElementById('saveTeams').onclick=()=>{document.querySelectorAll('[data-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.team);if(t)t.name=i.value.trim()||t.name});document.querySelectorAll('[data-team-club]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.teamClub);if(t)t.clubName=i.value.trim()});document.querySelectorAll('[data-player-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.playerTeam);if(t){t.players=t.players||{};t.players[i.dataset.playerPos]=i.value.trim()}});saveDB();tab='draw';render();showSavedIndicator()}
 }
 
-function manualGroupLetters(c=comp()){let count=(c.settings.tournamentType||'standard')==='wick64'?16:Math.max(1,Math.min(20,+c.settings.manualGroups||Math.ceil(c.teams.length/Math.max(1,c.settings.groupSize||4))));return Array.from({length:count},(_,i)=>String.fromCharCode(65+i))}
+function manualGroupLetters(c=comp()){let saved=Array.isArray(c.settings.recommendedGroupSizes)?c.settings.recommendedGroupSizes.map(Number).filter(z=>Number.isFinite(z)&&z>0):[];let exact=saved.length&&saved.reduce((a,b)=>a+b,0)===c.teams.length?saved:null;let count=(c.settings.tournamentType||'standard')==='wick64'?16:(exact?exact.length:Math.max(1,Math.min(20,+c.settings.manualGroups||Math.ceil(c.teams.length/Math.max(1,c.settings.groupSize||4)))));return Array.from({length:count},(_,i)=>String.fromCharCode(65+i))}
 function assignManualGroup(teamId,group){let c=comp(),t=c.teams.find(x=>x.id===teamId);if(!t)return;let from=t.group||'',fromPos=t.drawPos||null;if(from===group&&group)return;if((c.settings.tournamentType||'standard')==='wick64'&&group){let used=new Set(c.teams.filter(x=>x.id!==teamId&&x.group===group).map(x=>+x.drawPos).filter(Boolean)),pos=[1,2,3,4].find(p=>!used.has(p));if(!pos)return appAlert('Group '+group+' already has four teams.');t.drawPos=pos}else if(!group)t.drawPos=null;c.manualHistory=c.manualHistory||[];c.manualHistory.push({teamId,from,fromPos,to:group,toPos:t.drawPos||null});t.group=group;c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
 function undoManualDraw(){let c=comp(),h=(c.manualHistory||[]).pop();if(!h)return;let t=c.teams.find(x=>x.id===h.teamId);if(t){t.group=h.from||'';t.drawPos=h.fromPos||null}c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
 function clearManualDraw(){let c=comp();c.teams.forEach(t=>{t.group='';t.drawPos=null});c.manualHistory=[];c.fixtures=[];c.knockout=[];c.manualDrawConfirmed=false;saveDB()}
