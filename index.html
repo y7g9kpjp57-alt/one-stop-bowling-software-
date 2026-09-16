@@ -1895,6 +1895,7 @@ function updatePlanner(){
   s.dataset.setupDirtyBound='1';
  }
  let endsInput=document.getElementById('bEnds'),gameMinutesInput=document.getElementById('bMinutes'),koMinutesInput=document.getElementById('bKoMinutes'),gameTypeInput=document.getElementById('bGame'),shortMatInput=document.getElementById('bShortMat');
+ let groupSizeInput=document.getElementById('bGroup');if(groupSizeInput)groupSizeInput.addEventListener('input',()=>{x.recommendedGroupSizes=[]});
  let greensInput=document.getElementById('bGreens'),rinksPerGreenInput=document.getElementById('bRinksPerGreen'),totalRinksInput=document.getElementById('bRinks');
  const capacityValue=(el,min,max)=>{
   if(!el||String(el.value).trim()==='')return null;
@@ -1985,7 +1986,7 @@ function updatePlanner(){
   bestRunnersInput.addEventListener('change',deferPlannerUpdate);
   bestRunnersInput.addEventListener('blur',deferPlannerUpdate);
  }
- document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}setupDirty=true;updatePlanner()};
+ document.getElementById('useRecommendation').onclick=()=>{if(!latestRec)return;document.getElementById('bGroup').value=latestRec.g;if(latestRec.p?.sizes?.length){x.recommendedGroupSizes=[...latestRec.p.sizes];x.manualGroups=latestRec.p.sizes.length;}if(latestRec.recommendedQualify){document.getElementById('bQualify').value=latestRec.recommendedQualify;document.getElementById('bBestRunners').value=latestRec.recommendedBest??0;if(latestRec.recommendedAutoFill===false)document.getElementById('bAutoFillKo').value='no'}if(gameTypeInput?.value!=='singles'&&latestRec.recommendedMinutes){document.getElementById('bMinutes').value=latestRec.recommendedMinutes;if(koMinutesInput&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=latestRec.recommendedMinutes}setupDirty=true;updatePlanner()};
 
  document.getElementById('saveBuilder').onclick=()=>{
   if(type.value==='league'&&!resizeLeagueTeams(c,Number(document.getElementById('bLeagueTeams').value)))return;
@@ -2221,7 +2222,7 @@ function generateDraw(){
  let c=comp(),x=c.settings;
  if(isAggregate(c))return false;
  let n=c.teams.length;if(n<2){appAlert('Add at least 2 teams first.');return false}
- let preferred=Math.max(2,+x.groupSize||4),sizes=balancedSizes(n,preferred),pool=[...c.teams];
+ let preferred=Math.max(2,+x.groupSize||4),savedSizes=Array.isArray(x.recommendedGroupSizes)?x.recommendedGroupSizes.map(Number).filter(z=>Number.isFinite(z)&&z>0):[],sizes=(savedSizes.length&&savedSizes.reduce((a,b)=>a+b,0)===n)?savedSizes:balancedSizes(n,preferred),pool=[...c.teams];
  for(let i=pool.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
  c.teams.forEach(t=>t.group='');
  let pos=0;
