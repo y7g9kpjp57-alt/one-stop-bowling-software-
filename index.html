@@ -2855,15 +2855,15 @@ function prepareScorecardPrint(){
  // Keep both paper sizes portrait for reliable iPhone/AirPrint sizing. A4 uses 2x2; A3 uses 3x3 at roughly the same tall-card proportions.
  let perPage=isA3?9:4,cols=isA3?3:2,rows=isA3?3:2,pageW=isA3?297:210,pageH=isA3?420:297,pageMargin=5,pad=1,gap=3;
  // Keep each generated sheet inside Safari/AirPrint's printable box. The @page margin owns the outer margin; the sheet must not equal the full physical paper height.
- let sheetW=pageW-(pageMargin*2)-2,sheetH=pageH-(pageMargin*2)-6;
+ let sheetW=pageW-(pageMargin*2)-6,sheetH=pageH-(pageMargin*2)-18;
  let usableH=sheetH-(pad*2)-(gap*(rows-1)),cardH=usableH/rows;
  let pages=[];for(let i=0;i<cards.length;i+=perPage)pages.push(cards.slice(i,i+perPage));
  let css=`
   @page{size:${paper} portrait;margin:${pageMargin}mm}
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif}
-  .sheet{width:${sheetW}mm;height:${sheetH}mm;padding:${pad}mm;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);gap:${gap}mm;overflow:hidden;break-after:auto;page-break-after:auto}
-  .sheet + .sheet{break-before:page;page-break-before:always}
+  .sheet{width:${sheetW}mm;height:${sheetH}mm;max-height:${sheetH}mm;padding:${pad}mm;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);gap:${gap}mm;overflow:hidden;break-after:auto;page-break-after:auto}
+  .sheet + .sheet{break-before:page;page-break-before:always}.sheet:last-of-type{break-after:auto!important;page-break-after:auto!important}
     .scorecard{width:100%;height:100%;min-height:0;overflow:hidden;background:#fff;display:flex;flex-direction:column;border:1.5px solid #111;padding:2.2mm;break-inside:avoid;page-break-inside:avoid;color:#111}
   .scorecard-title{text-align:center;font-size:10px;font-weight:800;border:1.5px solid #111;padding:1.2mm;margin-bottom:1.2mm;text-transform:uppercase}
   .scorecard-info{display:grid;grid-template-columns:1fr 1fr;gap:.8mm 3mm;font-size:6.8px;margin-bottom:1mm;line-height:1.1}
