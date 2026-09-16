@@ -359,7 +359,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.16.165'; // adds visible cloud sync diagnostics while preserving queued local changes
+const APP_VERSION='2026.09.16.166'; // adds visible cloud sync diagnostics while preserving queued local changes
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -604,6 +604,9 @@ function startRemoteRefresh(){
  remoteRefreshTimer=setInterval(refreshRemoteTournament,60000);
 }
 async function openTournamentByCode(code=null){
+ // Preserve the user's current working view when switching tournaments.
+ // Only fall back to Public View if that role is not permitted on the tournament being opened.
+ const openingRole=role,openingTab=tab;
  code=(code||prompt('Enter tournament code')||'').trim().toUpperCase();if(!code)return false;
  let {data,error}=await cloud.rpc('bowls_get_tournament_by_code_v2',{p_code:code});
  if(error){appAlert(error.message);return false}
@@ -622,8 +625,17 @@ async function openTournamentByCode(code=null){
  if(inviteJoin==='scorer'&&currentUser&&access==='public'){
   let req=await cloud.rpc('bowls_request_join',{p_code:row.code});
   if(!req.error){access='pending';setRemoteTournament(row.id,row.code,access);setTimeout(()=>appAlert('Scorer access requested. The organiser must approve you before you can enter scores.'),250)}
- }startRemoteRefresh();role='public';tab='dashboard';setTournamentNotice();render();
- if(access==='pending')appAlert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
+ }
+ startRemoteRefresh();
+ if(roleAllowed(openingRole)){
+  role=openingRole;
+  tab=openingTab;
+ }else{
+  role='public';
+  tab='dashboard';
+ }
+ setTournamentNotice();render();
+ if(access==='pending'&&role==='public')appAlert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
  return true;
 }
 
