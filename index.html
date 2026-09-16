@@ -348,6 +348,7 @@ body.home-mode .home-current{margin-bottom:8px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // Build 153: cloud revision guard protects concurrent edits from silent overwrite.
 // ===== Build 138 / UI feedback module =====
@@ -358,7 +359,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.16.157'; // player-based season rankings; ranking tournaments selectable in setup
+const APP_VERSION='2026.09.16.158'; // Excel/CSV team and player import with preview and template download
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
@@ -2392,6 +2393,80 @@ function roundRobin(teams){let list=[...teams];if(list.length%2)list.push(null);
 function addMinutes(t,m){let [h,mi]=t.split(':').map(Number),tot=h*60+mi+m;return String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0')}
 function teamName(id,c=comp()){if(id&&typeof id==='object')return id.name||teamName(id.id,c);let v=String(id??'');let t=c.teams.find(t=>String(t.id)===v)||c.teams.find(t=>String(t.name)===v);if(t)return t.name;if(/^t\d+$/i.test(v)){let n=parseInt(v.replace(/\D/g,''),10);return c.teams[n-1]?.name||v}if(/^\d+$/.test(v)){let n=parseInt(v,10);return c.teams[n-1]?.name||v}return v||'TBC'}
 function fixtureTeamName(f,side,c=comp()){let id=side==='a'?f.a:f.b,stored=side==='a'?f.nameA:f.nameB,v=String(id??''),found=c.teams.find(t=>String(t.id)===v)||c.teams.find(t=>String(t.name)===v);if(found)return found.name;if(stored)return stored;return teamName(id,c)||'TBC'}
+function normaliseImportHeader(v){return String(v??'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ' ).trim()}
+function importCell(row,aliases){
+ let keys=Object.keys(row||{}),wanted=aliases.map(normaliseImportHeader);
+ for(let k of keys){if(wanted.includes(normaliseImportHeader(k))){let v=row[k];return v==null?'':String(v).trim()}}
+ return ''
+}
+function parseTeamImportRows(rows,c=comp()){
+ let positions=playerPositions(c.settings.gameType||'rinks'),out=[];
+ (rows||[]).forEach((row,idx)=>{
+  if(!row||typeof row!=='object')return;
+  let team=importCell(row,['Team','Team Name','TeamName','Entry','Entry Name','Side','Side Name']);
+  let club=importCell(row,['Club','Club Name','ClubName']);
+  let generic=[1,2,3,4].map(n=>importCell(row,[`Player ${n}`,`Player${n}`,`Player_${n}`,`P${n}`]));
+  let named={
+   lead:importCell(row,['Lead','Lead Player']),
+   second:importCell(row,['Second','2nd','Second Player']),
+   third:importCell(row,['Third','3rd','Third Player']),
+   skip:importCell(row,['Skip','Skip Player']),
+   player:importCell(row,['Player','Singles Player','Name'])
+  };
+  let players=[];
+  if((c.settings.gameType||'rinks')==='singles')players=[generic[0]||named.player||named.lead||named.skip];
+  else if((c.settings.gameType||'rinks')==='pairs')players=[generic[0]||named.lead,generic[1]||named.skip];
+  else if((c.settings.gameType||'rinks')==='triples')players=[generic[0]||named.lead,generic[1]||named.second,generic[2]||named.skip];
+  else players=[generic[0]||named.lead,generic[1]||named.second,generic[2]||named.third,generic[3]||named.skip];
+  if(!team)team=players.find(Boolean)||'';
+  if(!team&&!club&&!players.some(Boolean))return;
+  out.push({row:idx+2,name:team||`Team ${out.length+1}`,clubName:club,players:Object.fromEntries(players.map((v,i)=>[i,v||''])),positions});
+ });
+ return out
+}
+function csvToRows(text){
+ let rows=[],row=[],cell='',quoted=false;
+ for(let i=0;i<text.length;i++){
+  let ch=text[i];
+  if(quoted){if(ch==='"'&&text[i+1]==='"'){cell+='"';i++}else if(ch==='"')quoted=false;else cell+=ch}
+  else if(ch==='"')quoted=true;
+  else if(ch===','){row.push(cell);cell=''}
+  else if(ch==='\n'){row.push(cell);rows.push(row);row=[];cell=''}
+  else if(ch!=='\r')cell+=ch;
+ }
+ row.push(cell);if(row.some(v=>String(v).trim()))rows.push(row);
+ if(!rows.length)return [];
+ let heads=rows[0].map(h=>String(h).trim());
+ return rows.slice(1).map(r=>Object.fromEntries(heads.map((h,i)=>[h,r[i]??''])))
+}
+async function readTeamImportFile(file){
+ let ext=(file?.name||'').toLowerCase().split('.').pop();
+ if(ext==='csv')return csvToRows(await file.text());
+ if(!window.XLSX)throw new Error('Excel reader did not load. Check your internet connection or use CSV.');
+ let buf=await file.arrayBuffer(),wb=XLSX.read(buf,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]];
+ return XLSX.utils.sheet_to_json(ws,{defval:'',raw:false})
+}
+function showTeamImportPreview(imported,c=comp()){
+ let existing=document.getElementById('teamImportPreview');if(existing)existing.remove();
+ let card=document.createElement('div');card.id='teamImportPreview';card.className='card';
+ let positions=playerPositions(c.settings.gameType||'rinks');
+ card.innerHTML=`<h2>Check imported teams</h2><p class="muted">${imported.length} team${imported.length===1?'':'s'} found. Nothing will change until you confirm.</p><div style="overflow:auto"><table><thead><tr><th>#</th><th>Team</th><th>Club</th>${positions.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${imported.map((t,i)=>`<tr><td>${i+1}</td><td>${esc(t.name)}</td><td>${esc(t.clubName||'')}</td>${positions.map((p,pi)=>`<td>${esc(t.players?.[pi]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="notice" style="margin-top:12px"><b>Confirming replaces the current team list.</b> Any existing draw, fixtures or knockout for this tournament will be cleared so old team IDs cannot remain in the schedule.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="confirmTeamImport">Confirm Import</button><button class="btn secondary" id="cancelTeamImport">Cancel</button></div>`;
+ let target=document.getElementById('teamImportPanel');target?.insertAdjacentElement('afterend',card);
+ document.getElementById('cancelTeamImport').onclick=()=>card.remove();
+ document.getElementById('confirmTeamImport').onclick=()=>{
+  c.teams=imported.map((t,i)=>({id:'t'+(i+1),name:t.name||`Team ${i+1}`,clubName:t.clubName||'',group:'',players:{...(t.players||{})}}));
+  c.settings.teamCount=c.teams.length;c.fixtures=[];c.knockout=[];c.manualHistory=[];c.manualDrawConfirmed=false;c.drawSeed=(+c.drawSeed||0)+1;
+  saveDB();appToast(`${c.teams.length} teams imported.`, 'success');render()
+ };
+ card.scrollIntoView({behavior:'smooth',block:'start'})
+}
+function downloadTeamImportTemplate(c=comp()){
+ let positions=playerPositions(c.settings.gameType||'rinks'),headers=['Team','Club',...positions.map((p,i)=>`Player ${i+1}`)],sample=['Example Team','Example Club',...positions.map((p,i)=>`Player ${i+1}`)];
+ if(window.XLSX){
+  let ws=XLSX.utils.aoa_to_sheet([headers,sample]),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Teams');XLSX.writeFile(wb,'One-Stop-Bowling-Team-Import-Template.xlsx');return
+ }
+ let csv=[headers,sample].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='One-Stop-Bowling-Team-Import-Template.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
+}
 function renderTeams(s){
  let c=comp(),x=c.settings;
  if(isAggregate(c)){
@@ -2440,7 +2515,11 @@ function renderTeams(s){
   return
  }
  let positions=playerPositions(c.settings.gameType||'rinks');c.teams.forEach(t=>t.players=t.players||{});
- s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="field" style="margin:8px 0 0 44px"><label>Club name (optional)</label><input data-team-club="${t.id}" value="${esc(t.clubName||'')}" placeholder="Club name" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px"></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;
+ s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamImportPanel" class="oknotice" style="margin-bottom:14px"><b>Save typing — import your team list</b><p style="margin:6px 0 10px">Upload an Excel (.xlsx/.xls) or CSV file containing team, club and player names. You will see a preview before anything is changed.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="importTeamsBtn">Import Excel / CSV</button><button class="btn secondary" id="downloadTeamTemplate">Download Excel Template</button><input id="teamImportFile" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" class="hidden"></div><div class="meta" style="margin-top:8px">Recognised headings include Team, Team Name, Club, Player 1–4, Lead, Second, Third and Skip.</div></div><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="field" style="margin:8px 0 0 44px"><label>Club name (optional)</label><input data-team-club="${t.id}" value="${esc(t.clubName||'')}" placeholder="Club name" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px"></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;
+ let importBtn=document.getElementById('importTeamsBtn'),fileInput=document.getElementById('teamImportFile'),templateBtn=document.getElementById('downloadTeamTemplate');
+ if(importBtn&&fileInput)importBtn.onclick=()=>fileInput.click();
+ if(templateBtn)templateBtn.onclick=()=>downloadTeamImportTemplate(c);
+ if(fileInput)fileInput.onchange=async()=>{let file=fileInput.files?.[0];if(!file)return;try{importBtn.disabled=true;importBtn.textContent='Reading file…';let rows=await readTeamImportFile(file),imported=parseTeamImportRows(rows,c);if(!imported.length)throw new Error('No teams were found. Check the first row contains headings such as Team, Club and Player 1.');showTeamImportPreview(imported,c)}catch(e){console.error(e);appAlert(e?.message||'Could not read that file.')}finally{importBtn.disabled=false;importBtn.textContent='Import Excel / CSV';fileInput.value=''}};
  document.getElementById('saveTeams').onclick=()=>{document.querySelectorAll('[data-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.team);if(t)t.name=i.value.trim()||t.name});document.querySelectorAll('[data-team-club]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.teamClub);if(t)t.clubName=i.value.trim()});document.querySelectorAll('[data-player-team]').forEach(i=>{let t=c.teams.find(x=>x.id===i.dataset.playerTeam);if(t){t.players=t.players||{};t.players[i.dataset.playerPos]=i.value.trim()}});saveDB();tab='draw';render();showSavedIndicator()}
 }
 
