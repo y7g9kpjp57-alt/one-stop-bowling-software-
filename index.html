@@ -2173,8 +2173,8 @@ function appendWelcomeHome(s,c=comp()){
  hero.innerHTML=`<div class="home-welcome-inner"><div><div class="home-eyebrow">One Stop Bowling</div><h2>Run bowls. Not paperwork.</h2><p>Set up competitions, manage draws, enter scores and share live results — all from one place.</p></div><div class="home-actions">${actions}</div></div>`;
  s.prepend(hero);
  let current=document.createElement('div');current.className='card home-current noPrint';
- current.innerHTML=`<div class="home-current-top"><div><div class="home-status"><span class="home-status-dot"></span>${esc(status)}</div><h3>${esc(title)}</h3><p class="meta">${total?`${done} of ${total} games complete`:(hasRemote?'Tournament open and ready':'Start a new tournament or open an existing one.')}${remoteTournamentCode?` • Code ${esc(remoteTournamentCode)}`:''}</p></div></div><div class="home-current-actions">${hasRemote?`<button class="btn primary" id="homeContinue">Continue ${isScorer?'Scoring':'Tournament'}</button>`:''}${isAdmin?'<button class="btn secondary" id="homeSetup">Tournament Setup</button>':''}${hasRemote?'<button class="btn secondary" id="homeLiveResults">View Results</button>':''}</div>`;
- hero.insertAdjacentElement('afterend',current);
+ current.innerHTML=`<div class="home-current-top"><div><div class="home-status"><span class="home-status-dot"></span>${esc(status)}</div><h3>${esc(title)}</h3><p class="meta">${total?`${done} of ${total} games complete`:(hasRemote?'Tournament open and ready':'Start a new tournament or open an existing one.')}${remoteTournamentCode?` • Code ${esc(remoteTournamentCode)}`:''}</p></div></div><div class="home-current-actions">${hasRemote?`<button class="btn primary" id="homeContinue">Continue ${isScorer?'Scoring':'Tournament'}</button>`:''}${isAdmin?'<button class="btn secondary" id="homeSetup">Tournament Setup</button>':''}${hasRemote?'<button class="btn secondary" id="homeLiveResults">View Results</button>':''}</div>${isAdmin&&hasRemote?`<div style="margin-top:14px;border-top:1px solid var(--line,#d7dee5);padding-top:12px"><div style="font-weight:900;margin-bottom:8px">Tournament Control</div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><button class="btn secondary" data-home-tab="builder">⚙ Setup</button><button class="btn secondary" data-home-tab="draw">🎲 Draw</button><button class="btn secondary" data-home-tab="schedule">🗓 Schedule</button><button class="btn secondary" data-home-tab="quick">⚡ Scores</button><button class="btn secondary" data-home-tab="tables">▤ Tables</button><button class="btn secondary" data-home-tab="knockout">🏆 Knockout</button></div></div>`:''}`;
+ if(hasRemote)hero.insertAdjacentElement('beforebegin',current);else hero.insertAdjacentElement('afterend',current);
  document.getElementById('homeNewTournament')?.addEventListener('click',showNewTournamentWizard);
  document.getElementById('homeMyTournaments')?.addEventListener('click',showMyTournaments);
  document.getElementById('homeJoinCode')?.addEventListener('click',()=>openTournamentByCode());
@@ -2183,6 +2183,7 @@ function appendWelcomeHome(s,c=comp()){
  document.getElementById('homeContinue')?.addEventListener('click',()=>{tab=isScorer?scoringHomeTab(c):(isAdmin?uxNextAction(c).tab:'fixtures');render()});
  document.getElementById('homeSetup')?.addEventListener('click',()=>{tab='builder';render()});
  document.getElementById('homeLiveResults')?.addEventListener('click',()=>{tab='tables';render()});
+ current.querySelectorAll('[data-home-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.homeTab;render()}));
 }
 
 function renderDashboard(s){
