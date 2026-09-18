@@ -308,6 +308,33 @@ body.home-mode .home-current{margin-bottom:8px}
  body.home-mode .home-current{border-radius:18px}
 }
 
+/* Build 176: desktop home/dashboard uses the available screen width instead of inheriting the app sidebar grid. */
+@media (min-width:901px){
+  body.home-mode .wrap{
+    display:block!important;
+    width:min(1280px,calc(100% - 48px));
+    max-width:1280px!important;
+    margin:0 auto!important;
+    padding:24px 0 60px!important;
+  }
+  body.home-mode #syncNotice,
+  body.home-mode #screen{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important}
+  body.home-mode #screen{display:block!important}
+  body.home-mode .home-current,
+  body.home-mode .home-welcome{width:100%;box-sizing:border-box}
+  body.home-mode .home-current{padding:22px 24px}
+  body.home-mode .home-current-top{align-items:center}
+  body.home-mode .home-current-actions{margin-top:16px}
+  body.home-mode .home-current-actions .btn{min-width:150px}
+  body.home-mode .home-welcome{padding:32px 36px}
+  body.home-mode .home-welcome-inner{grid-template-columns:minmax(0,1.15fr) minmax(380px,.85fr);gap:40px}
+  body.home-mode .home-actions{grid-template-columns:1fr;max-width:520px;justify-self:end;width:100%}
+  body.home-mode .ux-stage-row{grid-template-columns:repeat(7,minmax(110px,1fr))}
+}
+@media (min-width:1200px){
+  body.home-mode .home-current > div:last-child[style*="border-top"] > div:last-child{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+}
+
 /* Admin consolidation: keep day-to-day toolbar focused; secondary utilities live in Admin. */
 .toolbar #accessBtn,.toolbar #openCodeBtn,.toolbar #shareTournamentBtn,.toolbar #feedbackBtn,.toolbar #helpBtn,.toolbar #simpleModeBtn,.toolbar #aiReportBtn,.toolbar #exportBtn,.toolbar label:has(#importFile),.toolbar #uxLargeTextBtn{display:none!important}
 .admin-hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
