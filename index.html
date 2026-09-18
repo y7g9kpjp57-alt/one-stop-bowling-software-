@@ -3649,7 +3649,7 @@ async function appendPublicSignupPromo(s,c=comp()){
  document.getElementById('publicLearnMore')?.addEventListener('click',()=>appAlert('One Stop Bowling Software helps clubs run a competition from setup to final: teams, draws, rink schedules, scoring, live tables, knockouts, printing, sharing and TV display — all in one place.'));
 }
 
-function appendPublicEntryCard(s){
+async function appendPublicEntryCard(s){
  if(!s||!cloud||!remoteTournamentCode||document.getElementById('publicEntryCard'))return;
  let {data,error}=await cloud.rpc('bowls_public_entry_event',{p_code:remoteTournamentCode});
  if(error||!data?.found||!Array.isArray(data.competitions)||!data.competitions.length)return;
