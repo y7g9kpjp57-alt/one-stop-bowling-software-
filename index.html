@@ -424,8 +424,8 @@ body.home-mode .home-current{margin-bottom:8px}
 <p id="authError" style="color:#b91c1c"></p>
 </div></div>
 <!-- Build 172: clearer safe Edit Rink workflow in Playing Schedule; existing clash validation retained. -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">// Build 171: optional scheduled break after selected session, included in planner and generated session times.
-</script>
+<!-- Build 171: optional scheduled break after selected session, included in planner and generated session times. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1162,6 +1162,8 @@ async function requestRole(target){
 }
 async function signInAccount(){
  let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,err=document.getElementById('authError'),submit=document.getElementById('authSubmit');err.textContent='';
+ if(!navigator.onLine){err.textContent='No internet connection. Reconnect and try again.';return}
+ if(!cloud||!cloud.auth){err.textContent='Online, but the sign-in service has not connected. Refresh the page or use Retry Connection.';setSyncNotice('Online • cloud connection unavailable • retry connection',false);return}
  if(!email||!password){err.textContent='Enter your email and password.';return}
  submit.disabled=true;submit.textContent='Signing in…';
  let {data,error}=await cloud.auth.signInWithPassword({email,password});
@@ -1279,6 +1281,8 @@ async function openBestActiveTournament(){
 }
 async function initCloudSync(){
  try{
+  if(!navigator.onLine){cloudReady=false;updateConnectivityNotice();return}
+  if(!window.supabase?.createClient)throw new Error('Supabase sign-in library did not load');
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   let {data:sessionData}=await cloud.auth.getSession();currentUser=sessionData?.session?.user||null;await loadCurrentProfile();
   cloudReady=true;startNotificationRefresh();if(navigator.onLine)setTimeout(flushOfflineQueue,250);
@@ -1291,7 +1295,7 @@ async function initCloudSync(){
   }
   if(currentUser){let switched=await openBestActiveTournament();if(switched)return}
   setSyncNotice('Cloud ready • no active tournament selected • Build '+APP_VERSION,true);
- }catch(e){console.error('Cloud sync failed',e);cloudReady=false;updateConnectivityNotice()}
+ }catch(e){console.error('Cloud sync failed',e);cloudReady=false;setSyncNotice('Online • cloud connection problem • sign-in unavailable • refresh to retry',false)}
 }
 
 
