@@ -115,6 +115,41 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 @media(max-width:900px){.tv-wrap{padding:18px 18px 60px}.tv-head{margin:-18px -18px 18px;padding:15px 18px;display:grid;grid-template-columns:1fr;gap:12px;align-items:start}.tv-head-main{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.tv-broadcast-brand{display:none}.tv-titleblock{min-width:0}.tv-head h1{font-size:clamp(24px,7vw,34px);line-height:1.05;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}.tv-head .sub{font-size:14px;line-height:1.25}.tv-live-badge{padding:7px 10px;min-width:64px;align-self:start}.tv-controls{width:100%;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:7px}.tv-controls button{font-size:12px;padding:5px 7px}.tv-footer{padding:9px 18px}.tv-footer:before{margin:-9px 12px -9px -18px}.tv-card h2{font-size:22px}.tv-table td{font-size:17px}.tv-match{grid-template-columns:minmax(0,1fr) 120px minmax(0,1fr);gap:10px;padding:14px 14px;font-size:20px}.tv-match>div:first-child,.tv-match>.right{min-width:0}.tv-match b{display:block;line-height:1.12;overflow-wrap:break-word;word-break:normal}.tv-match .right{text-align:right}.tv-match .score{font-size:26px;min-width:120px;width:120px;white-space:nowrap;padding:8px 8px;align-self:center}.tv-match .score .tv-muted{font-size:12px!important;white-space:normal;line-height:1.15;margin-top:3px}.tv-match .tv-muted{font-size:14px!important;line-height:1.25;margin-top:4px}}
 
 
+/* TV display responsive layout fix */
+.tv-next-grid{grid-template-columns:1fr!important;width:100%}
+.tv-next-venue{width:100%;min-width:0}
+.tv-next-row{grid-template-columns:86px minmax(0,1fr) 42px minmax(0,1fr);gap:14px;font-size:clamp(18px,2vw,26px);padding:12px 0}
+.tv-next-row>div{min-width:0}
+.tv-next-row b{display:block;white-space:normal;overflow-wrap:anywhere;line-height:1.15}
+.tv-table{table-layout:fixed;width:100%}
+.tv-table th:nth-child(1),.tv-table td:nth-child(1){width:9%}
+.tv-table th:nth-child(2),.tv-table td:nth-child(2){width:39%;text-align:left}
+.tv-table th:nth-child(n+3),.tv-table td:nth-child(n+3){width:8.66%;text-align:center}
+.tv-table th,.tv-table td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-table td:nth-child(2){white-space:normal;overflow-wrap:anywhere;line-height:1.15}
+@media(max-width:900px){
+ .tv-grid{grid-template-columns:1fr!important}
+ .tv-card{width:100%;min-width:0;padding:14px}
+ .tv-card h2{margin:0 -14px 12px;padding-left:14px;padding-right:14px}
+ .tv-next-grid{display:grid;grid-template-columns:1fr!important}
+ .tv-next-venue{padding:12px}
+ .tv-next-venue h2{margin:-12px -12px 8px;padding:10px 12px}
+ .tv-next-row{grid-template-columns:74px minmax(0,1fr) 26px minmax(0,1fr);gap:8px;font-size:18px;padding:10px 0}
+ .tv-next-row .rink{padding:7px 4px;font-size:16px;line-height:1.05}
+ .tv-table th{font-size:11px;padding:8px 3px}
+ .tv-table td{font-size:16px;padding:9px 3px}
+ .tv-table th:nth-child(1),.tv-table td:nth-child(1){width:10%}
+ .tv-table th:nth-child(2),.tv-table td:nth-child(2){width:36%}
+ .tv-table th:nth-child(n+3),.tv-table td:nth-child(n+3){width:9%}
+}
+@media(max-width:520px){
+ .tv-wrap{padding-left:12px;padding-right:12px}
+ .tv-head{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}
+ .tv-next-row{grid-template-columns:68px minmax(0,1fr) 20px minmax(0,1fr);font-size:16px;gap:6px}
+ .tv-table th{font-size:10px}
+ .tv-table td{font-size:15px}
+}
+
 .helpbox{background:#fff;border-radius:16px;padding:18px;width:min(760px,100%);max-height:88vh;overflow:auto}.helpbox h2{margin:0 0 6px}.help-quick{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;margin:12px 0}.help-steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.help-steps span{background:#082f49;color:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:700}.helpbox details{border:1px solid var(--line);border-radius:11px;margin:8px 0;background:#fff}.helpbox summary{cursor:pointer;font-weight:800;padding:11px 12px}.helpbox details>div{padding:0 12px 12px;color:#334155;line-height:1.5}.helpbox ol,.helpbox ul{padding-left:20px}.helpbox li{margin:5px 0}
 
 /* Build 84: clearer knockout scoring / print winners */
