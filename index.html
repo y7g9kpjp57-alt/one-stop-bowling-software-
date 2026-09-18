@@ -1375,7 +1375,7 @@ function appendSimpleModeHome(s,c=comp()){
  if(role!=='admin'||!simpleModeOn()||tab!=='dashboard')return;
  let card=document.createElement('div');card.className='card simple-mode-card';
  card.innerHTML=`<h2 style="margin-bottom:4px">Simple Mode</h2><p class="muted" style="margin-top:0">Only the main tournament jobs are shown. Nothing has been deleted — use <b>Switch to Advanced Mode</b> whenever you need the full controls.</p><div class="simple-actions"><button class="btn primary" data-simple-tab="builder">⚙ Set Up Tournament</button><button class="btn primary" data-simple-tab="teams">👥 Add Players / Teams</button><button class="btn primary" data-simple-tab="draw">🎲 Create Draw</button><button class="btn primary" data-simple-tab="${scoringHomeTab(c)}">⚡ Enter Scores</button><button class="btn primary" data-simple-tab="tables">▤ View Results</button><button class="btn primary" data-simple-tab="knockout">🏆 Finals</button></div>`;
- s.insertAdjacentElement('afterbegin',card);card.querySelectorAll('[data-simple-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.simpleTab;render()})
+ s.insertAdjacentElement('afterbegin',card);card.querySelectorAll('[data-simple-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.simpleTab;sessionStorage.setItem('bowlsNavFreshV1','1');render()})
 }
 
 function scoringHomeTab(c=comp()){
@@ -1498,8 +1498,8 @@ function setupMobileKeyboardNav(){
 }
 setupMobileKeyboardNav();
 
-function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];let badge=accessNotificationCount>0?`<span class="notify-badge">${accessNotificationCount>99?'99+':accessNotificationCount}</span>`:'';let doneTabs=new Set(role==='admin'?uxStageInfo(comp()).filter(x=>x.done).map(x=>x.id):[]);document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${doneTabs.has(x[0])&&x[0]!=='dashboard'?'✓ ':''}${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');let wanted=role==='admin'?['dashboard','quick','knockout','tables','admin']:role==='scorer'?['quick','knockout','fixtures','tables']:['dashboard','tables','fixtures','knockout'];let mobileTabs=wanted.map(k=>tabs.find(x=>x[0]===k)).filter(Boolean).slice(0,5);document.getElementById('bottomNav').innerHTML=mobileTabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});updateAdminRoleBadge()}
-function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc(competitionDisplayName(c)||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();render()}}
+function renderNav(){let tabs=tabsFor(); if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];let badge=accessNotificationCount>0?`<span class="notify-badge">${accessNotificationCount>99?'99+':accessNotificationCount}</span>`:'';let doneTabs=new Set(role==='admin'?uxStageInfo(comp()).filter(x=>x.done).map(x=>x.id):[]);document.getElementById('tabs').innerHTML=tabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}">${doneTabs.has(x[0])&&x[0]!=='dashboard'?'✓ ':''}${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');let wanted=role==='admin'?['dashboard','quick','knockout','tables','admin']:role==='scorer'?['quick','knockout','fixtures','tables']:['dashboard','tables','fixtures','knockout'];let mobileTabs=wanted.map(k=>tabs.find(x=>x[0]===k)).filter(Boolean).slice(0,5);document.getElementById('bottomNav').innerHTML=mobileTabs.map(x=>`<button class="${tab===x[0]?'active':''}" data-tab="${x[0]}"><b>${x[2]}</b>${x[1]}${x[0]==='admin'?badge:''}</button>`).join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{let next=b.dataset.tab;if(!next||next===tab)return;tab=next;sessionStorage.setItem('bowlsNavFreshV1','1');render()});updateAdminRoleBadge()}
+function renderSelect(){let s=document.getElementById('competitionSelect');s.innerHTML=db.competitions.map(c=>`<option value="${c.id}" ${c.id===comp().id?'selected':''}>${esc(competitionDisplayName(c)||'Untitled competition')}${c.archivedAt?' — Archived':''}</option>`).join('');s.onchange=()=>{db.active=s.value;saveDB();sessionStorage.setItem('bowlsNavFreshV1','1');render()}}
 
 function wireGlobalToolbar(){
  let a=document.getElementById('accessBtn');
@@ -1548,7 +1548,7 @@ function undoLastLiveEnd(obj,c=comp()){
  saveDB();render();return true
 }
 function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard')appendWelcomeHome(homeLanding,c)}if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
- wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
+ wireGlobalToolbar();if(sessionStorage.getItem('bowlsNavFreshV1')==='1'){sessionStorage.removeItem('bowlsNavFreshV1');requestAnimationFrame(()=>{let target=document.getElementById('screen');if(target){let y=target.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,y),behavior:'smooth'})}else window.scrollTo({top:0,behavior:'smooth'})})}else restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
 const UX_LARGE_TEXT_KEY='bowlsLargeTextV1',UX_TOUR_KEY='bowlsUxTourSeenV1',UX_SNAPSHOT_KEY='bowlsSafeSnapshotV1',UX_SNAPSHOT_AT='bowlsSafeSnapshotAtV1';
@@ -4120,5 +4120,7 @@ function runCoreSelfTests(){
 setTimeout(()=>{try{runCoreSelfTests()}catch(e){console.warn('Self-tests could not run',e)}},50);
 // ===== End regression checks =====
 
+
+// Build 2026.09.18 navigation flow: fresh tab/tournament navigation lands at section top; same-section scoring rerenders preserve position.
 </script>
 </body></html>
