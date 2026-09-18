@@ -272,6 +272,14 @@ body.home-mode .home-current{margin-bottom:8px}
  body.home-mode .home-action{min-height:68px;border-radius:16px}
  body.home-mode .home-current{border-radius:18px}
 }
+
+/* Admin consolidation: keep day-to-day toolbar focused; secondary utilities live in Admin. */
+.toolbar #accessBtn,.toolbar #openCodeBtn,.toolbar #shareTournamentBtn,.toolbar #feedbackBtn,.toolbar #helpBtn,.toolbar #simpleModeBtn,.toolbar #aiReportBtn,.toolbar #exportBtn,.toolbar label:has(#importFile),.toolbar #uxLargeTextBtn{display:none!important}
+.admin-hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.admin-hub-card{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--card,#fff)}
+.admin-hub-card h3{margin:0 0 5px}.admin-hub-card p{margin:0 0 12px}
+.admin-hub-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:760px){.admin-hub-grid{grid-template-columns:1fr}.admin-hub-actions .btn{flex:1 1 145px}}
 </style>
 <!-- Build 156: dashboard now opens as a true landing screen; old utility toolbar hidden on Home. -->
 <!-- Build 155: redesigned product-style welcome/home screen. Tournament, scoring, draw and sync logic unchanged. -->
@@ -3759,7 +3767,13 @@ function renderAdmin(s){
  let entryManagementCard=remoteTournamentId&&tournamentAdmin?`<div class="card"><h2>Online & Manual Entries</h2><p class="muted">Take entries online before the closing date, add paper/phone/in-person entries manually, then import confirmed names into Teams & Players without retyping them.</p><div id="entryManagementPanel"><p class="muted">Loading entry settings…</p></div></div>`:'';
  let clubOwnerCard=currentAppRole==='owner'?`<div class="card"><h2>Club Management</h2><p class="muted">Create a club and grant Club Admin access. Club Admins can create and manage their own club tournaments. You keep owner access to every club and tournament.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newClubName" placeholder="Club name" style="max-width:320px"><button class="btn primary" id="createClubBtn">Create Club</button></div><div id="clubAdminList" style="margin-top:14px"><p class="muted">Loading clubs…</p></div></div>`:'';
  let globalAccounts=globalAdmin?`<div class="card"><h2>Feedback & Issues</h2><p class="muted">Reports and suggestions submitted from the app. Review them here and update the status as work progresses.</p><div id="feedbackInbox"><p class="muted">Loading feedback…</p></div></div><div class="card"><h2>Accounts & Permissions</h2><p class="muted">Global software roles. Club Admin rights are managed separately above.</p><div id="userAdminList"><p class="muted">Loading accounts…</p></div></div><div class="card"><h2>Audit Trail</h2><p class="muted">Recent score changes, including who changed them and when.</p><div id="auditList"><p class="muted">Loading audit history…</p></div></div>`:'';
- s.innerHTML=`${archiveCard}${entryManagementCard}${clubOwnerCard}${remoteTournamentId&&tournamentAdmin?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>'+(remoteClubName?' • Club: <b>'+esc(remoteClubName)+'</b>':'')+'. Approve scorers for this tournament.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}${globalAccounts}<div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
+ let adminHub=`<div class="card"><h2>Admin Centre</h2><p class="muted">The less-used tools are grouped here so the main tournament screens stay uncluttered.</p><div class="admin-hub-grid">
+ <div class="admin-hub-card"><h3>🏆 Tournament Management</h3><p class="muted">Open the main organiser areas without hunting through the app.</p><div class="admin-hub-actions"><button class="btn primary" data-admin-tab="builder">Setup</button><button class="btn secondary" data-admin-tab="draw">Draw</button><button class="btn secondary" data-admin-tab="schedule">Schedule</button><button class="btn secondary" data-admin-tab="scorecards">Scorecards</button></div></div>
+ <div class="admin-hub-card"><h3>🔗 Share & Access</h3><p class="muted">Everything for opening, sharing and giving people access.</p><div class="admin-hub-actions"><button class="btn primary" id="adminShareTournament">Share Tournament</button><button class="btn secondary" id="adminAccess">Invite / Access</button><button class="btn secondary" id="adminOpenCode">Open Code</button></div></div>
+ <div class="admin-hub-card"><h3>💾 Data & Recovery</h3><p class="muted">Back up or restore tournament data. These tools are kept away from everyday running controls.</p><div class="admin-hub-actions"><button class="btn primary" id="adminBackup">Backup</button><button class="btn secondary" id="adminRestore">Restore</button></div></div>
+ <div class="admin-hub-card"><h3>❓ Help & Settings</h3><p class="muted">Help, feedback and display options in one place.</p><div class="admin-hub-actions"><button class="btn primary" id="adminHelp">Help / User Guide</button><button class="btn secondary" id="adminFeedback">Feedback / Report Issue</button><button class="btn secondary" id="adminSimpleMode">Simple Mode</button><button class="btn secondary" id="adminLargeText">Larger Text</button></div></div>
+ </div></div>`;
+ s.innerHTML=`${adminHub}${archiveCard}${entryManagementCard}${clubOwnerCard}${remoteTournamentId&&tournamentAdmin?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>'+(remoteClubName?' • Club: <b>'+esc(remoteClubName)+'</b>':'')+'. Approve scorers for this tournament.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}${globalAccounts}<div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
  let ca=document.getElementById('completeArchive');if(ca)ca.onclick=completeAndArchive;
  let da=document.getElementById('downloadArchive');if(da)da.onclick=()=>downloadCompetitionBackup(c);
  let ds=document.getElementById('downloadSummary');if(ds)ds.onclick=()=>downloadResultsSummary(c);
@@ -3767,6 +3781,17 @@ function renderAdmin(s){
  document.getElementById('newComp').onclick=()=>{if(!c.archivedAt&&!confirm('Start a new competition without archiving the current one first?'))return;let n=defaultComp();n.title='';db.competitions.push(n);db.active=n.id;saveDB();tab='builder';render()};
  let reset=document.getElementById('resetComp');if(reset)reset.onclick=()=>{if(confirm('Reset this competition? Scores, draw and fixtures will be cleared.')){c.fixtures=[];c.knockout=[];c.teams.forEach((t,i)=>{t.group='';t.name='Team '+(i+1);t.players={}});saveDB();render()}};
  document.getElementById('signOutAdmin').onclick=signOutAccount;
+ s.querySelectorAll('[data-admin-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.adminTab;sessionStorage.setItem('bowlsNavFreshV1','1');render()});
+ document.getElementById('adminShareTournament')?.addEventListener('click',createShareableTournament);
+ document.getElementById('adminAccess')?.addEventListener('click',()=>showTournamentAccess());
+ document.getElementById('adminOpenCode')?.addEventListener('click',()=>openTournamentByCode());
+ document.getElementById('adminBackup')?.addEventListener('click',()=>document.getElementById('exportBtn')?.click());
+ document.getElementById('adminRestore')?.addEventListener('click',()=>document.getElementById('importFile')?.click());
+ document.getElementById('adminHelp')?.addEventListener('click',()=>document.getElementById('helpModal')?.classList.remove('hidden'));
+ document.getElementById('adminFeedback')?.addEventListener('click',showFeedbackModal);
+ document.getElementById('adminSimpleMode')?.addEventListener('click',toggleSimpleMode);
+ document.getElementById('adminLargeText')?.addEventListener('click',toggleLargeText);
+ let alt=document.getElementById('adminLargeText');if(alt)alt.textContent=localStorage.getItem(UX_LARGE_TEXT_KEY)==='1'?'Normal Text':'Larger Text';
  let cb=document.getElementById('createClubBtn');if(cb)cb.onclick=createClubFromAdmin;
  loadAdminExtras();
  if(document.getElementById('feedbackInbox'))loadFeedbackInbox();
