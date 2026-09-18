@@ -347,6 +347,7 @@ body.home-mode .home-current{margin-bottom:8px}
 .ux-guide-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.ux-stage-row{display:grid;grid-template-columns:repeat(7,minmax(92px,1fr));gap:8px;margin-top:14px}.ux-stage{appearance:none;border:1px solid var(--line);background:var(--card,#fff);border-radius:14px;padding:11px 8px;text-align:left;cursor:pointer;min-height:78px}.ux-stage span{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#e2e8f0;font-weight:900;margin-bottom:7px}.ux-stage b,.ux-stage small{display:block}.ux-stage small{font-size:11px;color:#64748b;margin-top:2px}.ux-stage.done{background:#f8fafc}.ux-stage.done span{background:#dcfce7}.ux-stage.active{border:2px solid #2563eb;background:#eff6ff}.ux-stage.active span{background:#2563eb;color:#fff}.ux-next{border:2px solid #bfdbfe;background:linear-gradient(180deg,#fff,#f8fbff)}
 @media(max-width:760px){.ux-stage-row{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px}.ux-stage{flex:0 0 116px;scroll-snap-align:start}.ux-guide-head #uxMoreOptions{width:100%}}
 </style>
+<!-- Build 171: removed duplicate visible utility actions from the global toolbar; Admin Centre is now their single visible home. Legacy hooks retained for compatibility. -->
 <!-- Build 156: dashboard now opens as a true landing screen; old utility toolbar hidden on Home. -->
 <!-- Build 155: redesigned product-style welcome/home screen. Tournament, scoring, draw and sync logic unchanged. -->
 <!-- Build 151: added in-app Feedback / Report Issue form and Admin feedback inbox. No tournament, scoring, draw or schedule logic changed. -->
@@ -364,15 +365,18 @@ body.home-mode .home-current{margin-bottom:8px}
     <select id="competitionSelect" class="grow"></select>
     <button class="btn primary" id="newTournamentBtn">+ New Tournament</button>
     <button class="btn secondary" id="myTournamentsBtn">My Tournaments</button>
-    <button class="btn secondary" id="accessBtn">Invite / Access</button>
-    <button class="btn secondary" id="openCodeBtn">Open Code</button>
-    <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
-    <button class="btn secondary" id="feedbackBtn">Feedback / Report Issue</button>
-    <button class="btn secondary" id="helpBtn">Help / User Guide</button>
-    <button class="btn secondary" id="simpleModeBtn">Simple Mode</button>
-    <button class="btn secondary advanced-only" id="aiReportBtn">AI Tournament Report</button>
-    <button class="btn secondary advanced-only" id="exportBtn">Backup</button>
-    <label class="btn secondary advanced-only" style="cursor:pointer">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
+    <!-- Legacy action hooks retained for compatibility; visible copies now live in Admin Centre. -->
+    <div class="legacy-admin-hooks" hidden>
+      <button class="btn secondary" id="accessBtn">Invite / Access</button>
+      <button class="btn secondary" id="openCodeBtn">Open Code</button>
+      <button class="btn secondary" id="shareTournamentBtn">Share Tournament</button>
+      <button class="btn secondary" id="feedbackBtn">Feedback / Report Issue</button>
+      <button class="btn secondary" id="helpBtn">Help / User Guide</button>
+      <button class="btn secondary" id="simpleModeBtn">Simple Mode</button>
+      <button class="btn secondary advanced-only" id="aiReportBtn">AI Tournament Report</button>
+      <button class="btn secondary advanced-only" id="exportBtn">Backup</button>
+      <label class="btn secondary advanced-only">Restore<input id="importFile" type="file" accept="application/json" hidden></label>
+    </div>
   </div>
   <nav class="tabs" id="tabs"></nav>
   <section id="screen"></section>
@@ -1696,7 +1700,7 @@ function createDemoTournament(){
 }
 function uxDemoCard(s,c){if(role!=='admin'||tab!=='dashboard')return;if((c.fixtures||[]).length||(c.teams||[]).some(t=>!/^Team\s+\d+$/i.test(String(t.name||''))))return;let card=document.createElement('div');card.className='card noPrint';card.innerHTML='<h3>New to the software?</h3><p class="muted">Try a separate sample tournament without changing this one.</p><button class="btn secondary" id="uxDemoBtn">Try a Practice Tournament</button>';s.appendChild(card);card.querySelector('#uxDemoBtn').onclick=createDemoTournament}
 function startUxTour(force=false){
- if(role!=='admin')return;if(!force&&localStorage.getItem(UX_TOUR_KEY)==='1')return;let steps=[{sel:'#newTournamentBtn',title:'Create or continue',text:'Start a new tournament here. Your saved tournaments are under My Tournaments.'},{sel:'#simpleModeBtn',title:'Simple Mode',text:'Simple Mode hides the technical options. You can switch back at any time.'},{sel:'#tabs',title:'Tournament steps',text:'These tabs take you through setup, entries, draw, scoring and results.'},{sel:'#syncNotice',title:'Your work is safe',text:'This bar tells you whether the tournament is online, offline or waiting to sync.'}];uxTourIndex=0;document.getElementById('uxTourBox')?.remove();function show(){document.querySelector('.ux-tour-highlight')?.classList.remove('ux-tour-highlight');let st=steps[uxTourIndex],target=document.querySelector(st.sel);if(target){target.classList.add('ux-tour-highlight');target.scrollIntoView({block:'nearest'})}let box=document.getElementById('uxTourBox');if(!box){box=document.createElement('div');box.id='uxTourBox';box.className='ux-tour-box';document.body.appendChild(box)}box.innerHTML=`<h3>${esc(st.title)}</h3><div>${esc(st.text)}</div><div class="ux-tour-actions"><button class="btn secondary" id="uxTourSkip">Skip</button><button class="btn primary" id="uxTourNext">${uxTourIndex===steps.length-1?'Finish':'Next'}</button></div>`;box.querySelector('#uxTourSkip').onclick=finish;box.querySelector('#uxTourNext').onclick=()=>{if(uxTourIndex>=steps.length-1)finish();else{uxTourIndex++;show()}}}function finish(){document.querySelector('.ux-tour-highlight')?.classList.remove('ux-tour-highlight');document.getElementById('uxTourBox')?.remove();localStorage.setItem(UX_TOUR_KEY,'1')}show()
+ if(role!=='admin')return;if(!force&&localStorage.getItem(UX_TOUR_KEY)==='1')return;let steps=[{sel:'#newTournamentBtn',title:'Create or continue',text:'Start a new tournament here. Your saved tournaments are under My Tournaments.'},{sel:'#tabs',title:'Tournament steps',text:'These tabs take you through setup, entries, draw, scoring and results.'},{sel:'#syncNotice',title:'Your work is safe',text:'This bar tells you whether the tournament is online, offline or waiting to sync.'}];uxTourIndex=0;document.getElementById('uxTourBox')?.remove();function show(){document.querySelector('.ux-tour-highlight')?.classList.remove('ux-tour-highlight');let st=steps[uxTourIndex],target=document.querySelector(st.sel);if(target){target.classList.add('ux-tour-highlight');target.scrollIntoView({block:'nearest'})}let box=document.getElementById('uxTourBox');if(!box){box=document.createElement('div');box.id='uxTourBox';box.className='ux-tour-box';document.body.appendChild(box)}box.innerHTML=`<h3>${esc(st.title)}</h3><div>${esc(st.text)}</div><div class="ux-tour-actions"><button class="btn secondary" id="uxTourSkip">Skip</button><button class="btn primary" id="uxTourNext">${uxTourIndex===steps.length-1?'Finish':'Next'}</button></div>`;box.querySelector('#uxTourSkip').onclick=finish;box.querySelector('#uxTourNext').onclick=()=>{if(uxTourIndex>=steps.length-1)finish();else{uxTourIndex++;show()}}}function finish(){document.querySelector('.ux-tour-highlight')?.classList.remove('ux-tour-highlight');document.getElementById('uxTourBox')?.remove();localStorage.setItem(UX_TOUR_KEY,'1')}show()
 }
 function appendUXLayer(s,c=comp()){
  ensureUxToolbar();uxProgressStrip(s,c);uxNextCard(s,c);uxStatusLegend(s);uxContextCard(s);uxStickyAction(c);uxFinishCard(s,c);uxDemoCard(s,c);
