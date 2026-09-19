@@ -272,6 +272,17 @@ body.home-mode .home-current{margin-bottom:8px}
  body.home-mode .home-action{min-height:68px;border-radius:16px}
  body.home-mode .home-current{border-radius:18px}
 }
+@media (min-width:901px){
+ body.home-mode .wrap{display:block!important;max-width:1200px!important;width:calc(100% - 40px);margin:0 auto;padding:22px 20px 60px}
+ body.home-mode #syncNotice{width:100%;box-sizing:border-box}
+ body.home-mode #screen{width:100%;min-width:0;margin-top:10px}
+ body.home-mode .home-welcome{width:100%;box-sizing:border-box;padding:34px 38px;border-radius:20px}
+ body.home-mode .home-welcome-inner{grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr);gap:36px}
+ body.home-mode .home-welcome h2{font-size:42px}
+ body.home-mode .home-welcome p{font-size:17px}
+ body.home-mode .home-current{width:100%;box-sizing:border-box;padding:22px;border-radius:18px}
+ body.home-mode .home-current-actions .btn{min-width:170px}
+}
 </style>
 <!-- Build 156: dashboard now opens as a true landing screen; old utility toolbar hidden on Home. -->
 <!-- Build 155: redesigned product-style welcome/home screen. Tournament, scoring, draw and sync logic unchanged. -->
@@ -359,7 +370,7 @@ function surfaceStartupNotice(){if(startupSoftNotice){appToast(startupSoftNotice
 const SUPABASE_URL='https://oexgvfbgxtcxhnmscuob.supabase.co';
 const SUPABASE_KEY='sb_publishable_Q9GQwbevHNobyIiQ5XC76w_PvJZSJuY';
 const LIVE_STATE_ID='demo';
-const APP_VERSION='2026.09.19.171'; // adds one-tap public tournament sharing from the current competition card
+const APP_VERSION='2026.09.19.172'; // fixes desktop dashboard width while preserving the existing mobile layout
 let cloud=null,cloudReady=false,cloudApplying=false,cloudChannel=null,currentUser=null,currentAppRole='public',currentAccess=null,currentClubs=[],authRequestedRole=null,authMode='signin',remoteRefreshTimer=null,realtimeRenderTimer=null,realtimeFullRefreshTimer=null,notificationRefreshTimer=null,accessNotificationCount=0,remoteSaveBusy=false,remotePushTimer=null,remotePushRequested=false,remoteLastPushAt=0,remoteTournamentId=localStorage.getItem('bowlsRemoteTournamentId')||'',remoteTournamentCode=localStorage.getItem('bowlsRemoteTournamentCode')||'',remoteAccessRole=localStorage.getItem('bowlsRemoteAccessRole')||'',remoteClubId=localStorage.getItem('bowlsRemoteClubId')||'',remoteClubName=localStorage.getItem('bowlsRemoteClubName')||'',remoteRevision=Number(localStorage.getItem('bowlsRemoteRevision')||'0')||0,clubFeatureCache={};
 const APPKEY='bowlsTournamentProOfflineV2';
 const OFFLINE_QUEUE_KEY='bowlsOfflineSyncQueueV1';
