@@ -308,6 +308,13 @@ body.home-mode .home-current{margin-bottom:8px}
 @media(max-width:760px){.public-smart{gap:10px}.public-smart-hero-inner{grid-template-columns:1fr;padding:18px 20px;gap:16px}.public-smart-title{font-size:34px}.public-tv-btn{min-height:82px}.public-smart-stats{gap:7px}.public-smart-stat{padding:11px 5px}.public-smart-stat b{font-size:22px}.public-smart-stat span{font-size:10px}.public-smart-nav{grid-template-columns:repeat(4,1fr)}.public-smart-nav button{font-size:11px;padding:11px 4px}.public-smart-nav button:nth-child(1),.public-smart-nav button:nth-child(2){grid-column:span 2}.public-section-grid,.public-leaders{grid-template-columns:1fr}}
 
 
+/* Scorer view — keep rink-side scoring focused and uncluttered */
+body.scorer-mode .toolbar{display:none!important}
+body.scorer-mode #tabs{display:none!important}
+body.scorer-mode #syncNotice{font-size:13px;padding:8px 12px;margin-bottom:10px}
+body.scorer-mode #homeLanding{display:none!important}
+@media(max-width:760px){body.scorer-mode .wrap{padding-top:10px}}
+
 /* Public tournament promotion */
 .public-signup-promo{margin-top:14px;padding:22px;border:0;border-radius:20px;background:linear-gradient(120deg,#063e72,#00699e);color:#fff}
 .public-signup-promo .home-eyebrow,.public-signup-promo h2{color:#fff}.public-signup-promo .muted{color:#d9f0ff}
@@ -995,6 +1002,7 @@ async function completeAndArchive(){
 
 function setSyncNotice(msg,ok){
  let el=document.getElementById('syncNotice');if(!el)return;
+ if(role==='scorer'){msg=ok?'● Online & synced':(navigator.onLine?'● Online • waiting to sync':'● Offline • scores saved on this device')}
  el.replaceChildren();
  let text=document.createElement('span');text.textContent=msg;el.appendChild(text);
  el.classList.toggle('oknotice',!!ok);
@@ -1606,7 +1614,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c)}if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){document.body.classList.toggle('scorer-mode',role==='scorer');let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c)}if(role==='public'&&tab==='dashboard')appendPublicEntryCard(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
