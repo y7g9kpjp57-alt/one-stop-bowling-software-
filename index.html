@@ -1638,13 +1638,14 @@ function uxStageInfo(c=comp()){
  let type=c.settings?.tournamentType||'standard',teams=(c.teams||[]).filter(t=>String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())),groups=[...new Set((c.teams||[]).map(t=>t.group).filter(Boolean))],fixtures=c.fixtures||[],groupDone=fixtures.length&&fixtures.every(completed),ko=(c.knockout||[]).flat(),koDone=ko.length&&ko.every(completed);
  if(type==='aggregate')return [{id:'builder',label:'Setup',done:!!c.title},{id:'teams',label:'Rinks',done:true},{id:'quick',label:'Scoring',done:aggregateTotals(c).complete===aggregateTotals(c).total},{id:'dashboard',label:'Finished',done:aggregateTotals(c).complete===aggregateTotals(c).total}];
  if(type==='knockout')return [{id:'builder',label:'Setup',done:!!c.title},{id:'teams',label:'Entries',done:teams.length>=2},{id:'knockout',label:'Draw',done:ko.length>0},{id:'knockout',label:'Scoring',done:koDone},{id:'dashboard',label:'Finished',done:koDone}];
- return [{id:'builder',label:'Setup',done:!!c.title&&c.settings?.rinks>0},{id:'teams',label:'Entries',done:teams.length>=2},{id:'draw',label:'Groups',done:groups.length>0},{id:'schedule',label:'Schedule',done:fixtures.length>0},{id:'quick',label:'Scoring',done:!!groupDone},{id:'knockout',label:'Knockout',done:ko.length>0&&koDone},{id:'dashboard',label:'Finished',done:ko.length?!!koDone:!!groupDone}]
+ return [{id:'builder',label:'Setup',done:!!c.title&&c.settings?.rinks>0},{id:'teams',label:'Entries',done:teams.length>=2||groups.length>0||fixtures.length>0},{id:'draw',label:'Groups',done:groups.length>0},{id:'schedule',label:'Schedule',done:fixtures.length>0},{id:'quick',label:'Scoring',done:!!groupDone},{id:'knockout',label:'Knockout',done:ko.length>0&&koDone},{id:'dashboard',label:'Finished',done:ko.length?!!koDone:!!groupDone}]
 }
 function uxNextAction(c=comp()){
  if(c.archivedAt)return {tab:'dashboard',title:'Tournament archived',text:'This tournament is safely archived and is now view only.',button:'View Results'};
  let type=c.settings?.tournamentType||'standard',named=(c.teams||[]).filter(t=>String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())),fixtures=c.fixtures||[],groupDone=fixtures.length&&fixtures.every(completed),ko=(c.knockout||[]).flat();
  if(!String(c.title||'').trim())return {tab:'builder',title:'Start with the tournament setup',text:'Give the tournament a name and check the basic playing settings.',button:'Set Up Tournament'};
- if(named.length<2)return {tab:'teams',title:'Add the players or teams',text:'Enter the names taking part. You can come back and edit them later.',button:'Add Players / Teams'};
+ let progressed=(c.teams||[]).some(t=>t.group)||(c.fixtures||[]).length>0||(c.knockout||[]).flat().length>0;
+ if(named.length<2&&!progressed)return {tab:'teams',title:'Add the players or teams',text:'Enter the names taking part. You can come back and edit them later.',button:'Add Players / Teams'};
  if(type==='aggregate')return {tab:'quick',title:'Enter the rink scores',text:'The match is ready for scoring.',button:'Enter Scores'};
  if(type==='knockout'){
   if(!ko.length)return {tab:'knockout',title:'Create the knockout draw',text:'Your entries are ready. Create the first knockout round.',button:'Create Knockout'};
