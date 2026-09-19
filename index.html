@@ -1644,7 +1644,12 @@ function uxNextAction(c=comp()){
  if(c.archivedAt)return {tab:'dashboard',title:'Tournament archived',text:'This tournament is safely archived and is now view only.',button:'View Results'};
  let type=c.settings?.tournamentType||'standard',named=(c.teams||[]).filter(t=>String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())),fixtures=c.fixtures||[],groupDone=fixtures.length&&fixtures.every(completed),ko=(c.knockout||[]).flat();
  if(!String(c.title||'').trim())return {tab:'builder',title:'Start with the tournament setup',text:'Give the tournament a name and check the basic playing settings.',button:'Set Up Tournament'};
- let progressed=(c.teams||[]).some(t=>t.group)||(c.fixtures||[]).length>0||(c.knockout||[]).flat().length>0;
+ let progressed=(c.teams||[]).some(t=>t.group)||fixtures.length>0||(c.knockout||[]).flat().length>0;
+ // A generated playing schedule is definitive proof that entries/groups/setup have already been completed.
+ // Check this before any team-name heuristic so placeholder names (e.g. Team 1) cannot send a live tournament backwards.
+ if(type!=='aggregate'&&type!=='knockout'&&fixtures.length){
+  if(!groupDone)return {tab:'quick',title:'Tournament in progress',text:`${fixtures.filter(completed).length} of ${fixtures.length} group games are complete. Continue entering scores.`,button:'Continue Scoring'};
+ }
  if(named.length<2&&!progressed)return {tab:'teams',title:'Add the players or teams',text:'Enter the names taking part. You can come back and edit them later.',button:'Add Players / Teams'};
  if(type==='aggregate')return {tab:'quick',title:'Enter the rink scores',text:'The match is ready for scoring.',button:'Enter Scores'};
  if(type==='knockout'){
