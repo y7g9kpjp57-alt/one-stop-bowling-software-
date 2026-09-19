@@ -2275,7 +2275,7 @@ function appendWelcomeHome(s,c=comp()){
 function publicTournamentHero(c){
  let venue=c.settings?.venue||c.settings?.location||'';let date='';try{date=c.settings?.eventDate?new Date(c.settings.eventDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):''}catch(e){}
  let groups=new Set((c.teams||[]).map(t=>t.group).filter(Boolean)).size;
- return `<section class="public-smart-hero"><div class="public-smart-hero-inner"><div><div class="public-live-tag">LIVE TOURNAMENT</div><h1 class="public-smart-title">${esc(c.title||'Tournament')}</h1><div class="public-smart-meta">${venue?`<span>● ${esc(venue)}</span>`:''}${date?`<span>▣ ${esc(date)}</span>`:''}<span>♟ ${(c.teams||[]).length} Teams • ${groups} Groups • ${c.settings?.rinks||0} Rinks</span></div></div><button class="btn public-tv-btn publicTvHeroBtn">▣ TV DISPLAY<small>Open full screen live tournament view</small></button></div></section>`;
+ return `<section class="public-smart-hero"><div class="public-smart-hero-inner"><div><div class="public-live-tag">LIVE TOURNAMENT</div><h1 class="public-smart-title">${esc(c.title||'Tournament')}</h1><div class="public-smart-meta">${venue?`<span>● ${esc(venue)}</span>`:''}${date?`<span>▣ ${esc(date)}</span>`:''}<span>♟ ${(c.teams||[]).length} Teams • ${groups} Groups • ${c.settings?.rinks||0} Rinks</span></div></div><div style="display:grid;gap:10px"><button class="btn public-tv-btn publicTvHeroBtn">▣ TV DISPLAY<small>Open full screen live tournament view</small></button><button class="btn secondary publicShareTournamentBtn" style="width:100%;min-height:54px;font-weight:900">📤 Share Live Tournament</button></div></div></section>`;
 }
 function publicSmartDashboard(c,done,total,liveGames,leaders){
  let groups=new Set((c.teams||[]).map(t=>t.group).filter(Boolean)).size,pct=total?Math.round(done/total*100):0;
@@ -2286,6 +2286,7 @@ function publicSmartDashboard(c,done,total,liveGames,leaders){
 function wirePublicSmartDashboard(s,c){
  s.querySelectorAll('[data-public-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.publicTab;render()});
  s.querySelectorAll('.publicTvHeroBtn').forEach(b=>b.onclick=()=>{let q=new URLSearchParams({tv:'1'});if(remoteTournamentCode)q.set('code',remoteTournamentCode);if(remoteTournamentId)q.set('tid',remoteTournamentId);q.set('comp',c.id||'');window.open(location.pathname+'?'+q.toString(),'_blank')});
+ s.querySelectorAll('.publicShareTournamentBtn').forEach(b=>b.onclick=()=>shareTournamentInvite('public'));
  document.getElementById('publicCreateAccount')?.addEventListener('click',()=>showAuthModal('public','signup'));
  document.getElementById('publicSignIn')?.addEventListener('click',()=>showAuthModal('public','signin'));
  document.getElementById('publicLearnMore')?.addEventListener('click',()=>document.getElementById('helpModal')?.classList.remove('hidden'));
@@ -2320,7 +2321,8 @@ function renderDashboard(s){
   <div class="grid"><div class="kpi"><b>${c.teams.length}</b><span>Entries</span></div><div class="kpi"><b>${koDone}/${koTotal}</b><span>Knockout games final</span></div><div class="kpi"><b>${koLive.length}</b><span>Live now</span></div><div class="kpi"><b>${koRounds.length}</b><span>Knockout rounds</span></div></div>
   <div class="card"><h3>🔴 Live Knockout Scores</h3>${koLive.length?koLive.map(m=>{let cs=currentScore(m);return `<div style="padding:12px 0;border-bottom:1px solid var(--line)"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center"><div><b>${esc(knockoutRefName(m.a,c))}</b><div class="meta">${esc(m.roundName||m.label||'Knockout')} • ${esc(knockoutVenueName(m,c))} • Rink ${m.rink||'—'}</div></div><span style="font-size:24px;font-weight:900">${cs.a} – ${cs.b}<div class="meta" style="text-align:center">${cs.ends?`after ${cs.ends} ends • `:''}<b>LIVE</b></div></span><div style="text-align:right"><b>${esc(knockoutRefName(m.b,c))}</b><div class="meta">${m.start||''}</div></div></div></div>`}).join(''):'<p class="muted">No knockout games are currently showing a live score.</p>'}</div>
   <div class="card"><h3>Knockout Results</h3><p class="muted">Open <b>Finals</b> to see the full knockout draw, live scores and completed results.</p></div>
-  <div class="card"><h3>TV / Display Mode</h3><p class="muted">Open the live tournament display for a TV, projector or cast screen.</p><button class="btn primary" id="openTv">Open TV Display</button></div>`;
+  <div class="card"><h3>Share / Display</h3><p class="muted">Share this live tournament with anyone. No account or sign-in is required to open the public view.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="publicKnockoutShare">📤 Share Live Tournament</button><button class="btn secondary" id="openTv">Open TV Display</button></div></div>`;
+  document.getElementById('publicKnockoutShare')?.addEventListener('click',()=>shareTournamentInvite('public'));
   let tv=document.getElementById('openTv');if(tv)tv.onclick=()=>{let q=new URLSearchParams({tv:'1'});if(remoteTournamentCode)q.set('code',remoteTournamentCode);if(remoteTournamentId)q.set('tid',remoteTournamentId);q.set('comp',comp().id||'');window.open(location.pathname+'?'+q.toString(),'_blank')};
   return
  }
