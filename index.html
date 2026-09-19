@@ -115,6 +115,25 @@ header,.toolbar,.tabs,.bottom,.noPrint,#syncNotice{display:none!important}
 @media(max-width:900px){.tv-wrap{padding:18px 18px 60px}.tv-head{margin:-18px -18px 18px;padding:15px 18px;display:grid;grid-template-columns:1fr;gap:12px;align-items:start}.tv-head-main{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.tv-broadcast-brand{display:none}.tv-titleblock{min-width:0}.tv-head h1{font-size:clamp(24px,7vw,34px);line-height:1.05;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}.tv-head .sub{font-size:14px;line-height:1.25}.tv-live-badge{padding:7px 10px;min-width:64px;align-self:start}.tv-controls{width:100%;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:7px}.tv-controls button{font-size:12px;padding:7px 9px}.tv-footer{padding:9px 18px}.tv-footer:before{margin:-9px 12px -9px -18px}.tv-card h2{font-size:22px}.tv-table td{font-size:17px}.tv-match{grid-template-columns:minmax(0,1fr) 120px minmax(0,1fr);gap:10px;padding:14px 14px;font-size:20px}.tv-match>div:first-child,.tv-match>.right{min-width:0}.tv-match b{display:block;line-height:1.12;overflow-wrap:break-word;word-break:normal}.tv-match .right{text-align:right}.tv-match .score{font-size:26px;min-width:120px;width:120px;white-space:nowrap;padding:8px 8px;align-self:center}.tv-match .score .tv-muted{font-size:12px!important;white-space:normal;line-height:1.15;margin-top:3px}.tv-match .tv-muted{font-size:14px!important;line-height:1.25;margin-top:4px}}
 
 
+/* Post-live-test TV fit: keep a full six-rink current session visible on normal laptop/TV screens. */
+@media(min-width:901px){
+ body.tv-current-page .tv-wrap{padding:14px 26px 48px}
+ body.tv-current-page .tv-head{margin:-14px -26px 10px;padding:10px 26px 9px}
+ body.tv-current-page .tv-head h1{font-size:31px}
+ body.tv-current-page .tv-head .sub{font-size:14px;margin-top:3px}
+ body.tv-current-page .tv-live-badge{padding:6px 11px;min-width:68px}
+ body.tv-current-page .tv-controls button{padding:6px 9px;font-size:12px}
+ body.tv-current-page .tv-card{padding:10px 12px}
+ body.tv-current-page .tv-card h2{font-size:20px;margin:-10px -12px 7px;padding:6px 12px 7px}
+ body.tv-current-page .tv-big-list{gap:5px}
+ body.tv-current-page .tv-match{padding:7px 13px;font-size:21px;gap:12px;min-height:0}
+ body.tv-current-page .tv-match .score{font-size:27px;padding:4px 10px;min-width:96px}
+ body.tv-current-page .tv-match .tv-muted{font-size:12px!important;margin-top:2px}
+ body.tv-current-page .tv-footer{padding:7px 26px;font-size:12px}
+ body.tv-current-page .tv-footer:before{padding:7px 14px;margin:-7px 12px -7px -26px}
+}
+
+
 .helpbox{background:#fff;border-radius:16px;padding:18px;width:min(760px,100%);max-height:88vh;overflow:auto}.helpbox h2{margin:0 0 6px}.help-quick{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;margin:12px 0}.help-steps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.help-steps span{background:#082f49;color:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:700}.helpbox details{border:1px solid var(--line);border-radius:11px;margin:8px 0;background:#fff}.helpbox summary{cursor:pointer;font-weight:800;padding:11px 12px}.helpbox details>div{padding:0 12px 12px;color:#334155;line-height:1.5}.helpbox ol,.helpbox ul{padding-left:20px}.helpbox li{margin:5px 0}
 
 /* Build 84: clearer knockout scoring / print winners */
@@ -1611,10 +1630,17 @@ function applyLargeText(){let on=localStorage.getItem(UX_LARGE_TEXT_KEY)==='1';d
 function ensureUxToolbar(){
  let tb=document.querySelector('.toolbar');if(!tb)return;if(!document.getElementById('uxSearchBtn')){let b=document.createElement('button');b.id='uxSearchBtn';b.className='btn secondary';b.textContent='🔎 Find';b.onclick=openUxSearch;tb.appendChild(b)}if(!document.getElementById('uxLargeTextBtn')){let b=document.createElement('button');b.id='uxLargeTextBtn';b.className='btn secondary';b.onclick=toggleLargeText;tb.appendChild(b)}applyLargeText()
 }
-function uxProgressStrip(s,c){return}
-function uxNextCard(s,c){if(role!=='admin'||tab!=='dashboard')return;let n=uxNextAction(c),card=document.createElement('div');card.className='card ux-next';card.innerHTML=`<h2>What do I do next?</h2><h3 style="margin:8px 0 4px">${esc(n.title)}</h3><p class="muted" style="margin:0">${esc(n.text)}</p><div class="ux-next-action"><button class="btn primary" id="uxNextButton">${esc(n.button)} →</button>${localStorage.getItem(UX_SNAPSHOT_KEY)?'<button class="btn secondary" id="uxRestoreSafe">Restore Last Safe Version</button>':''}</div><div class="ux-simple-note">Your tournament saves automatically. You can always go back to an earlier screen.</div>`;let progress=s.querySelector('.ux-progress');if(progress)progress.insertAdjacentElement('afterend',card);else s.prepend(card);card.querySelector('#uxNextButton').onclick=()=>{tab=n.tab;render()};card.querySelector('#uxRestoreSafe')?.addEventListener('click',restoreSafeSnapshot)}
+function uxProgressStrip(s,c){
+ if(role!=='admin'||c.archivedAt)return;
+ let stages=uxStageInfo(c),next=uxNextAction(c),wrap=document.createElement('div');
+ wrap.className='ux-progress noPrint';wrap.setAttribute('aria-label','Tournament progress');
+ wrap.innerHTML=stages.map((st,i)=>{let current=!st.done&&(st.id===next.tab||(!stages.slice(0,i).some(x=>!x.done)&&!stages.slice(i+1).some(x=>x.id===next.tab)));let cls=st.done?'done':current?'current':'';return `<span class="ux-step ${cls}"><button type="button" data-ux-stage="${esc(st.id)}">${st.done?'✓ ':''}${esc(st.label)}</button></span>`}).join('');
+ s.prepend(wrap);wrap.querySelectorAll('[data-ux-stage]').forEach(b=>b.onclick=()=>{tab=b.dataset.uxStage;render()});
+ let cur=wrap.querySelector('.current');if(cur)setTimeout(()=>cur.scrollIntoView({block:'nearest',inline:'center'}),0)
+}
+function uxNextCard(s,c){if(role!=='admin')return;let n=uxNextAction(c);if(tab!=='dashboard'&&n.tab===tab)return;let card=document.createElement('div');card.className='card ux-next';card.innerHTML=`<h2>${tab==='dashboard'?'What do I do next?':'Next step'}</h2><h3 style="margin:8px 0 4px">${esc(n.title)}</h3><p class="muted" style="margin:0">${esc(n.text)}</p><div class="ux-next-action"><button class="btn primary" id="uxNextButton">${esc(n.button)} →</button>${localStorage.getItem(UX_SNAPSHOT_KEY)?'<button class="btn secondary" id="uxRestoreSafe">Restore Last Safe Version</button>':''}</div><div class="ux-simple-note">Your tournament saves automatically. You can always go back to an earlier screen.</div>`;let progress=s.querySelector('.ux-progress');if(progress)progress.insertAdjacentElement('afterend',card);else s.prepend(card);card.querySelector('#uxNextButton').onclick=()=>{tab=n.tab;render()};card.querySelector('#uxRestoreSafe')?.addEventListener('click',restoreSafeSnapshot)}
 function uxContextCard(s){if(tab==='dashboard')return;let [title,body]=uxContextHelp(tab),card=document.createElement('details');card.className='card ux-context-help noPrint';card.innerHTML=`<summary>❓ Help with ${esc(title)}</summary><p class="muted">${esc(body)}</p><button class="btn secondary" id="uxFullGuide">Open Full User Guide</button>`;s.appendChild(card);card.querySelector('#uxFullGuide').onclick=()=>document.getElementById('helpModal')?.classList.remove('hidden')}
-function uxStickyAction(c){document.getElementById('uxSticky')?.remove();if(role!=='admin'||['quick','knockout'].includes(tab))return;let n=uxNextAction(c),bar=document.createElement('div');bar.id='uxSticky';bar.className='ux-sticky noPrint';bar.innerHTML=`<button class="btn primary" id="uxStickyPrimary">${esc(n.button)}</button><button class="btn secondary" id="uxStickyFind">🔎 Find</button>`;document.body.appendChild(bar);bar.querySelector('#uxStickyPrimary').onclick=()=>{tab=n.tab;render()};bar.querySelector('#uxStickyFind').onclick=openUxSearch}
+function uxStickyAction(c){document.getElementById('uxSticky')?.remove();if(role!=='admin')return;let n=uxNextAction(c);if(n.tab===tab)return;let bar=document.createElement('div');bar.id='uxSticky';bar.className='ux-sticky noPrint';bar.innerHTML=`<button class="btn primary" id="uxStickyPrimary">${esc(n.button)}</button><button class="btn secondary" id="uxStickyFind">🔎 Find</button>`;document.body.appendChild(bar);bar.querySelector('#uxStickyPrimary').onclick=()=>{tab=n.tab;render()};bar.querySelector('#uxStickyFind').onclick=openUxSearch}
 function uxStatusLegend(s){if(!['quick','knockout','fixtures'].includes(tab))return;let el=document.createElement('div');el.className='ux-legend noPrint';el.innerHTML='<span class="ux-dot done">Finished</span><span class="ux-dot wait">Waiting / in progress</span><span class="ux-dot bad">Needs attention</span>';s.prepend(el)}
 function uxFinished(c){let type=c.settings?.tournamentType||'standard';if(c.archivedAt)return false;if(type==='aggregate')return aggregateTotals(c).complete===aggregateTotals(c).total;if(type==='knockout'){let a=(c.knockout||[]).flat();return a.length>0&&a.every(completed)}let k=(c.knockout||[]).flat();if(k.length)return k.every(completed);return (c.fixtures||[]).length>0&&(c.fixtures||[]).every(completed)}
 function uxFinishCard(s,c){if(role!=='admin'||tab!=='dashboard'||!uxFinished(c))return;let card=document.createElement('div');card.className='card ux-finish';card.innerHTML=`<h2>🏆 Competition finished</h2><p>All currently scheduled games have final scores. Your results are ready to check, print, share or archive.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-ux-finish-tab="tables">View Results</button><button class="btn secondary" data-ux-finish-tab="scorecards">Scorecards / Print</button><button class="btn secondary" id="uxFinishReport">AI / Facebook Report</button><button class="btn success" data-ux-finish-tab="admin">Archive Tournament</button></div>`;s.prepend(card);card.querySelectorAll('[data-ux-finish-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.uxFinishTab;render()});card.querySelector('#uxFinishReport').onclick=openAiTournamentReport}
@@ -4084,8 +4110,9 @@ function tvPagesFor(c){
 }
 function renderTv(){
  let c=comp(),pages=tvPagesFor(c),idx=tvPage%pages.length,p=pages[idx],body=p.body(),effective=effectiveTvDisplayMode(c),modeLabel=tvDisplayMode==='auto'?`Auto: ${effective==='knockout'?'Knockout':'Groups'}`:(tvDisplayMode==='knockout'?'Knockout':'Groups');
- document.body.className='tv-mode';
- document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div class="tv-head-main"><div class="tv-broadcast-brand">One Stop Bowling</div><div class="tv-titleblock"><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${p.title}</div></div><span class="tv-live-badge">LIVE</span></div><div class="tv-controls"><button id="tvMode">Mode: ${modeLabel}</button><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>20 sec rotation • ${modeLabel} • Screen ${idx+1}/${pages.length}</span></div></div>`;
+ document.body.className='tv-mode'+(p.title==='Live Rink Scores'?' tv-current-page':'');
+ document.body.innerHTML=`<div class="tv-wrap"><div class="tv-head"><div class="tv-head-main"><div class="tv-broadcast-brand">One Stop Bowling</div><div class="tv-titleblock"><h1>${esc(c.title)}</h1><div class="sub">${esc(c.settings.clubName||'')} • ${p.title}</div></div><span class="tv-live-badge">LIVE</span></div><div class="tv-controls"><button id="tvBack">← Back to Tournament</button><button id="tvMode">Mode: ${modeLabel}</button><button id="tvPrev">◀</button><button id="tvPause">${tvPaused?'Resume':'Pause'}</button><button id="tvNext">▶</button><button id="tvFull">Full Screen</button></div></div>${body}<div class="tv-footer"><span>One Stop Bowling Software • TV Display</span><span>20 sec rotation • ${modeLabel} • Screen ${idx+1}/${pages.length}</span></div></div>`;
+ document.getElementById('tvBack').onclick=()=>{if(window.opener&&!window.opener.closed){window.close();return}let q=new URLSearchParams(location.search);q.delete('tv');location.href=location.pathname+(q.toString()?'?'+q.toString():'')};
  document.getElementById('tvMode').onclick=()=>{let modes=['auto','groups','knockout'],i=modes.indexOf(tvDisplayMode);setTvDisplayMode(modes[(i+1)%modes.length],c)};
  document.getElementById('tvPrev').onclick=()=>{tvPage=(tvPage+pages.length-1)%pages.length;renderTv()};
  document.getElementById('tvNext').onclick=()=>{tvPage=(tvPage+1)%pages.length;renderTv()};
@@ -4125,5 +4152,7 @@ function runCoreSelfTests(){
 setTimeout(()=>{try{runCoreSelfTests()}catch(e){console.warn('Self-tests could not run',e)}},50);
 // ===== End regression checks =====
 
+
+// ===== Post-live-test workflow polish: guided next-stage navigation + TV current-games fit =====
 </script>
 </body></html>
