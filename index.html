@@ -437,6 +437,7 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
 <input id="authName" class="auth-input hidden" style="text-align:left;letter-spacing:0;font-size:16px" placeholder="Your name">
 <input id="authEmail" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="email" autocomplete="email" placeholder="Email address">
 <input id="authPassword" class="auth-input" style="text-align:left;letter-spacing:0;font-size:16px" type="password" autocomplete="current-password" placeholder="Password">
+<div id="authForgotWrap" style="text-align:right;margin:-2px 0 8px"><button type="button" id="authForgot" style="border:0;background:none;color:#1d4ed8;text-decoration:underline;cursor:pointer;padding:4px 0;font:inherit">Forgot password?</button></div>
 <input id="authPassword2" class="auth-input hidden" style="text-align:left;letter-spacing:0;font-size:16px" type="password" autocomplete="new-password" placeholder="Confirm password">
 <div style="display:flex;gap:8px;flex-wrap:wrap">
 <button class="btn secondary" style="flex:1" id="authCancel">Cancel</button>
@@ -1105,15 +1106,15 @@ function accessState(){
 }
 function roleAllowed(target){if(target==='public')return true;let a=accessState();if(!a.active)return false;if(target==='scorer')return ['owner','admin','scorer'].includes(remoteAccessRole)||['owner','admin','scorer'].includes(currentAppRole);if(target==='admin')return ['owner','admin'].includes(remoteAccessRole)||['owner','admin'].includes(currentAppRole);return false}
 function setAuthMode(mode){
- authMode=mode==='signup'?'signup':'signin';
- let signup=authMode==='signup',title=document.getElementById('authTitle'),text=document.getElementById('authText'),name=document.getElementById('authName'),pw=document.getElementById('authPassword'),pw2=document.getElementById('authPassword2'),submit=document.getElementById('authSubmit'),si=document.getElementById('authModeSignin'),su=document.getElementById('authModeSignup'),err=document.getElementById('authError');
- title.textContent=signup?'Create your account':'Sign in';
- text.textContent=signup?'Create an account for Public View access. An administrator can give you Scorer or Admin access later.':'Sign in to your account. Public View is available to all signed-in users; extra permissions are granted by an administrator.';
- name.classList.toggle('hidden',!signup);pw2.classList.toggle('hidden',!signup);
- pw.autocomplete=signup?'new-password':'current-password';
- submit.textContent=signup?'Create account':'Sign in';
- si.className='btn '+(signup?'secondary':'primary');su.className='btn '+(signup?'primary':'secondary');
- err.textContent='';err.style.color='#b91c1c';
+ authMode=['signup','forgot','reset'].includes(mode)?mode:'signin';
+ let signup=authMode==='signup',forgot=authMode==='forgot',reset=authMode==='reset',title=document.getElementById('authTitle'),text=document.getElementById('authText'),name=document.getElementById('authName'),email=document.getElementById('authEmail'),pw=document.getElementById('authPassword'),pw2=document.getElementById('authPassword2'),forgotWrap=document.getElementById('authForgotWrap'),submit=document.getElementById('authSubmit'),si=document.getElementById('authModeSignin'),su=document.getElementById('authModeSignup'),err=document.getElementById('authError');
+ title.textContent=signup?'Create your account':forgot?'Reset your password':reset?'Choose a new password':'Sign in';
+ text.textContent=signup?'Create an account for Public View access. An administrator can give you Scorer or Admin access later.':forgot?'Enter the email address for your One Stop Bowling account. We will email you a secure password-reset link.':reset?'Enter and confirm your new password.':'Sign in to your account. Public View is available to all signed-in users; extra permissions are granted by an administrator.';
+ name.classList.toggle('hidden',!signup);email.classList.toggle('hidden',reset);pw.classList.toggle('hidden',forgot);pw2.classList.toggle('hidden',!(signup||reset));if(forgotWrap)forgotWrap.classList.toggle('hidden',authMode!=='signin');
+ pw.autocomplete=(signup||reset)?'new-password':'current-password';
+ submit.textContent=signup?'Create account':forgot?'Send reset email':reset?'Save new password':'Sign in';
+ si.classList.toggle('primary',authMode==='signin');si.classList.toggle('secondary',authMode!=='signin');su.classList.toggle('primary',signup);su.classList.toggle('secondary',!signup);document.getElementById('authModeTabs').classList.toggle('hidden',reset);
+ err.textContent='';
 }
 function showAuthModal(target,mode='signin'){
  authRequestedRole=target||'scorer';let m=document.getElementById('authModal');m.classList.remove('hidden');setAuthMode(mode);
@@ -1181,6 +1182,27 @@ async function requestRole(target){
  if(!roleAllowed(target)){let a=accessState();if(currentAppRole==='pending'){showPendingApprovalScreen('Your sign-in worked. Your account is waiting for Admin approval before scoring or admin access is unlocked.');return}appAlert(!a.active?'Your trial has expired. Please contact the software administrator to activate or extend your access.':'Your account does not have permission for this area.');return}
  role=target;tab=target==='scorer'?scoringHomeTab():'dashboard';setQueryRole(target);render();
 }
+async function sendPasswordReset(){
+ let email=document.getElementById('authEmail').value.trim(),err=document.getElementById('authError'),submit=document.getElementById('authSubmit');err.textContent='';
+ if(!cloud||!cloud.auth){err.textContent='The sign-in service is not connected. Refresh the page and try again.';return}
+ if(!email){err.textContent='Enter your email address.';return}
+ submit.disabled=true;submit.textContent='Sending…';
+ let redirectTo=location.origin+location.pathname;
+ let {error}=await cloud.auth.resetPasswordForEmail(email,{redirectTo});
+ submit.disabled=false;submit.textContent='Send reset email';
+ if(error){err.textContent=error.message;return}
+ document.getElementById('authText').textContent='If an account exists for that email address, a password-reset link has been sent. Check your inbox and junk/spam folder.';
+ err.style.color='#166534';err.textContent='Reset email sent.';setTimeout(()=>{err.style.color='#b91c1c'},2500);
+}
+async function saveNewPassword(){
+ let password=document.getElementById('authPassword').value,password2=document.getElementById('authPassword2').value,err=document.getElementById('authError'),submit=document.getElementById('authSubmit');err.textContent='';
+ if(!cloud||!cloud.auth){err.textContent='The sign-in service is not connected. Refresh the page and try again.';return}
+ if(password.length<6){err.textContent='Password must be at least 6 characters.';return}
+ if(password!==password2){err.textContent='The two passwords do not match.';return}
+ submit.disabled=true;submit.textContent='Saving…';let {error}=await cloud.auth.updateUser({password});submit.disabled=false;submit.textContent='Save new password';
+ if(error){err.textContent=error.message;return}
+ document.getElementById('authModal').classList.add('hidden');appAlert('Your password has been changed. You can now use the new password to sign in.','Password updated');
+}
 async function signInAccount(){
  let email=document.getElementById('authEmail').value.trim(),password=document.getElementById('authPassword').value,err=document.getElementById('authError'),submit=document.getElementById('authSubmit');err.textContent='';
  if(!navigator.onLine){err.textContent='No internet connection. Reconnect and try again.';return}
@@ -1189,7 +1211,7 @@ async function signInAccount(){
  submit.disabled=true;submit.textContent='Signing in…';
  let {data,error}=await cloud.auth.signInWithPassword({email,password});
  submit.disabled=false;submit.textContent='Sign in';
- if(error){err.textContent=error.message;return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');
+ if(error){err.textContent='Email or password not recognised. Check your details or use Forgot password?';return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');
  let q=new URLSearchParams(location.search),inviteCode=q.get('code'),join=q.get('join');
  if(inviteCode&&join==='scorer'){await openTournamentByCode(inviteCode);return}
  if((authRequestedRole||'public')==='public'){
@@ -1305,6 +1327,7 @@ async function initCloudSync(){
   if(!navigator.onLine){cloudReady=false;updateConnectivityNotice();return}
   if(!window.supabase?.createClient)throw new Error('Supabase sign-in library did not load');
   cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+  cloud.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){document.getElementById('authModal').classList.remove('hidden');setAuthMode('reset');setTimeout(()=>document.getElementById('authPassword').focus(),50)}});
   let {data:sessionData}=await cloud.auth.getSession();currentUser=sessionData?.session?.user||null;await loadCurrentProfile();
   cloudReady=true;startNotificationRefresh();if(navigator.onLine)setTimeout(flushOfflineQueue,250);
   let params=new URLSearchParams(location.search),code=params.get('code');
@@ -4088,9 +4111,11 @@ document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>requestRole(b.
 document.getElementById('authCancel').onclick=()=>document.getElementById('authModal').classList.add('hidden');
 document.getElementById('authModeSignin').onclick=()=>setAuthMode('signin');
 document.getElementById('authModeSignup').onclick=()=>setAuthMode('signup');
-document.getElementById('authSubmit').onclick=()=>authMode==='signup'?createAccount():signInAccount();
+document.getElementById('authForgot').onclick=()=>setAuthMode('forgot');
+document.getElementById('authSubmit').onclick=()=>authMode==='signup'?createAccount():authMode==='forgot'?sendPasswordReset():authMode==='reset'?saveNewPassword():signInAccount();
+document.getElementById('authEmail').onkeydown=e=>{if(e.key==='Enter'&&authMode==='forgot')sendPasswordReset()};
 document.getElementById('authPassword').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signin')signInAccount()};
-document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signup')createAccount()};
+document.getElementById('authPassword2').onkeydown=e=>{if(e.key==='Enter'&&authMode==='signup')createAccount();else if(e.key==='Enter'&&authMode==='reset')saveNewPassword()};
 document.getElementById('accountBtn').onclick=()=>{if(currentUser){if(confirm(`Signed in as ${currentUser.email}. Sign out?`))signOutAccount()}else showAuthModal('public','signin')};
 document.getElementById('newTournamentBtn').onclick=showNewTournamentWizard;
 document.getElementById('myTournamentsBtn').onclick=showMyTournaments;
