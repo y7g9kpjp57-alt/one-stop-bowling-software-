@@ -373,6 +373,21 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
 <!-- Build 155: redesigned product-style welcome/home screen. Tournament, scoring, draw and sync logic unchanged. -->
 <!-- Build 151: added in-app Feedback / Report Issue form and Admin feedback inbox. No tournament, scoring, draw or schedule logic changed. -->
 <!-- Build 137: simplified guided flow; removed progress strip; completed tabs get a check; saves advance to next step -->
+<style id="organiser-command-styles">
+.organiser-centre{margin:0 0 20px;border:1px solid #cbd8e8;border-radius:20px;background:#fff;overflow:hidden;box-shadow:0 8px 26px rgba(12,40,72,.08)}
+.organiser-centre-head{padding:23px 24px 17px;background:linear-gradient(120deg,#0b2949,#165c98);color:#fff;display:flex;justify-content:space-between;gap:18px;align-items:center}
+.organiser-eyebrow{font-size:11px;font-weight:800;letter-spacing:.14em;color:#bcd9f5}.organiser-centre-head h2{font-size:clamp(21px,3vw,29px);line-height:1.2;margin:8px 0}.organiser-centre-head p{margin:0;color:#dbe9f7;font-size:13px}
+.organiser-count{font-size:25px;font-weight:900;white-space:nowrap;text-align:center}.organiser-count small{display:block;font-size:11px;font-weight:500;color:#dbe9f7}
+.organiser-meter{height:5px;background:#e5eef8}.organiser-meter span{display:block;height:100%;background:#47a1e5}
+.organiser-next{margin:18px;padding:18px;border:1px solid #bcd6ef;border-radius:14px;background:#f0f7fe;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.organiser-next small{display:block;color:#245e9c;font-weight:900;font-size:10px;letter-spacing:.09em}.organiser-next strong{display:block;color:#102e4c;font-size:18px;margin:5px 0}.organiser-next p{margin:0;color:#4a6177;font-size:13px}
+.organiser-next .btn{flex-shrink:0}.organiser-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;padding:0 18px 18px}
+.organiser-action{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-height:133px;text-align:left;border:1px solid #d6e1ed;border-radius:14px;background:#fff;color:#173653;padding:17px;cursor:pointer;font:inherit}
+.organiser-action:hover,.organiser-action:focus-visible{background:#f3f8ff;border-color:#3583c7;outline-offset:2px}.organiser-action-icon{font-size:25px}.organiser-action strong{font-size:14px}.organiser-action small{font-size:12px;line-height:1.4;color:#61758a}.organiser-chevron{position:absolute;right:13px;top:12px;color:#5b85ae;font-size:22px}
+.organiser-tools{display:flex;width:calc(100% - 36px);margin:0 18px 18px;padding:15px;border:1px solid #d6e1ed;border-radius:12px;background:#f8fafc;color:#234968;font-weight:700;justify-content:space-between;text-align:left;cursor:pointer}
+@media(max-width:720px){.organiser-centre-head{padding:18px}.organiser-count{font-size:20px}.organiser-next{flex-direction:column;align-items:stretch;margin:12px}.organiser-next .btn{width:100%}.organiser-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 12px 12px}.organiser-action{padding:13px;min-height:134px}.organiser-tools{width:calc(100% - 24px);margin:0 12px 12px}}
+@media(max-width:370px){.organiser-action{min-height:145px}.organiser-action strong{font-size:13px}}
+</style>
 </head>
 <body>
 <header class="top">
@@ -1673,7 +1688,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();if(sessionStorage.getItem('bowlsNavFreshV1')==='1'){sessionStorage.removeItem('bowlsNavFreshV1');requestAnimationFrame(()=>{let target=document.getElementById('screen');if(target){let y=target.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,y),behavior:'smooth'})}else window.scrollTo({top:0,behavior:'smooth'})})}else restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
 }
 
@@ -1981,7 +1996,7 @@ function renderBuilder(s){
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Automatic knockout balancing</label><select id="bAutoFillKo"><option value="yes" ${x.autoFillKnockout!==false?'selected':''}>Yes — fill up to next bracket</option><option value="no" ${x.autoFillKnockout===false?'selected':''}>No — use qualifiers only</option></select><div class="meta">Adds the best remaining teams to reach 4, 8, 16, 32 etc. If there are not enough entries, the remaining positions become byes.</div></div>
   <div class="field groupOnly ${koOnly?'hidden':''}"><label>Tournament days</label><select id="bEvent"><option value="same_day" ${x.eventFormat!=='two_day'?'selected':''}>Groups & knockouts same day</option><option value="two_day" ${x.eventFormat==='two_day'?'selected':''}>Groups Day 1 / Knockouts Day 2</option></select></div>
   <div class="field"><label>Target final finish</label><input id="bTarget" type="time" value="${x.targetFinish||'21:00'}"></div>
-  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Planner priority</label><select id="bOptimise"><option value="balanced" ${x.optimise==='balanced'?'selected':''}>Balanced</option><option value="shortest" ${x.optimise==='shortest'?'selected':''}>Shortest Day</option><option value="games" ${x.optimise==='games'?'selected':''}>Most Games</option></select></div>
+  <div class="field groupOnly ${koOnly?'hidden':''}"><label>Group setup strategy</label><select id="bOptimise"><option value="balanced" ${(x.optimise||'balanced')==='balanced'?'selected':''}>Balanced (recommended)</option><option value="shortest" ${x.optimise==='shortest'?'selected':''}>Fastest Finish</option><option value="games" ${x.optimise==='games'?'selected':''}>More Games</option></select></div>
  </div>
  <div id="twoDaySetup" class="${(!koOnly&&x.eventFormat==='two_day')?'':'hidden'}" style="margin-top:10px"><div class="formgrid">
    <div class="field"><label>Day 1 target finish</label><input id="bDay1Target" type="time" value="${x.day1TargetFinish}"></div>
@@ -1989,7 +2004,7 @@ function renderBuilder(s){
  </div></div>
  <div class="card" style="box-shadow:none;margin-top:14px;border:2px solid #bae6fd;background:#f0f9ff">
   <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin-bottom:4px">Recommended Setup</h3><p class="muted" style="margin:0">Prioritises your preferred group size and sensible, even groups first. Knockout fit, rinks and finish time are considered after the group structure.</p></div><span class="pill wait" id="plannerStatus">Calculating…</span></div>
-  <div id="plannerResult" style="margin-top:12px"></div>
+  <div id="plannerResult" style="margin-top:12px"></div><div class="groupOnly ${koOnly?'hidden':''}" style="margin-top:12px"><h4>Compare group setups</h4><div id="groupStrategyComparison" aria-live="polite"></div><p class="muted">Estimates include available rinks, game duration, breaks and knockout stages. Apply and save before changing a draw.</p></div>
   <button class="btn success" id="useRecommendation" type="button">Use Recommended Setup</button>
  </div>
  </div>
@@ -2061,6 +2076,16 @@ function updatePlanner(){
   }
   if(type.value==='knockout'){let v=plannerValues(),kp=knockoutOnlyPlan(v.n,v.r,v.km+v.buffer,v.start),path=kp.rounds.map(r=>r.name).join(' → '),recommendedGameMinutes=suggestedGameMinutes(document.getElementById('bGame')?.value||'rinks',v.ends);latestRec={knockout:true,plan:kp};use.disabled=true;status.textContent='✓ Bracket calculated';status.className='pill done';box.innerHTML=`<div class="oknotice" style="margin-bottom:10px"><b>Recommended minutes per game:</b> ${recommendedGameMinutes} minutes <span class="muted">${(document.getElementById('bShortMat')?.value==='yes')?`(Short Mat: ${v.ends} ends • ${formatTimingRate(suggestedGameRate(document.getElementById('bGame')?.value||'rinks',true))} • rounded up to nearest 5)`: `(${v.ends} ends × ${suggestedGameRate(document.getElementById('bGame')?.value||'rinks',false)} min per end, rounded up to nearest 5)`}</span></div><div class="grid" style="margin-bottom:10px"><div class="kpi"><b>${kp.mainSize}</b><span>Main draw size</span></div><div class="kpi"><b>${kp.prelimGames}</b><span>Preliminary games</span></div><div class="kpi"><b>${kp.byes}</b><span>Byes to main draw</span></div><div class="kpi"><b>${kp.finalFinish}</b><span>Estimated final finish</span></div></div><p><b>Recommended format:</b> ${kp.prelimGames?`${kp.prelimGames} preliminary game${kp.prelimGames===1?'':'s'} involving ${kp.prelimTeams} teams, with ${kp.byes} bye${kp.byes===1?'':'s'} into the main draw.`:`Straight ${kp.mainSize}-team knockout — no preliminary round or byes required.`}</p><p><b>Knockout path:</b> ${path}</p><p class="muted">The automatic draw randomly selects which teams play in the preliminary round and which receive byes.</p>`;return}
   let v=plannerValues(),rec=suggestedGroup(v.n,v.r,v.m+v.buffer,v.km+v.buffer,v.start,v.target,v.qualify,v.best,v.mode,v.event,v.day1,v.day2,v.preferredGroup,v.lunchEnabled,v.lunchStart,v.lunchMinutes,v.scheduledBreakEnabled,v.scheduledBreakAfter,v.scheduledBreakMinutes),p=rec.p;latestRec=rec;use.disabled=false;
+  let comparison=document.getElementById('groupStrategyComparison');
+  if(comparison){
+   let rows=[['balanced','Balanced'],['shortest','Fastest Finish'],['games','More Games']].map(([mode,label])=>{
+    let option=mode===v.mode?rec:suggestedGroup(v.n,v.r,v.m+v.buffer,v.km+v.buffer,v.start,v.target,v.qualify,v.best,mode,v.event,v.day1,v.day2,v.preferredGroup,v.lunchEnabled,v.lunchStart,v.lunchMinutes,v.scheduledBreakEnabled,v.scheduledBreakAfter,v.scheduledBreakMinutes);
+    let q=option.p,counts={};q.sizes.forEach(size=>counts[size]=(counts[size]||0)+1);
+    let split=Object.entries(counts).sort((a,b)=>+b[0]-+a[0]).map(([size,count])=>count+' × '+size).join(' + ');
+    return '<tr'+(mode===v.mode?' style="background:#e0f2fe;font-weight:bold"':'')+'><td>'+label+(mode===v.mode?' ✓':'')+'</td><td>'+split+'</td><td>'+q.groupGames+'</td><td>'+q.groupFinish+'</td><td>'+q.finalFinish+'</td></tr>';
+   });
+   comparison.innerHTML='<div style="overflow-x:auto"><table style="width:100%;min-width:480px;font-size:12px"><thead><tr><th>Strategy</th><th>Group sizes</th><th>Games</th><th>Group finish</th><th>Final finish</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
+  }
   let ok=!!(p.onTime&&p.day1OnTime),tight=ok&&p.minutesToTarget<60,statusText=ok?(tight?'⚠ Tight':'✓ Comfortable'):'✕ Not achievable',statusClass=ok&&!tight?'done':'wait';status.textContent=statusText;status.className='pill '+statusClass;
   let groupText=p.sizes.map((z,i)=>`Group ${String.fromCharCode(65+i)}: ${z}`).join(' • ');
   let groupCounts={};p.sizes.forEach(z=>groupCounts[z]=(groupCounts[z]||0)+1);
@@ -2323,6 +2348,28 @@ function appendWelcomeHome(s,c=comp()){
  current.querySelectorAll('[data-home-tab]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.homeTab;render()}));
 }
 
+/* Organiser navigation refresh: presentation only, no competition data changes. */
+function appendOrganiserCommandCentre(s,c){
+ if(role!=='admin'||tab!=='dashboard'||!s||s.querySelector('#organiserCommandCentre'))return;
+ const fixtures=Array.isArray(c.fixtures)?c.fixtures:[];
+ const played=fixtures.filter(completed).length;
+ const teams=Array.isArray(c.teams)?c.teams:[];
+ const league=c.settings?.tournamentType==='league';
+ const cards=[
+  ['teams','👥','Teams & Entries','Add, edit or import competitors'],
+  [league?'draw': 'draw','🎲',league?'League Fixtures':'Draw & Groups',league?'Manage the league schedule':'Generate or review the draw'],
+  [league?'fixtures':'schedule','🗓','Fixtures & Schedule','Dates, times and rink allocations'],
+  ['quick','⚡','Run Tournament','Enter scores and manage play'],
+  ['tables','▤','Tables & Results','Check standings and results'],
+  ['knockout','🏆','Finals & Knockout','Manage the final stages']
+ ];
+ const next=uxNextAction(c);
+ const percent=fixtures.length?Math.round(played/fixtures.length*100):0;
+ const wrap=document.createElement('section');wrap.id='organiserCommandCentre';wrap.className='organiser-centre noPrint';
+ wrap.innerHTML=`<div class="organiser-centre-head"><div><div class="organiser-eyebrow">ORGANISER WORKSPACE</div><h2>${esc(competitionDisplayName(c)||'Your Tournament')}</h2><p>Everything you need to run your competition, in one place.</p></div><div class="organiser-count">${played} / ${fixtures.length}<small>games complete</small></div></div><div class="organiser-meter"><span style="width:${percent}%"></span></div><div class="organiser-next"><div><small>YOUR NEXT STEP</small><strong>${esc(next.title)}</strong><p>${esc(next.text)}</p></div><button class="btn primary" data-organiser-go="${esc(next.tab)}">${esc(next.button)} →</button></div><div class="organiser-actions">${cards.map(([id,icon,title,desc])=>`<button type="button" class="organiser-action" data-organiser-go="${id}"><span class="organiser-action-icon">${icon}</span><strong>${title}</strong><small>${desc}</small><span class="organiser-chevron">›</span></button>`).join('')}</div><button type="button" class="organiser-tools" data-organiser-go="admin">⚙ Admin, printing, sharing & other tools <span>›</span></button>`;
+ s.prepend(wrap);
+ wrap.querySelectorAll('[data-organiser-go]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.organiserGo;render();window.scrollTo({top:0,behavior:'instant'})}));
+}
 function publicTournamentHero(c){
  if(role!=='public'||!c||!c.id)return '';
  let groups=new Set((c.teams||[]).map(t=>t.group).filter(Boolean)).size;
