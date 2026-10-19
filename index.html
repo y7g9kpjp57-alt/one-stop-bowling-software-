@@ -2660,7 +2660,25 @@ function knockoutPlan(q,rinks,minutes,start){
  return {qualifiers:q,bracketSize:size,rounds,sessions:totalSessions,finish:time};
 }
 function fullDayPlan(n,groupSize,rinks,minutes,koMinutes,start,target,qualify,bestRunners,lunchEnabled=false,lunchStart='13:00',lunchMinutes=0,scheduledBreakEnabled=false,scheduledBreakAfter=2,scheduledBreakMinutes=30,exactSizes=null){
- let gp=planFor(n,groupSize,rinks,minutes,start,lunchEnabled,lunchStart,lunchMinutes,scheduledBreakEnabled,scheduledBreakAfter,scheduledBreakMinutes,exactSizes),q=qualifierCount(gp.sizes.length,qualify,bestRunners);q=Math.min(n,q);let ko=knockoutPlan(q,rinks,koMinutes,gp.finish),finishMin=minutesOfDay(ko.finish),targetMin=minutesOfDay(target);if(finishMin<minutesOfDay(start))finishMin+=1440;if(targetMin<minutesOfDay(start))targetMin+=1440;return {...gp,groupGames:gp.games,groupSessions:gp.sessions,groupFinish:gp.finish,qualifiers:q,bracketSize:ko.bracketSize,koRounds:ko.rounds,koSessions:ko.sessions,finalFinish:ko.finish,totalSessions:gp.sessions+ko.sessions,onTime:finishMin<=targetMin,overBy:Math.max(0,finishMin-targetMin),minutesToTarget:targetMin-finishMin};
+ let gp=planFor(n,groupSize,rinks,minutes,start,lunchEnabled,lunchStart,lunchMinutes,scheduledBreakEnabled,scheduledBreakAfter,scheduledBreakMinutes,exactSizes),q=qualifierCount(gp.sizes.length,qualify,bestRunners);q=Math.min(n,q);let ko=knockoutPlan(q,rinks,koMinutes,gp.finish);
+ // A lunch break at the group/knockout boundary must delay the knockout.
+ // Re-time every knockout session to avoid starting a match during lunch.
+ if(lunchEnabled&&Math.max(0,+lunchMinutes||0)>0&&ko.rounds.length){
+  const lunchFrom=minutesOfDay(lunchStart||'13:00'),lunchUntil=lunchFrom+Math.max(0,+lunchMinutes||0);
+  let cursor=minutesOfDay(gp.finish);
+  for(const round of ko.rounds){
+   let roundStart=null;
+   for(let i=0;i<round.sessions;i++){
+    if(cursor<lunchUntil&&cursor+koMinutes>lunchFrom)cursor=lunchUntil;
+    if(roundStart===null)roundStart=cursor;
+    cursor+=koMinutes;
+   }
+   round.start=minutesToClock(roundStart);
+   round.finish=minutesToClock(cursor);
+  }
+  ko.finish=minutesToClock(cursor);
+ }
+ let finishMin=minutesOfDay(ko.finish),targetMin=minutesOfDay(target);if(finishMin<minutesOfDay(start))finishMin+=1440;if(targetMin<minutesOfDay(start))targetMin+=1440;return {...gp,groupGames:gp.games,groupSessions:gp.sessions,groupFinish:gp.finish,qualifiers:q,bracketSize:ko.bracketSize,koRounds:ko.rounds,koSessions:ko.sessions,finalFinish:ko.finish,totalSessions:gp.sessions+ko.sessions,onTime:finishMin<=targetMin,overBy:Math.max(0,finishMin-targetMin),minutesToTarget:targetMin-finishMin};
 }
 function fullTournamentPlan(n,groupSize,rinks,minutes,koMinutes,start,target,qualify,bestRunners,eventFormat='same_day',day1Target='21:00',day2Start='09:00',lunchEnabled=false,lunchStart='13:00',lunchMinutes=0,scheduledBreakEnabled=false,scheduledBreakAfter=2,scheduledBreakMinutes=30,exactSizes=null){
  if(eventFormat!=='two_day'){
