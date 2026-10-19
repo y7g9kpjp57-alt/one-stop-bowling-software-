@@ -2786,7 +2786,14 @@ function parseTeamImportRows(rows,c=comp()){
   // Legacy Team columns are accepted for older files only when the required player/skip name is missing.
   if(!team)team=legacyTeam||'';
   if(!team&&!club&&!players.some(Boolean))return;
-  out.push({row:idx+2,name:team||`Team ${out.length+1}`,clubName:club,players:Object.fromEntries(players.map((v,i)=>[i,v||''])),positions});
+  let rawGroup=importCell(row,['Group','Group Letter','Draw Group','Pool']);
+  let match=rawGroup.match(/^(?:group\s*)?([A-T])$/i);
+  if(rawGroup&&!match)throw new Error(`Row ${idx+2}: invalid group ${rawGroup}.`);
+  let group=match?match[1].toUpperCase():'';
+  let rawPos=importCell(row,['Group Position','Draw Position','Position']);
+  let drawPos=rawPos?Number(rawPos):null;
+  if(rawPos&&(!Number.isInteger(drawPos)||drawPos<1))throw new Error(`Row ${idx+2}: invalid group position.`);
+  out.push({row:idx+2,name:team||`Team ${out.length+1}`,clubName:club,group,drawPos,players:Object.fromEntries(players.map((v,i)=>[i,v||''])),positions});
  });
  return out
 }
@@ -2814,7 +2821,7 @@ async function readTeamImportFile(file,c=comp()){
  if(ext==='csv')return csvToRows(await file.text());
  if(!window.XLSX)throw new Error('Excel reader did not load. Check your internet connection or use CSV.');
  let buf=await file.arrayBuffer(),wb=XLSX.read(buf,{type:'array'}),wanted=teamImportSheetName(c);
- let match=wb.SheetNames.find(n=>String(n).trim().toLowerCase()===wanted.toLowerCase());
+ let match=wb.SheetNames.find(n=>String(n).trim().toLowerCase()===wanted.toLowerCase())||wb.SheetNames.find(n=>/scottish rinks|group draw|completed draw|groups/i.test(n));
  if(!match){
   if(wb.SheetNames.length===1)match=wb.SheetNames[0];
   else throw new Error(`This is a ${wanted} tournament. Please use the ${wanted} tab in the Excel template.`)
@@ -2826,13 +2833,16 @@ function showTeamImportPreview(imported,c=comp()){
  let existing=document.getElementById('teamImportPreview');if(existing)existing.remove();
  let card=document.createElement('div');card.id='teamImportPreview';card.className='card';
  let positions=playerPositions(c.settings.gameType||'rinks');
- card.innerHTML=`<h2>Check imported teams</h2><p class="muted">${imported.length} team${imported.length===1?'':'s'} found. Nothing will change until you confirm.</p><div style="overflow:auto"><table><thead><tr><th>#</th><th>Team</th><th>Club</th>${positions.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${imported.map((t,i)=>`<tr><td>${i+1}</td><td>${esc(t.name)}</td><td>${esc(t.clubName||'')}</td>${positions.map((p,pi)=>`<td>${esc(t.players?.[pi]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="notice" style="margin-top:12px"><b>Confirming replaces the current team list.</b> Any existing draw, fixtures or knockout for this tournament will be cleared so old team IDs cannot remain in the schedule.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="confirmTeamImport">Confirm Import</button><button class="btn secondary" id="cancelTeamImport">Cancel</button></div>`;
+ let allocated=imported.filter(t=>t.group),groups=[...new Set(allocated.map(t=>t.group))].sort();
+ if(allocated.length&&allocated.length!==imported.length)throw new Error('Every imported team must have a group if importing a completed draw.');
+ let used=new Set();for(let t of allocated){if(t.drawPos){let key=t.group+':'+t.drawPos;if(used.has(key))throw new Error('Duplicate group position '+key);used.add(key)}}
+ card.innerHTML=`<h2>Check imported teams</h2><p class="muted">${imported.length} team${imported.length===1?'':'s'} found. Nothing will change until you confirm.</p><div style="overflow:auto"><table><thead><tr><th>#</th><th>Team</th><th>Group</th><th>Club</th>${positions.map(p=>`<th>${esc(p)}</th>`).join('')}</tr></thead><tbody>${imported.map((t,i)=>`<tr><td>${i+1}</td><td>${esc(t.name)}</td><td>${esc(t.group||'—')}</td><td>${esc(t.clubName||'')}</td>${positions.map((p,pi)=>`<td>${esc(t.players?.[pi]||'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="notice" style="margin-top:12px"><b>Confirming replaces the current team list.</b> Any existing draw, fixtures or knockout for this tournament will be cleared so old team IDs cannot remain in the schedule.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="confirmTeamImport">Confirm Import</button><button class="btn secondary" id="cancelTeamImport">Cancel</button></div>`;
  let target=document.getElementById('teamImportPanel');target?.insertAdjacentElement('afterend',card);
  document.getElementById('cancelTeamImport').onclick=()=>card.remove();
  document.getElementById('confirmTeamImport').onclick=()=>{
-  c.teams=imported.map((t,i)=>({id:'t'+(i+1),name:t.name||`Team ${i+1}`,clubName:t.clubName||'',group:'',players:{...(t.players||{})}}));
-  c.settings.teamCount=c.teams.length;c.fixtures=[];c.knockout=[];c.manualHistory=[];c.manualDrawConfirmed=false;c.drawSeed=(+c.drawSeed||0)+1;
-  saveDB();appToast(`${c.teams.length} teams imported.`, 'success');render()
+  c.teams=imported.map((t,i)=>({id:'t'+(i+1),name:t.name||`Team ${i+1}`,clubName:t.clubName||'',group:t.group||'',drawPos:t.drawPos||null,players:{...(t.players||{})}}));
+  c.settings.teamCount=c.teams.length;if(allocated.length){c.settings.drawMethod='manual';c.settings.manualGroups=groups.length;}c.fixtures=[];c.knockout=[];c.manualHistory=[];c.manualDrawConfirmed=false;c.drawSeed=(+c.drawSeed||0)+1;
+  saveDB();appToast(allocated.length?`${c.teams.length} teams and ${groups.length} groups imported.`:`${c.teams.length} teams imported.`, 'success');if(allocated.length)tab='draw';render()
  };
  card.scrollIntoView({behavior:'smooth',block:'start'})
 }
@@ -2904,7 +2914,7 @@ function renderTeams(s){
   return
  }
  let positions=playerPositions(c.settings.gameType||'rinks');c.teams.forEach(t=>t.players=t.players||{});
- s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamImportPanel" class="oknotice" style="margin-bottom:14px"><b>Save typing — import your team list</b><p style="margin:6px 0 10px">Upload an Excel (.xlsx/.xls) or CSV file containing club and player names. Singles use the player name as the team name; pairs, triples and rinks automatically use the skip name. You will see a preview before anything is changed.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="importTeamsBtn">Import Excel / CSV</button><button class="btn secondary" id="downloadTeamTemplate">Download Excel Template</button><input id="teamImportFile" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" class="hidden"></div><div class="meta" style="margin-top:8px">The Excel template has separate Singles, Pairs, Triples and Rinks tabs. The app automatically reads the tab matching this tournament. Singles use the player name as the team name; pairs, triples and rinks use the skip name. Older sheets with Team/Team Name and Player 1–4 headings are still accepted.</div></div><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="field" style="margin:8px 0 0 44px"><label>Club name (optional)</label><input data-team-club="${t.id}" value="${esc(t.clubName||'')}" placeholder="Club name" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px"></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;
+ s.innerHTML=`<div class="card"><h2>Teams & Players</h2><p class="muted">Team name is required. Player names are optional and will automatically appear on printed scorecards. Blank player fields stay blank for handwriting.</p><div id="teamImportPanel" class="oknotice" style="margin-bottom:14px"><b>Save typing — import your team list</b><p style="margin:6px 0 10px">Upload an Excel (.xlsx/.xls) or CSV file containing club and player names. Include a Group column to import the completed draw automatically. Singles use the player name as the team name; pairs, triples and rinks automatically use the skip name. You will see a preview before anything is changed.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="importTeamsBtn">Import Excel / CSV</button><button class="btn secondary" id="downloadTeamTemplate">Download Excel Template</button><input id="teamImportFile" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" class="hidden"></div><div class="meta" style="margin-top:8px">The Excel template has separate Singles, Pairs, Triples and Rinks tabs. The app automatically reads the tab matching this tournament. Singles use the player name as the team name; pairs, triples and rinks use the skip name. Older sheets with Team/Team Name and Player 1–4 headings are still accepted.</div></div><div id="teamList">${c.teams.map((t,i)=>`<div class="teamcard"><div class="teamhead"><b>${i+1}</b><input data-team="${t.id}" value="${esc(t.name)}" style="width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:9px"><b style="text-align:center">${t.group||'—'}</b></div><div class="field" style="margin:8px 0 0 44px"><label>Club name (optional)</label><input data-team-club="${t.id}" value="${esc(t.clubName||'')}" placeholder="Club name" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px"></div><div class="teamplayers">${positions.map((pos,pi)=>`<div><label>${esc(pos)}</label><input data-player-team="${t.id}" data-player-pos="${pi}" placeholder="Optional ${esc(pos)} name" value="${esc(t.players?.[pi]||'')}"></div>`).join('')}</div></div>`).join('')}</div><button class="btn primary" id="saveTeams">Save Teams & Players</button></div>`;
  let importBtn=document.getElementById('importTeamsBtn'),fileInput=document.getElementById('teamImportFile'),templateBtn=document.getElementById('downloadTeamTemplate');
  if(importBtn&&fileInput)importBtn.onclick=()=>fileInput.click();
  if(templateBtn)templateBtn.onclick=()=>downloadTeamImportTemplate(c);
