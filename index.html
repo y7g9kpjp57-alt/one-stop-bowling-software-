@@ -399,6 +399,7 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
   <div class="notice" id="syncNotice">Offline mode: tournaments and scores are saved on this device. Use Backup regularly to save a copy you can restore on another device.</div>
   <div class="toolbar">
     <select id="competitionSelect" class="grow"></select>
+    <button class="btn secondary" type="button" id="openStandalonePlanner">🧮 Tournament Calculator</button>
     <button class="btn primary" id="newTournamentBtn">+ New Tournament</button>
     <button class="btn secondary" id="myTournamentsBtn">My Tournaments</button>
     <!-- Legacy action hooks retained for compatibility; visible copies now live in Admin Centre. -->
@@ -418,6 +419,39 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
   <section id="screen"></section>
 </main>
 <nav class="bottom" id="bottomNav"></nav>
+<div class="modal hidden" id="standalonePlannerModal" style="z-index:9999"><div class="helpbox" style="max-width:850px;max-height:90vh;overflow:auto">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div><h2 style="margin:0">Tournament Planning Calculator</h2><p class="muted">Compare formats without creating or changing a tournament.</p></div><button type="button" class="btn secondary" id="standalonePlannerClose">Close</button></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:15px 0">
+<label>Discipline<select id="spDiscipline"><option value="singles">Singles</option><option value="pairs" selected>Pairs</option><option value="triples">Triples</option><option value="rinks">Rinks / Fours</option></select></label>
+<label>Playing surface<select id="spSurface"><option value="outdoor" selected>Outdoor bowls</option><option value="indoor">Indoor / short mat bowls</option></select></label>
+<label>Number of ends<input id="spEnds" type="number" min="1" max="40" value="12"></label>
+<label>Teams<input id="spTeams" type="number" min="2" max="256" value="60"></label>
+<label>Rinks available<input id="spRinks" type="number" min="1" max="64" value="16"></label>
+<label>Start time<input id="spStart" type="time" value="09:00"></label>
+<label>Group match duration (minutes)<input id="spGame" type="number" min="5" max="300" value="75"></label>
+<label><span style="font-weight:400"> </span><button type="button" class="btn secondary" id="spSuggested">Use app's recommended game time</button></label>
+<label>Changeover minutes<input id="spChange" type="number" min="0" max="60" value="5"></label>
+<label>Default knockout minutes<input id="spKO" type="number" min="5" max="300" value="75"></label>
+<label>Earliest knockout start (optional)<input id="spKOStart" type="time"></label>
+<label>Break before knockout (minutes)<input id="spKOBreak" type="number" min="0" max="180" value="0"></label>
+<label>Lunch time<input id="spLunchStart" type="time" value="13:00"></label>
+<label>Lunch minutes (0 = none)<input id="spLunch" type="number" min="0" max="180" value="30"></label>
+<label>Qualifiers per group<select id="spQualify"><option value="1">1 winner per group</option><option value="2" selected>Top 2 per group</option></select></label>
+<label>Fill knockout to<select id="spBracket"><option value="none">No extra qualifiers (byes)</option><option value="16">16 teams</option><option value="32" selected>32 teams</option><option value="64">64 teams</option></select></label>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0"><button type="button" class="btn secondary" data-sp-preset="8">8 groups (8/7)</button><button type="button" class="btn secondary" data-sp-preset="10">10 groups (6)</button><button type="button" class="btn secondary" data-sp-preset="12">12 groups (5)</button></div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end"><label style="flex:1;min-width:140px">Number of groups<input id="spGroups" type="number" min="1" max="26" value="10"></label><button type="button" class="btn secondary" id="spEven">Distribute evenly</button><button type="button" class="btn primary" id="spCompare">Calculate options</button></div>
+<p class="muted" style="font-size:12px">Edit any group size below. Example: 10 groups of 6 for 60 pairs, or 4 groups of 8 and 4 groups of 7.</p>
+<div id="spGroupInputs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin:12px 0"></div>
+<details open style="margin:12px 0"><summary style="font-weight:700;cursor:pointer">Set individual knockout round times</summary>
+<p class="muted" style="font-size:12px">Leave a round blank to use the default knockout duration. You can also delay any round until a chosen clock time.</p>
+<div id="spRoundSettings" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:9px;margin:12px 0"></div>
+</details>
+<div id="spPlannerResults" aria-live="polite"></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px"><button type="button" class="btn primary" id="spShare">Share proposal</button><button type="button" class="btn secondary" id="spCopy">Copy summary</button><button type="button" class="btn secondary" id="spPrint">Print / Save PDF</button></div>
+<p class="muted" id="spShareStatus" role="status"></p>
+<p class="muted" style="font-size:12px">Estimates use the app's scheduling model and assume one green with the stated number of rinks. Actual play can vary; no tournament data is saved or changed.</p>
+</div></div>
 <div class="modal hidden" id="helpModal"><div class="helpbox">
 <div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><h2>One Stop Bowling Software – User Guide</h2><p class="muted" style="margin:0">Quick help for setting up, sharing and running a competition.</p></div><button class="btn secondary" id="helpClose">Close</button></div>
 <div class="help-quick"><b>Recommended order</b><div class="help-steps"><span>Create</span><span>Entries</span><span>Setup</span><span>Draw</span><span>Greens & Schedule</span><span>Scorecards</span><span>Scores</span><span>Tables</span><span>Knockout</span><span>Share / TV</span></div></div>
@@ -2654,6 +2688,110 @@ function plannerFinishWithLunch(start,sessions,interval,lunchEnabled=false,lunch
  }
  return minutesToClock(cur)
 }
+
+function initStandalonePlanner(){
+ const modal=document.getElementById('standalonePlannerModal');
+ if(!modal)return;
+ const el=id=>document.getElementById(id);
+ const num=(id,fallback=0)=>{const n=Number(el(id)?.value);return Number.isFinite(n)&&String(el(id)?.value).trim()!==''?n:fallback};
+ const clamp=(value,a,b)=>Math.min(b,Math.max(a,value));
+ const hhmm=t=>minutesToClock(t);
+ let sizes=[],summary='',lastBracket=0,roundSettings={};
+ function suggestedMinutes(){
+  const d=el('spDiscipline').value,ends=clamp(num('spEnds',12),1,40);
+  // Match the tournament setup's existing rates: outdoor minutes/end, or 35 seconds/bowl for short mat.
+  if(el('spSurface').value==='indoor')return Math.ceil((ends*({singles:8,pairs:8,triples:12,rinks:16}[d]||16)*35/60)/5)*5;
+  return Math.ceil((ends*({singles:3.25,pairs:6,triples:6.5,rinks:7}[d]||7))/5)*5;
+ }
+ function even(){
+  const n=clamp(num('spTeams',60),2,256),g=clamp(num('spGroups',10),1,26);
+  sizes=Array.from({length:g},(_,i)=>Math.floor(n/g)+(i<n%g?1:0));drawInputs();
+ }
+ function drawInputs(){
+  el('spGroupInputs').innerHTML=sizes.map((v,i)=>`<label>Group ${String.fromCharCode(65+i)}<input type="number" min="2" max="100" data-sp-size="${i}" value="${v}"></label>`).join('');
+  el('spGroupInputs').querySelectorAll('[data-sp-size]').forEach(inp=>inp.addEventListener('input',()=>{sizes[+inp.dataset.spSize]=Number(inp.value)||0;calculate()}));
+ }
+ function stageNames(size){let names=[];while(size>=2){names.push(size===2?'Final':size===4?'Semi-finals':size===8?'Quarter-finals':`Last ${size}`);size/=2;}return names;}
+ function updateRoundControls(bracket){
+  if(lastBracket===bracket)return;
+  const old=roundSettings;roundSettings={};
+  const names=stageNames(nextKnockoutSize(bracket));
+  for(const name of names)roundSettings[name]=old[name]||{duration:'',earliest:''};
+  el('spRoundSettings').innerHTML=names.map((name,i)=>`<div style="border:1px solid #d2dce8;border-radius:9px;padding:9px"><b>${name}</b><label style="display:block;margin-top:7px">Minutes<input type="number" min="5" max="300" placeholder="Default" data-sp-round="${i}" data-sp-kind="duration" value="${roundSettings[name].duration}"></label><label style="display:block;margin-top:7px">Start no earlier than<input type="time" data-sp-round="${i}" data-sp-kind="earliest" value="${roundSettings[name].earliest}"></label></div>`).join('');
+  el('spRoundSettings').querySelectorAll('[data-sp-round]').forEach(inp=>inp.addEventListener('change',()=>{const name=names[+inp.dataset.spRound];roundSettings[name][inp.dataset.spKind]=inp.value;calculate()}));
+  lastBracket=bracket;
+ }
+ function calculate(){
+  const n=clamp(num('spTeams',60),2,256),r=clamp(num('spRinks',16),1,64),groupM=clamp(num('spGame',75),5,300),koDefault=clamp(num('spKO',75),5,300),change=clamp(num('spChange',5),0,60);
+  const start=el('spStart').value||'09:00',lunch=clamp(num('spLunch',30),0,180),ls=el('spLunchStart').value||'13:00';
+  const out=el('spPlannerResults'),sum=sizes.reduce((a,b)=>a+b,0);summary='';
+  if(sum!==n||sizes.some(v=>v<2)){out.innerHTML=`<div class="notice">Group allocations: ${sum} of ${n} teams. Each group must contain at least 2 teams.</div>`;return}
+  const groups=sizes.length,perGroup=num('spQualify',2),base=groups*perGroup,requested=el('spBracket').value,bracket=requested==='none'?base:Math.max(base,Number(requested));
+  if(sizes.some(v=>v<=perGroup)){out.innerHTML='<div class="notice">Every group must have more teams than automatic qualifiers.</div>';return}
+  if(bracket>n){out.innerHTML=`<div class="notice">Cannot qualify ${bracket} teams when there are only ${n}. Choose a smaller knockout.</div>`;return}
+  const extra=bracket-base,position=perGroup+1;
+  if(extra>sizes.filter(v=>v>position-1).length){out.innerHTML=`<div class="notice">You cannot add ${extra} best ${position===2?'runners-up':position===3?'third-placed':'next-placed'} teams: only ${groups} groups can supply one at that position. Reduce the target or select more automatic qualifiers.</div>`;return}
+  updateRoundControls(bracket);
+  const matches=sizes.reduce((a,b)=>a+b*(b-1)/2,0);
+  const format=extra?`${base} automatic qualifiers + ${extra} best ${position===2?'runners-up':position===3?'third-placed':'next-placed'} teams`:`${base} automatic qualifiers`;
+  const gp=planFor(n,Math.max(...sizes),r,groupM+change,start,lunch>0,ls,lunch,false,2,0,sizes);
+  const lunchFrom=minutesOfDay(ls),lunchUntil=lunchFrom+lunch;
+  let cursor=minutesOfDay(gp.finish)+clamp(num('spKOBreak',0),0,180);
+  const customKOStart=el('spKOStart').value;
+  if(customKOStart)cursor=Math.max(cursor,minutesOfDay(customKOStart));
+  const firstRoundSize=nextKnockoutSize(bracket);
+  let roundSize=firstRoundSize,first=true;
+  const rounds=[];
+  while(roundSize>=2){
+   const name=roundSize===2?'Final':roundSize===4?'Semi-finals':roundSize===8?'Quarter-finals':`Last ${roundSize}`;
+   const settings=roundSettings[name]||{},duration=clamp(settings.duration?Number(settings.duration):koDefault,5,300),earliest=settings.earliest?minutesOfDay(settings.earliest):0;
+   const games=first?bracket-roundSize/2:roundSize/2;first=false;
+   cursor=Math.max(cursor,earliest);
+   const sessions=Math.ceil(games/r);let begin=cursor;
+   for(let j=0;j<sessions;j++){
+    if(lunch&&cursor<lunchUntil&&cursor+duration+change>lunchFrom)cursor=lunchUntil;
+    if(j===0)begin=cursor;
+    cursor+=duration+change;
+   }
+   rounds.push({name,games,sessions,duration,begin:hhmm(begin),finish:hhmm(cursor)});
+   roundSize/=2;
+  }
+  const finish=hhmm(cursor),knockoutMatches=bracket-1;
+  const distribution=sizes.map((v,i)=>`Group ${String.fromCharCode(65+i)}: ${v} teams, ${v*(v-1)/2} games`).join('\n');
+  const roundText=rounds.map(x=>`${x.name}: ${x.games} games, ${x.sessions} sessions, ${x.duration} minutes/match, ${x.begin}–${x.finish}`).join('\n');
+  const discipline=el('spDiscipline').selectedOptions[0].textContent;
+  const surface=el('spSurface').selectedOptions[0].textContent;
+  summary=['ONE STOP BOWLING — TOURNAMENT PLANNING PROPOSAL','For discussion and agreement — not an official draw',
+   `Format: ${discipline} | Surface: ${surface} | Ends: ${num('spEnds',12)}`,
+   `Teams: ${n} | Groups: ${groups} | Rinks: ${r}`,
+   `Start: ${start} | Group match: ${groupM} min | Default knockout: ${koDefault} min | Changeover: ${change} min`,
+   `Lunch: ${lunch?ls+' for '+lunch+' minutes':'None'}`,
+   `Knockout minimum start: ${customKOStart||'When groups finish'} | Before-knockout break: ${num('spKOBreak',0)} min`,
+   '', 'GROUP ALLOCATION',distribution,`Total group matches: ${matches}`,`Group playing sessions: ${gp.sessions} | Rink utilisation: ${gp.util}%`,`Group stage estimated finish: ${gp.finish}`,
+   '', 'QUALIFICATION & KNOCKOUT',format,`Total qualifiers: ${bracket} | Knockout matches: ${knockoutMatches}`,roundText,
+   `Total tournament matches: ${matches+knockoutMatches}`,`Estimated final finish: ${finish}`,
+   '', 'Planning estimate only; timings depend on actual play and rink availability.'].join('\n');
+  out.innerHTML=`<div class="oknotice"><b>${groups} groups · ${matches} group matches · ${bracket} qualifiers</b><br>${format}</div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:12px 0"><div class="card"><b>${gp.sessions}</b><div class="meta">Group sessions</div></div><div class="card"><b>${gp.finish}</b><div class="meta">Groups finish</div></div><div class="card"><b>${finish}</b><div class="meta">Final finishes</div></div><div class="card"><b>${matches+knockoutMatches}</b><div class="meta">Total games</div></div></div>
+   <div class="card" style="margin-top:12px"><h3>Knockout timetable</h3><div style="overflow-x:auto"><table style="width:100%;min-width:440px"><thead><tr><th>Round</th><th>Games</th><th>Minutes/game</th><th>Starts</th><th>Finishes</th></tr></thead><tbody>${rounds.map(x=>`<tr><td>${x.name}</td><td>${x.games}</td><td>${x.duration}</td><td>${x.begin}</td><td>${x.finish}</td></tr>`).join('')}</tbody></table></div></div>
+   <div class="card" style="margin-top:12px"><h3>Group-by-group breakdown</h3><div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Group</th><th>Teams</th><th>Games</th><th>Qualifiers</th></tr></thead><tbody>${sizes.map((v,i)=>`<tr><td>${String.fromCharCode(65+i)}</td><td>${v}</td><td>${v*(v-1)/2}</td><td>${perGroup}</td></tr>`).join('')}</tbody><tfoot><tr><th>Total</th><th>${n}</th><th>${matches}</th><th>${base}</th></tr></tfoot></table></div></div>
+   <p class="muted">${discipline} · ${surface} · Recommended duration based on the same scoring rates used by Tournament Setup. Timings are provisional.</p>`;
+ }
+ el('openStandalonePlanner').addEventListener('click',()=>{modal.classList.remove('hidden');even();el('spGame').value=suggestedMinutes();el('spKO').value=suggestedMinutes();calculate()});
+ el('standalonePlannerClose').addEventListener('click',()=>modal.classList.add('hidden'));
+ modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.add('hidden')});
+ el('spSuggested').addEventListener('click',()=>{el('spGame').value=suggestedMinutes();el('spKO').value=suggestedMinutes();calculate()});
+ el('spEven').addEventListener('click',()=>{even();calculate()});
+ modal.querySelectorAll('[data-sp-preset]').forEach(b=>b.addEventListener('click',()=>{el('spTeams').value=60;el('spGroups').value=b.dataset.spPreset;even();calculate()}));
+ el('spCopy').addEventListener('click',async()=>{if(!summary){el('spShareStatus').textContent='Correct the group allocations before sharing.';return}try{await navigator.clipboard.writeText(summary);el('spShareStatus').textContent='Summary copied.'}catch(e){el('spShareStatus').textContent='Copy unavailable. Use Print / Save PDF instead.'}});
+ el('spShare').addEventListener('click',async()=>{if(!summary){el('spShareStatus').textContent='Correct the group allocations before sharing.';return}if(navigator.share){try{await navigator.share({title:'One Stop Bowling — tournament proposal',text:summary});return}catch(e){if(e.name==='AbortError')return}}try{await navigator.clipboard.writeText(summary);el('spShareStatus').textContent='Sharing unavailable; summary copied instead.'}catch(e){el('spShareStatus').textContent='Use Print / Save PDF to share.'}});
+ el('spPrint').addEventListener('click',()=>{if(!summary){el('spShareStatus').textContent='Correct the group allocations before printing.';return}const w=window.open('','_blank');if(!w){el('spShareStatus').textContent='Pop-up blocked. Use Copy summary instead.';return}const safe=summary.replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>One Stop Bowling — Planning Proposal</title><style>body{font:15px/1.55 Arial,sans-serif;max-width:800px;margin:36px auto;padding:0 24px;color:#17324f}pre{white-space:pre-wrap;font:inherit}h1{font-size:24px}@media print{body{margin:15mm auto}}</style></head><body><h1>One Stop Bowling — Tournament Proposal</h1><pre>'+safe+'</pre></body></html>');w.document.close();w.focus();w.print()});
+ el('spCompare').addEventListener('click',calculate);
+ ['spTeams','spRinks','spStart','spGame','spChange','spKO','spKOStart','spKOBreak','spLunchStart','spLunch','spQualify','spBracket','spEnds','spDiscipline','spSurface'].forEach(id=>el(id).addEventListener('change',()=>{if(id==='spTeams')even();if(['spDiscipline','spSurface','spEnds'].includes(id)){el('spGame').value=suggestedMinutes();el('spKO').value=suggestedMinutes()}calculate()}));
+ el('spGroups').addEventListener('change',()=>{even();calculate()});
+}
+document.addEventListener('DOMContentLoaded',initStandalonePlanner);
+
 function planFor(n,groupSize,rinks,minutes,start,lunchEnabled=false,lunchStart='13:00',lunchMinutes=0,scheduledBreakEnabled=false,scheduledBreakAfter=2,scheduledBreakMinutes=30,exactSizes=null){
  let sizes=Array.isArray(exactSizes)&&exactSizes.reduce((a,b)=>a+b,0)===n?[...exactSizes]:balancedSizes(n,groupSize),all=[],id=0,key=0;
  sizes.forEach((sz,gi)=>{let ts=Array.from({length:sz},()=>({id:'p'+(++id)}));roundRobin(ts).forEach((games,r)=>games.forEach(m=>all.push({_key:'p'+(++key),g:String.fromCharCode(65+gi),round:r+1,a:m[0],b:m[1]})))});
