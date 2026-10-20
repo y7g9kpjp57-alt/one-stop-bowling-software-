@@ -388,6 +388,19 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
 @media(max-width:720px){.organiser-centre-head{padding:18px}.organiser-count{font-size:20px}.organiser-next{flex-direction:column;align-items:stretch;margin:12px}.organiser-next .btn{width:100%}.organiser-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:0 12px 12px}.organiser-action{padding:13px;min-height:134px}.organiser-tools{width:calc(100% - 24px);margin:0 12px 12px}}
 @media(max-width:370px){.organiser-action{min-height:145px}.organiser-action strong{font-size:13px}}
 </style>
+<style id="organiser-overhaul-2026">
+/* Organiser-only layout: public and scorer screens intentionally untouched. */
+.organiser-centre{margin-bottom:15px}
+.organiser-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.organiser-action{min-height:122px}
+.organiser-extra{background:#fff;border:1px solid #d6e1ed;border-radius:14px;margin:0 0 18px;overflow:hidden}
+.organiser-extra>summary{padding:17px 18px;cursor:pointer;color:#294b69;font-weight:750;list-style-position:inside}
+.organiser-extra[open]>summary{border-bottom:1px solid #e2e8f0}
+.organiser-extra #homeLanding{padding:12px}
+.organiser-extra .home-welcome{box-shadow:none!important;margin:0!important}
+.organiser-extra #healthCheckCard,.organiser-extra .simple-mode-card{margin:12px}
+@media(max-width:650px){.organiser-actions{gap:9px}.organiser-action{min-height:130px;padding:14px}.organiser-centre-head{flex-wrap:wrap}}
+</style>
 </head>
 <body>
 <header class="top">
@@ -1197,7 +1210,7 @@ function showPendingApprovalScreen(message='Your account has been created and is
  document.body.appendChild(box);
  document.getElementById('closeApproval').onclick=()=>{stopApprovalWatch();box.remove()};
  document.getElementById('checkApprovalNow').onclick=checkApprovalStatus;
- approvalWatchTimer=setInterval(checkApprovalStatus,10000);
+ approvalWatchTimer=setInterval(()=>{if(!document.hidden)checkApprovalStatus()},10000);
  checkApprovalStatus();
 }
 
@@ -1510,34 +1523,70 @@ function appendDrawActions(){
  let s=document.getElementById('screen');if(!s||document.getElementById('drawShareActions'))return;
  if(!document.getElementById('drawTournamentHeader')){let h=document.createElement('div');h.id='drawTournamentHeader';h.innerHTML=tournamentDocumentHeader(comp(),'Draw');s.prepend(h)}
  let a=document.createElement('div');a.id='drawShareActions';a.className='draw-share-actions noPrint';
- a.innerHTML='<button class="btn primary" id="printDrawBtn">Print Draw</button><button class="btn secondary" id="shareDrawBtn">Share / Download Draw</button>';
+ a.innerHTML='<button class="btn primary" id="printDrawBtn">Print Draw</button><button class="btn secondary" id="shareDrawBtn">Share / Save PDF Draw</button>';
  s.prepend(a);
  document.getElementById('printDrawBtn').onclick=printCurrentDraw;
  document.getElementById('shareDrawBtn').onclick=shareCurrentDraw;
 }
-function printCurrentDraw(){
- document.body.classList.add('printing-draw');
- setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('printing-draw'),300)},50);
+function drawPrintDocument(c=comp()){
+ const groups=[...new Set((c.teams||[]).map(t=>t.group).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+ if(!groups.length)return '';
+ const maxSize=Math.max(...groups.map(g=>c.teams.filter(t=>t.group===g).length));
+ const perPage=maxSize<=5?6:maxSize<=8?4:2;
+ const doc=tournamentDocumentDetails(c);
+ const pages=[];
+ for(let i=0;i<groups.length;i+=perPage){
+  const chunk=groups.slice(i,i+perPage);
+  pages.push(`<section class="draw-document-page"><header class="draw-document-head"><div><div class="draw-document-eyebrow">ONE STOP BOWLING SOFTWARE · OFFICIAL DRAW</div><h1>${esc(doc.title)}</h1><div class="draw-document-meta">${[doc.date,doc.venue,doc.format,doc.ends?doc.ends+' ends':''].filter(Boolean).map(esc).join(' · ')}</div></div><div class="draw-document-pagecount">${groups.length} groups<br><span>${(c.teams||[]).length} teams</span></div></header><div class="draw-document-grid ${perPage===2?'draw-document-grid-large':''}">${chunk.map(g=>{
+   const entries=(c.teams||[]).filter(t=>t.group===g).slice().sort((a,b)=>(Number(a.drawPos)||999)-(Number(b.drawPos)||999));
+   return `<section class="draw-document-group"><h2>GROUP ${esc(g)} <small>${entries.length} ${entries.length===1?'team':'teams'}</small></h2><ol>${entries.map(t=>`<li><span class="draw-team-name">${esc(t.name||'Unnamed team')}</span>${t.clubName?`<small>${esc(t.clubName)}</small>`:''}</li>`).join('')}</ol></section>`;
+  }).join('')}</div><footer class="draw-document-foot"><span>Draw as allocated · One Stop Bowling Software</span><span>Page ${Math.floor(i/perPage)+1} of ${Math.ceil(groups.length/perPage)}</span></footer></section>`);
+ }
+ return pages.join('');
 }
-async function shareCurrentDraw(){
- let s=document.getElementById('screen');if(!s)return;
- let actions=document.getElementById('drawShareActions');if(actions)actions.style.display='none';
- try{
-   if(typeof html2canvas!=='function'){appAlert('Image export is unavailable right now. Please use Print Draw.');return}
-   let canvas=await html2canvas(s,{backgroundColor:'#ffffff',scale:2,useCORS:true,logging:false,windowWidth:Math.max(document.documentElement.scrollWidth,1100)});
-   let blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));
-   if(!blob)throw new Error('Image creation failed');
-   let title=((comp().title||'').trim()||'Bowls Competition')+' Draw';
-   let name=(title.replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'')||'bowls-draw')+'.png';
-   let file=new File([blob],name,{type:'image/png'});
-   if(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]})){
-     await navigator.share({title,text:'Tournament draw',files:[file]});
-   }else{
-     let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-   }
- }catch(e){
-   if(e?.name!=='AbortError'){console.error(e);appAlert('Could not create the draw image. Please use Print Draw instead.')}
- }finally{if(actions)actions.style.display='flex'}
+function printCurrentDraw(){
+ let c=comp(),documentHtml=drawPrintDocument(c);
+ if(!documentHtml){appAlert('Allocate teams to groups before printing the draw.');return}
+ const old=document.getElementById('printDrawDocument');if(old)old.remove();
+ let host=document.createElement('div');host.id='printDrawDocument';host.innerHTML=documentHtml;document.body.appendChild(host);
+ if(!document.getElementById('drawDocumentPrintStyles')){
+  let style=document.createElement('style');style.id='drawDocumentPrintStyles';style.textContent=`
+  @media screen{#printDrawDocument{display:none!important}}
+  @media print{
+   @page{size:A4 landscape;margin:9mm}
+   html,body{margin:0!important;padding:0!important;background:white!important}
+   body.printing-draw-document > *:not(#printDrawDocument){display:none!important}
+   #printDrawDocument{display:block!important;position:static!important;width:100%!important;font-family:Arial,Helvetica,sans-serif;color:#152b40;background:#fff}
+   .draw-document-page{height:190mm;box-sizing:border-box;display:flex;flex-direction:column;break-after:page;page-break-after:always;overflow:hidden}
+   .draw-document-page:last-child{break-after:auto;page-break-after:auto}
+   .draw-document-head{display:flex;justify-content:space-between;gap:16mm;align-items:center;border-bottom:2px solid #16537b;padding:0 0 5mm;margin-bottom:5mm}
+   .draw-document-eyebrow{font-size:9px;letter-spacing:1.1px;font-weight:bold;color:#37749b}
+   .draw-document-head h1{font-size:21px;line-height:1.15;margin:3mm 0 2mm;color:#0b2949}
+   .draw-document-meta{font-size:10px;color:#3c5268}
+   .draw-document-pagecount{text-align:right;flex-shrink:0;font-size:15px;font-weight:bold;color:#0b2949}
+   .draw-document-pagecount span{font-size:11px;color:#566e82}
+   .draw-document-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:4mm 6mm;flex:1;min-height:0}
+   .draw-document-grid-large{grid-template-rows:repeat(1,minmax(0,1fr))}
+   .draw-document-group{border:1px solid #cbd9e5;border-radius:3mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid;min-width:0}
+   .draw-document-group h2{margin:0;background:#eaf2f9;border-bottom:1px solid #cbd9e5;padding:2.5mm 3mm;font-size:12px;letter-spacing:.3px;color:#123957;display:flex;justify-content:space-between;align-items:center}
+   .draw-document-group h2 small{font-size:9px;font-weight:normal;color:#546c80;letter-spacing:0}
+   .draw-document-group ol{margin:0;padding:1.5mm 3mm 1.5mm 10mm;font-size:11px}
+   .draw-document-group li{padding:1.5mm 1mm;border-bottom:1px solid #edf1f5;line-height:1.15}
+   .draw-document-group li:last-child{border-bottom:none}
+   .draw-team-name{font-weight:bold}.draw-document-group li small{font-size:9px;color:#60778b;margin-left:2mm}
+   .draw-document-foot{display:flex;justify-content:space-between;border-top:1px solid #d6e0e9;margin-top:4mm;padding-top:2mm;font-size:8px;color:#627589}
+  }`;
+  document.head.appendChild(style);
+ }
+ document.body.classList.add('printing-draw-document');
+ let removed=false;
+ const cleanup=()=>{if(removed)return;removed=true;document.body.classList.remove('printing-draw-document');host.remove();window.removeEventListener('afterprint',cleanup)};
+ window.addEventListener('afterprint',cleanup,{once:true});
+ setTimeout(()=>{try{window.print()}catch(err){cleanup();appAlert('Could not open the print preview. Please try again.')}setTimeout(cleanup,15000)},100);
+}
+function shareCurrentDraw(){
+ // The dedicated A4 draw layout is easier to save as a PDF and share than a screenshot of controls.
+ printCurrentDraw();
 }
 const SIMPLE_MODE_KEY='bowlsSimpleModeV1';
 function simpleModeOn(){return localStorage.getItem(SIMPLE_MODE_KEY)==='1'}
@@ -1624,7 +1673,7 @@ function updateAdminRoleBadge(){
  b.innerHTML='Admin'+(accessNotificationCount>0?` <span class="notify-badge">${accessNotificationCount>99?'99+':accessNotificationCount}</span>`:'');
 }
 async function refreshAccessNotificationBadge(){
- if(!cloud||!currentUser){accessNotificationCount=0;renderNav();return 0}
+ if(!cloud||!currentUser){if(accessNotificationCount!==0){accessNotificationCount=0;renderNav()}return 0}
  let count=0;
  try{
   if(['owner','admin'].includes(currentAppRole)){
@@ -1636,12 +1685,12 @@ async function refreshAccessNotificationBadge(){
    if(!q.error)count+=(Array.isArray(q.data)?q.data:[]).filter(x=>x.role==='pending').length;
   }
  }catch(e){console.error('Access notification refresh failed',e)}
- accessNotificationCount=count;renderNav();return count;
+ if(count!==accessNotificationCount){accessNotificationCount=count;renderNav()}return count;
 }
 function startNotificationRefresh(){
  if(notificationRefreshTimer)clearInterval(notificationRefreshTimer);
  refreshAccessNotificationBadge();
- notificationRefreshTimer=setInterval(refreshAccessNotificationBadge,10000);
+ notificationRefreshTimer=setInterval(()=>{if(!document.hidden)refreshAccessNotificationBadge()},10000);
 }
 
 function setupMobileKeyboardNav(){
@@ -1723,7 +1772,15 @@ function undoLastLiveEnd(obj,c=comp()){
  saveDB();render();return true
 }
 function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
- wireGlobalToolbar();if(sessionStorage.getItem('bowlsNavFreshV1')==='1'){sessionStorage.removeItem('bowlsNavFreshV1');requestAnimationFrame(()=>{let target=document.getElementById('screen');if(target){let y=target.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,y),behavior:'smooth'})}else window.scrollTo({top:0,behavior:'smooth'})})}else restoreScoringUiState();appendScorerNextMatchCard(s,c);appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c);
+ wireGlobalToolbar();if(sessionStorage.getItem('bowlsNavFreshV1')==='1'){sessionStorage.removeItem('bowlsNavFreshV1');requestAnimationFrame(()=>{let target=document.getElementById('screen');if(target){let y=target.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,y),behavior:'smooth'})}else window.scrollTo({top:0,behavior:'smooth'})})}else restoreScoringUiState();appendScorerNextMatchCard(s,c);
+ if(role==='admin'&&tab==='dashboard'){
+  appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);
+  ensureUxToolbar();
+  const extra=document.createElement('details');extra.className='organiser-extra noPrint';extra.innerHTML='<summary>More organiser options · Create tournament · Open tournament · Health check</summary>';
+  const landing=document.getElementById('homeLanding');if(landing)extra.appendChild(landing);
+  for(const selector of ['#healthCheckCard','.simple-mode-card']){const item=s.querySelector(selector);if(item)extra.appendChild(item)}
+  s.appendChild(extra);
+ }else{appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);appendUXLayer(s,c)};
 }
 
 const UX_LARGE_TEXT_KEY='bowlsLargeTextV1',UX_TOUR_KEY='bowlsUxTourSeenV1',UX_SNAPSHOT_KEY='bowlsSafeSnapshotV1',UX_SNAPSHOT_AT='bowlsSafeSnapshotAtV1';
@@ -2427,12 +2484,10 @@ function appendOrganiserCommandCentre(s,c){
  const teams=Array.isArray(c.teams)?c.teams:[];
  const league=c.settings?.tournamentType==='league';
  const cards=[
-  ['teams','👥','Teams & Entries','Add, edit or import competitors'],
-  [league?'draw': 'draw','🎲',league?'League Fixtures':'Draw & Groups',league?'Manage the league schedule':'Generate or review the draw'],
-  [league?'fixtures':'schedule','🗓','Fixtures & Schedule','Dates, times and rink allocations'],
-  ['quick','⚡','Run Tournament','Enter scores and manage play'],
-  ['tables','▤','Tables & Results','Check standings and results'],
-  ['knockout','🏆','Finals & Knockout','Manage the final stages']
+  ['teams','👥','Teams & Draw','Import entries and check groups'],
+  ['schedule','🗓','Schedule','Fixtures, rinks and scorecards'],
+  ['quick','⚡','Run Tournament','Live scores and tournament play'],
+  ['knockout','🏆','Results & Finals','Standings, qualifiers and finals']
  ];
  const next=uxNextAction(c);
  const percent=fixtures.length?Math.round(played/fixtures.length*100):0;
@@ -2440,6 +2495,7 @@ function appendOrganiserCommandCentre(s,c){
  wrap.innerHTML=`<div class="organiser-centre-head"><div><div class="organiser-eyebrow">ORGANISER WORKSPACE</div><h2>${esc(competitionDisplayName(c)||'Your Tournament')}</h2><p>Everything you need to run your competition, in one place.</p></div><div class="organiser-count">${played} / ${fixtures.length}<small>games complete</small></div></div><div class="organiser-meter"><span style="width:${percent}%"></span></div><div class="organiser-next"><div><small>YOUR NEXT STEP</small><strong>${esc(next.title)}</strong><p>${esc(next.text)}</p></div><button class="btn primary" data-organiser-go="${esc(next.tab)}">${esc(next.button)} →</button></div><div class="organiser-actions">${cards.map(([id,icon,title,desc])=>`<button type="button" class="organiser-action" data-organiser-go="${id}"><span class="organiser-action-icon">${icon}</span><strong>${title}</strong><small>${desc}</small><span class="organiser-chevron">›</span></button>`).join('')}</div><button type="button" class="organiser-tools" data-organiser-go="admin">⚙ Admin, printing, sharing & other tools <span>›</span></button>`;
  s.prepend(wrap);
  wrap.querySelectorAll('[data-organiser-go]').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.organiserGo;render();window.scrollTo({top:0,behavior:'instant'})}));
+ wrap.querySelector('.organiser-tools').textContent='⚙ Admin centre, reports & settings ›';
 }
 function publicTournamentHero(c){
  if(role!=='public'||!c||!c.id)return '';
