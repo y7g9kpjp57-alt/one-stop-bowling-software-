@@ -1496,6 +1496,75 @@ async function showNewTournamentWizard(){
 }
 
 
+/* Sunday shared venue: separate tournaments, safe rink numbering and draw imports. */
+function sharedMatPlan(){
+ const comps=db.competitions||[];
+ const ladies=comps.find(c=>c.settings?.sharedEventRole==='singles')||null;
+ const pairs=comps.find(c=>c.settings?.sharedEventRole==='pairs')||null;
+ return {ladies,pairs};
+}
+function sharedMatPhysical(match,c){
+ const st=c.settings||{},offset=Math.max(0,(+st.sharedMatFirst||1)-1);
+ return match.sharedPhysicalMat?Number(match.rink):Number(match.rink||1)+offset;
+}
+function sharedMatchRecords(c){
+ if(!c)return [];
+ const d=Math.max(1,Number(c.settings?.minutes)||50)+Math.max(0,Number(c.settings?.changeoverMinutes)||0);
+ const group=(c.fixtures||[]).filter(f=>f.rink).map(f=>({c,f,name:c.title||'Tournament',kind:'Group',mat:sharedMatPhysical(f,c),start:f.start||sessionStartTime(c,f.session||1),duration:d}));
+ const ko=(c.knockout||[]).flat().filter(f=>f.rink).map(f=>({c,f,name:c.title||'Tournament',kind:'Knockout',mat:sharedMatPhysical(f,c),start:f.start||'',duration:Math.max(1,Number(c.settings?.koMinutes)||d)}));
+ return group.concat(ko);
+}
+function sharedMatOverlap(rows){
+ const conflicts=[];
+ for(let i=0;i<rows.length;i++)for(let j=i+1;j<rows.length;j++){
+  let a=rows[i],b=rows[j];if(a.mat!==b.mat||!a.start||!b.start)continue;
+  let a0=minutesOfDay(a.start),b0=minutesOfDay(b.start);
+  if(a0<b0+b.duration&&b0<a0+a.duration)conflicts.push([a,b]);
+ }
+ return conflicts;
+}
+function showSundayMatManager(){
+ let old=document.getElementById('sundayMatManager');if(old){old.remove();return}
+ const {ladies,pairs}=sharedMatPlan(),comps=db.competitions||[];
+ const modal=document.createElement('div');modal.id='sundayMatManager';modal.className='modal';modal.style.cssText='display:flex;z-index:10001;align-items:flex-start;overflow:auto;padding:12px';
+ modal.innerHTML=`<div class="card" style="margin:30px auto;max-width:900px;width:100%;max-height:90vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:0">Sunday · Shared Mats</h2><button class="btn secondary" id="smClose">Close ✕</button></div>
+ <p class="muted">Link two existing tournaments. Upload each official draw in its own Teams & Players section; each tournament keeps its own results and standings.</p>
+ <div class="formgrid"><div class="field"><label>Ladies Singles · mats 1–8</label><select id="smLadies"><option value="">Choose tournament</option>${comps.map(c=>`<option value="${esc(c.id)}" ${ladies?.id===c.id?'selected':''}>${esc(c.title||'Untitled tournament')}</option>`).join('')}</select></div>
+ <div class="field"><label>Open 3-Bowl Pairs · mats 9–18</label><select id="smPairs"><option value="">Choose tournament</option>${comps.map(c=>`<option value="${esc(c.id)}" ${pairs?.id===c.id?'selected':''}>${esc(c.title||'Untitled tournament')}</option>`).join('')}</select></div></div>
+ <div class="oknotice"><b>Sunday agreed setup</b><p>Singles: 21 players · groups 6, 5, 5, 5 · 10 ends · 4 bowls each · 8 qualifiers.</p><p>Pairs: 43 pairs · groups 6, 6, 6, 5, 5, 5, 5, 5 · 6 ends · 3 bowls each.</p><p>Rink booking: Singles mats 1–8, Pairs mats 9–18. Use the controls below only after confirming the right competitions.</p></div>
+ <button class="btn primary" id="smSave">Save linked tournaments & mat ranges</button>
+ <div id="smStatus" style="margin-top:12px"></div><div id="smTools"></div>
+ </div>`;
+ document.body.append(modal);
+ const e=id=>modal.querySelector('#'+id);
+ e('smClose').onclick=()=>modal.remove();modal.addEventListener('click',ev=>{if(ev.target===modal)modal.remove()});
+ const refresh=()=>{
+  const a=comps.find(c=>c.id===e('smLadies').value),b=comps.find(c=>c.id===e('smPairs').value);
+  const records=[...sharedMatchRecords(a),...sharedMatchRecords(b)];const problems=sharedMatOverlap(records);
+  e('smTools').innerHTML=`<h3>Draw upload and timetable</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${a?'<button class="btn secondary" data-sm-go="ladies">Open Singles · Import Draw</button>':''}${b?'<button class="btn secondary" data-sm-go="pairs">Open Pairs · Import Draw</button>':''}<button class="btn secondary" id="smPrint">Print Sunday Mat Overview</button></div>
+  <p class="muted">To import: open the tournament, choose Teams & Players → Import Excel / CSV, preview the official group letters, then confirm. Imported draws do not need to be redrawn.</p>
+  <div class="${problems.length?'notice':'oknotice'}" style="margin:12px 0"><b>${problems.length?`${problems.length} possible mat/time overlap(s)`:records.length?'No overlapping booked mats found':'No fixtures yet to check'}</b>${problems.length?'<ul>'+problems.slice(0,12).map(([x,y])=>`<li>Mat ${x.mat}: ${esc(x.name)} ${esc(x.start)} overlaps ${esc(y.name)} ${esc(y.start)}</li>`).join('')+'</ul>':''}<p class="muted">Checks use saved fixture times. Unsaved live changes, unassigned knockout times and other events cannot be verified.</p></div>
+  <h3>How mats can be released</h3><div class="tablewrap"><table><thead><tr><th>Singles stage</th><th>Keep for Singles</th><th>Available to Pairs</th></tr></thead><tbody><tr><td>Group games</td><td>1–8</td><td>9–18 (10)</td></tr><tr><td>Quarter-finals</td><td>1–4</td><td>5–18 (14)</td></tr><tr><td>Semi-finals</td><td>1–2</td><td>3–18 (16)</td></tr><tr><td>Final</td><td>1</td><td>2–18 (17)</td></tr><tr><td>Singles finished</td><td>None</td><td>1–18 (18)</td></tr></tbody></table></div>
+  <p class="muted">Mat handovers are a guide, not automatic bookings. Confirm each Singles match is finished and the mat is clear before moving a Pairs match in the Schedule editor.</p>`;
+  modal.querySelectorAll('[data-sm-go]').forEach(btn=>btn.onclick=()=>{let c=btn.dataset.smGo==='ladies'?a:b;db.active=c.id;tab='teams';modal.remove();render()});
+  e('smPrint').onclick=()=>{let styles='body{font:13px Arial;margin:24px;color:#122e4a}table{border-collapse:collapse;width:100%}td,th{border:1px solid #b9c8d8;padding:9px;text-align:left}';let content=`<h1>Sunday · Shared Mat Plan</h1><p>Ladies Singles: ${esc(a?.title||'Not linked')} · Mats 1–8 · 10 ends · 4 bowls each.</p><p>Open 3-Bowl Pairs: ${esc(b?.title||'Not linked')} · Mats 9–18 · 6 ends · 3 bowls each.</p><h2>Mat handover</h2>${e('smTools').querySelector('table')?.outerHTML||''}<h2>Conflict check</h2><p>${problems.length?problems.length+' possible overlap(s)':'No overlaps detected in saved fixtures.'}</p><p>Check actual match completion before releasing mats. Times are estimates.</p>`;let w=window.open('','_blank');if(!w){appAlert('Allow pop-ups to print the Sunday overview.');return}w.document.write('<!doctype html><html><head><title>Sunday Shared Mats</title><style>'+styles+'</style></head><body>'+content+'</body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),250)};
+ };
+ e('smSave').onclick=()=>{
+  const a=comps.find(c=>c.id===e('smLadies').value),b=comps.find(c=>c.id===e('smPairs').value);
+  if(!a||!b||a.id===b.id){e('smStatus').textContent='Choose two different existing competitions first.';return}
+  if((a.fixtures?.length||0)||(b.fixtures?.length||0)){if(!confirm('These tournaments already have fixtures. This changes their mat range settings, but will NOT move existing games automatically. Continue?'))return}
+  comps.forEach(c=>{if(['singles','pairs'].includes(c.settings?.sharedEventRole))delete c.settings.sharedEventRole});
+  Object.assign(a.settings,{sharedEventRole:'singles',sharedMatFirst:1,sharedMatLast:8,rinks:8,gameType:'singles',shortMat:true,ends:10,singlesScoring:'ends'});
+  Object.assign(b.settings,{sharedEventRole:'pairs',sharedMatFirst:9,sharedMatLast:18,rinks:10,gameType:'pairs',shortMat:true,ends:6});
+  saveDB();e('smStatus').innerHTML='<div class="oknotice">Linked and saved. Check your match durations and qualification rules in each tournament setup. Draw import is available through each Teams & Players screen.</div>';refresh();
+ };
+ ['smLadies','smPairs'].forEach(id=>e(id).addEventListener('change',refresh));refresh();
+}
+function appendSundayMatAccess(s){
+ if(role!=='admin'||tab!=='dashboard'||!s||document.getElementById('sundayMatButton'))return;
+ const box=document.createElement('div');box.className='card noPrint';box.innerHTML='<h3>Sunday · Shared Mat Planning</h3><p class="muted">Link Ladies Singles (mats 1–8) with Open 3-Bowl Pairs (mats 9–18), import both official draws and check shared-mat allocations.</p><button type="button" id="sundayMatButton" class="btn primary">Manage Sunday Mats & Draws</button>';
+ s.prepend(box);box.querySelector('button').onclick=showSundayMatManager;
+}
 function comp(){if(!db.active)db.active=db.competitions[0].id;return db.competitions.find(c=>c.id===db.active)||db.competitions[0]}
 function competitionDisplayName(c){return c?.settings?.tournamentType==='league'?'Black Isle and District Indoor Bowling League':(c?.title||'').trim()}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -1771,7 +1840,7 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='dashboard')appendSundayMatAccess(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();if(sessionStorage.getItem('bowlsNavFreshV1')==='1'){sessionStorage.removeItem('bowlsNavFreshV1');requestAnimationFrame(()=>{let target=document.getElementById('screen');if(target){let y=target.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,y),behavior:'smooth'})}else window.scrollTo({top:0,behavior:'smooth'})})}else restoreScoringUiState();appendScorerNextMatchCard(s,c);
  if(role==='admin'&&tab==='dashboard'){
   appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);
@@ -1860,7 +1929,7 @@ function appendUXLayer(s,c=comp()){
  ensureUxToolbar();uxProgressStrip(s,c);uxNextCard(s,c);uxStatusLegend(s);uxContextCard(s);uxStickyAction(c);uxFinishCard(s,c);uxDemoCard(s,c);
  if(role==='admin'&&tab==='dashboard'&&!localStorage.getItem(UX_TOUR_KEY))setTimeout(()=>startUxTour(false),450)
 }
-function completed(f){let ok=Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!=='';if(!ok)return false;if(isSingles(comp()))return Math.max(+f.scoreA,+f.scoreB)>=21&&(+f.scoreA)!==(+f.scoreB);return true}
+function completed(f){let ok=Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)&&f.scoreA!==''&&f.scoreB!=='';if(!ok)return false;if(isSinglesTo21(comp()))return Math.max(+f.scoreA,+f.scoreB)>=21&&(+f.scoreA)!==(+f.scoreB);return true}
 function isAggregate(c=comp()){return (c.settings.tournamentType||'standard')==='aggregate'}
 function ensureAggregate(c=comp()){let x=c.settings,n=Math.max(1,+x.aggregateRinks||6);c.aggregateScores=c.aggregateScores||[];while(c.aggregateScores.length<n)c.aggregateScores.push({rink:c.aggregateScores.length+1,scoreA:'',scoreB:'',skipA:'',skipB:''});c.aggregateScores=c.aggregateScores.slice(0,n);c.aggregateScores.forEach((r,i)=>{r.rink=i+1;r.skipA=r.skipA||'';r.skipB=r.skipB||''});return c.aggregateScores}
 function aggregateTotals(c=comp()){let rows=ensureAggregate(c),a=0,b=0,complete=0;rows.forEach(r=>{let s=currentScore(r);if(completed(r))complete++;a+=s.a;b+=s.b});return {a,b,complete,total:rows.length}}
@@ -1958,9 +2027,10 @@ function buildKnockoutFirstRound(q){
 }
 function liveEntries(obj){obj.liveEnds=obj.liveEnds||[];return obj.liveEnds}
 function isSingles(c=comp()){return c?.settings?.gameType==='singles'}
-function scoringEnds(c=comp()){return isSingles(c)?45:Math.max(1,+c?.settings?.ends||12)}
+function isSinglesTo21(c=comp()){return isSingles(c)&&(c?.settings?.singlesScoring||'first21')==='first21'}
+function scoringEnds(c=comp()){return isSinglesTo21(c)?45:Math.max(1,+c?.settings?.ends||12)}
 function autoCompleteSinglesFromLive(obj,c=comp()){
- if(!isSingles(c)||!obj||completed(obj))return false;
+ if(!isSinglesTo21(c)||!obj||completed(obj))return false;
  let ls=liveScore(obj);
  if(ls.a<21&&ls.b<21)return false;
  if(ls.a===ls.b)return false;
@@ -2038,7 +2108,8 @@ function renderBuilder(s){
   <div class="field"><label>Ranking season</label><input id="bRankingSeason" value="${esc(x.rankingSeason||defaultRankingSeasonLabel())}" placeholder="e.g. 2026/27"><div class="meta">For SSMBF use a season label such as 2026/27.</div></div>
   <div class="field"><label>Ranking season starts</label><input id="bRankingSeasonStart" type="date" value="${esc(x.rankingSeasonStart||defaultRankingSeasonDates(x.rankingSeason).start)}"><div class="meta">Default: 1 October.</div></div>
   <div class="field"><label>Ranking season ends</label><input id="bRankingSeasonEnd" type="date" value="${esc(x.rankingSeasonEnd||defaultRankingSeasonDates(x.rankingSeason).end)}"><div class="meta">Default: last day of February.</div></div>
-  <div class="field" id="endsSetupField"><label id="bEndsLabel">${x.gameType==='singles'?'Singles scoring':'Ends'}</label><div id="singles21Box" class="${x.gameType==='singles'?'oknotice':'hidden'}" style="padding:10px;margin:0"><b>First to 21 shots</b><div class="meta">No fixed number of ends. The scorer has 45 end rows available and the game is recognised as complete once a player reaches 21 or more shots.</div></div><input id="bEnds" class="${x.gameType==='singles'?'hidden':''}" type="number" min="1" max="40" value="${x.ends||12}"><div id="endsTimeHelp" class="meta ${x.gameType==='singles'?'hidden':''}">Recommended game time is based on the selected discipline and rounded UP to the nearest 5 minutes. Tap Use Recommended Time if you want to apply it.</div></div>
+  <div class="field" id="singlesScoringField" style="${x.gameType==='singles'?'':'display:none'}"><label>Singles scoring format</label><select id="bSinglesScoring"><option value="first21" ${(x.singlesScoring||'first21')==='first21'?'selected':''}>First to 21 shots</option><option value="ends" ${x.singlesScoring==='ends'?'selected':''}>Fixed number of ends</option></select><div class="meta">Fixed ends uses the chosen number of ends and does not auto-finish at 21 shots. Existing Singles competitions default to First to 21.</div></div>
+  <div class="field" id="endsSetupField"><label id="bEndsLabel">Ends</label><div id="singles21Box" class="${x.gameType==='singles'&&(x.singlesScoring||'first21')==='first21'?'oknotice':'hidden'}" style="padding:10px;margin:0"><b>First to 21 shots</b><div class="meta">No fixed number of ends. The scorer has 45 end rows available and the game is recognised as complete once a player reaches 21 or more shots.</div></div><input id="bEnds" class="${x.gameType==='singles'&&(x.singlesScoring||'first21')==='first21'?'hidden':''}" type="number" min="1" max="40" value="${x.ends||12}"><div id="endsTimeHelp" class="meta ${x.gameType==='singles'&&(x.singlesScoring||'first21')==='first21'?'hidden':''}">Recommended game time is based on the selected discipline and rounded UP to the nearest 5 minutes. Tap Use Recommended Time if you want to apply it.</div></div>
  </div>
  <div id="aggSetup" class="${agg?'':'hidden'}" style="margin-top:12px"><div class="formgrid">
   <div class="field"><label>Side A</label><input id="bSideA" value="${esc(x.aggregateSideA||'District A')}"></div>
@@ -2299,8 +2370,9 @@ function updatePlanner(){
   if(koMinutesInput&&isShort&&koMinutesInput.dataset.manual!=='1')koMinutesInput.value=rec;
   updateSetupRecommendedTime();
  };
- const syncSinglesSetup=()=>{let single=gameTypeInput?.value==='singles',box=document.getElementById('singles21Box'),help=document.getElementById('endsTimeHelp'),label=document.getElementById('bEndsLabel');if(box)box.classList.toggle('hidden',!single);if(endsInput)endsInput.classList.toggle('hidden',single);if(help)help.classList.toggle('hidden',single);if(label)label.textContent=single?'Singles scoring':'Ends';syncShortMatTiming();updatePlanner()};
+ const syncSinglesSetup=()=>{let single=gameTypeInput?.value==='singles',first21=single&&document.getElementById('bSinglesScoring')?.value!=='ends',box=document.getElementById('singles21Box'),field=document.getElementById('singlesScoringField'),help=document.getElementById('endsTimeHelp'),label=document.getElementById('bEndsLabel');if(field)field.style.display=single?'':'none';if(box)box.classList.toggle('hidden',!first21);if(endsInput)endsInput.classList.toggle('hidden',first21);if(help)help.classList.toggle('hidden',first21);if(label)label.textContent=first21?'Singles scoring':'Ends';syncShortMatTiming();updatePlanner()};
  if(gameTypeInput)gameTypeInput.addEventListener('change',syncSinglesSetup);
+ document.getElementById('bSinglesScoring')?.addEventListener('change',syncSinglesSetup);
  if(shortMatInput)shortMatInput.addEventListener('change',()=>{syncShortMatTiming();flushPlannerUpdate()});
  if(endsInput){
   endsInput.addEventListener('input',()=>{syncShortMatTiming();});
@@ -2347,7 +2419,7 @@ function updatePlanner(){
 
  document.getElementById('saveBuilder').onclick=()=>{
   if(type.value==='league'&&!resizeLeagueTeams(c,Number(document.getElementById('bLeagueTeams').value)))return;
-  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.shortMat=document.getElementById('bShortMat')?.value==='yes';x.shortMatSecondsPerBowl=35;x.rankingTournament=document.getElementById('bRankingTournament')?.value==='yes';x.eventDate=document.getElementById('bEventDate')?.value||'';x.rankingSeason=(document.getElementById('bRankingSeason')?.value.trim()||defaultRankingSeasonLabel());x.rankingSeasonStart=document.getElementById('bRankingSeasonStart')?.value||defaultRankingSeasonDates(x.rankingSeason).start;x.rankingSeasonEnd=document.getElementById('bRankingSeasonEnd')?.value||defaultRankingSeasonDates(x.rankingSeason).end;if(x.rankingTournament){if(!x.eventDate)return appAlert('Please enter the tournament date for a ranking event.');if(x.rankingSeasonStart&&x.rankingSeasonEnd&&x.rankingSeasonStart>x.rankingSeasonEnd)return appAlert('Ranking season start date must be before the end date.');if(!rankingEventInDateRange(c,x.rankingSeasonStart,x.rankingSeasonEnd))return appAlert('This tournament date is outside the ranking season date range.');}x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
+  let oldTournamentType=x.tournamentType||'standard';c.title=document.getElementById('bTitle').value.trim();x.clubName=document.getElementById('bClub').value.trim();x.tournamentType=type.value;x.shortMat=document.getElementById('bShortMat')?.value==='yes';x.shortMatSecondsPerBowl=35;x.rankingTournament=document.getElementById('bRankingTournament')?.value==='yes';x.eventDate=document.getElementById('bEventDate')?.value||'';x.rankingSeason=(document.getElementById('bRankingSeason')?.value.trim()||defaultRankingSeasonLabel());x.rankingSeasonStart=document.getElementById('bRankingSeasonStart')?.value||defaultRankingSeasonDates(x.rankingSeason).start;x.rankingSeasonEnd=document.getElementById('bRankingSeasonEnd')?.value||defaultRankingSeasonDates(x.rankingSeason).end;if(x.rankingTournament){if(!x.eventDate)return appAlert('Please enter the tournament date for a ranking event.');if(x.rankingSeasonStart&&x.rankingSeasonEnd&&x.rankingSeasonStart>x.rankingSeasonEnd)return appAlert('Ranking season start date must be before the end date.');if(!rankingEventInDateRange(c,x.rankingSeasonStart,x.rankingSeasonEnd))return appAlert('This tournament date is outside the ranking season date range.');}x.scoringMode='live_optional';x.gameType=document.getElementById('bGame').value;x.singlesScoring=document.getElementById('bSinglesScoring')?.value||'first21';x.ends=Math.max(1,+document.getElementById('bEnds').value||12);
   if(type.value==='wick64'){
    let names=[document.getElementById('bWickGreen1')?.value.trim()||'Green 1',document.getElementById('bWickGreen2')?.value.trim()||'Green 2',document.getElementById('bWickGreen3')?.value.trim()||'Green 3'];
    Object.assign(x,{specialPreset:'wick64',gameType:'triples',ends:15,teamCount:64,groupSize:4,manualGroups:16,greensCount:3,rinksPerGreen:6,rinks:18,start:'09:00',minutes:115,changeoverMinutes:5,drawMethod:'manual',eventFormat:'two_day',qualify:'top2',bestRunners:0,autoFillKnockout:false,wickGreenNames:names,wickMainGreen:document.getElementById('bWickMainGreen')?.value.trim()||names[0],day2Start:document.getElementById('bWickDay2Start')?.value||'09:00',wickDay2Gap:Math.max(0,+document.getElementById('bWickDay2Gap')?.value||20)});
@@ -2740,6 +2812,7 @@ function generateFixtures(){
  let slots=scheduleGames(all,x.rinks),fixtures=[],game=1;
  slots.forEach((slot,si)=>slot.forEach((z,ri)=>fixtures.push({id:'f'+game,game:game++,group:z.g,round:z.round,session:si+1,rink:ri+1,start:sessionStartTime(c,si+1),a:z.a.id,b:z.b.id,nameA:z.a.name,nameB:z.b.name,scoreA:'',scoreB:''})));
  assignRinksAvoidTeamRepeats(fixtures,x.rinks);
+ if(x.sharedEventRole==='pairs'&&+x.sharedMatFirst===9)fixtures.forEach(f=>{f.rink=Number(f.rink)+8;f.sharedPhysicalMat=true});
  c.fixtures=fixtures;c.knockout=[];saveDB();
 }
 function balancedSizes(n,preferred){let groups=Math.max(1,Math.ceil(n/preferred)),base=Math.floor(n/groups),extra=n%groups;return Array.from({length:groups},(_,i)=>base+(i<extra?1:0))}
@@ -3049,7 +3122,8 @@ async function readTeamImportFile(file,c=comp()){
  if(ext==='csv')return csvToRows(await file.text());
  if(!window.XLSX)throw new Error('Excel reader did not load. Check your internet connection or use CSV.');
  let buf=await file.arrayBuffer(),wb=XLSX.read(buf,{type:'array'}),wanted=teamImportSheetName(c);
- let match=wb.SheetNames.find(n=>String(n).trim().toLowerCase()===wanted.toLowerCase())||wb.SheetNames.find(n=>/scottish rinks|group draw|completed draw|groups/i.test(n));
+ let preferred=c.settings?.sharedEventRole==='singles'?'Scottish Ladies Singles':c.settings?.sharedEventRole==='pairs'?'Open Pairs':'';
+ let match=wb.SheetNames.find(n=>preferred&&String(n).trim().toLowerCase()===preferred.toLowerCase())||wb.SheetNames.find(n=>String(n).trim().toLowerCase()===wanted.toLowerCase())||wb.SheetNames.find(n=>/scottish rinks|group draw|completed draw|groups/i.test(n));
  if(!match){
   if(wb.SheetNames.length===1)match=wb.SheetNames[0];
   else throw new Error(`This is a ${wanted} tournament. Please use the ${wanted} tab in the Excel template.`)
@@ -3857,7 +3931,7 @@ function saveStandardKnockoutLive(matchId){
 }
 function knockoutPrintHTML(c=comp()){
  let rounds=c.knockout||[],title=(c.title||'Knockout Draw').trim()||'Knockout Draw',club=(c.settings?.clubName||remoteClubName||'').trim();
- let details=[club,`${c.teams?.length||0} teams`,isSingles(c)?'Singles • First to 21':(c.settings?.ends?`${c.settings.ends} ends`:'') ].filter(Boolean).join(' • ');
+ let details=[club,`${c.teams?.length||0} teams`,isSingles(c)?(isSinglesTo21(c)?'Singles • First to 21':`Singles • ${c.settings?.ends||12} ends`):(c.settings?.ends?`${c.settings.ends} ends`:'') ].filter(Boolean).join(' • ');
  let columns=rounds.map(round=>`<section class="round"><h2>${esc(round[0]?.roundName||koRoundNameFromCount(round.length))}</h2>${round.map(m=>{let w=completed(m)?koWinner(m):null,an=knockoutRefName(m.a,c)||'BYE',bn=knockoutRefName(m.b,c)||'BYE';return `<div class="pmatch ${completed(m)?'complete':''}"><div class="team ${w&&String(w)===String(m.a)?'winner':''}">${esc(an)}${w&&String(w)===String(m.a)?' <span class="winmark">✓ WINNER</span>':''}</div><div class="team ${w&&String(w)===String(m.b)?'winner':''}">${esc(bn)}${w&&String(w)===String(m.b)?' <span class="winmark">✓ WINNER</span>':''}</div><div class="meta">${esc(knockoutVenueName(m,c))} • ${esc(m.start||'Time TBC')} • Rink ${esc(String(m.rink||'—'))}${completed(m)?` • <b>Final ${m.scoreA}–${m.scoreB}</b>`:''}</div></div>`}).join('')}</section>`).join('');
  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)} - Knockout Draw</title><style>@page{size:A3 landscape;margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:0}h1{text-align:center;font-size:28px;margin:0 0 4px}.sub{text-align:center;margin:0 0 18px;color:#444;font-size:13px}.br{display:flex;gap:18px;align-items:flex-start}.round{flex:1;min-width:0}.round h2{text-align:center;font-size:18px;border-bottom:2px solid #111;padding-bottom:5px}.pmatch{border:1.5px solid #555;margin:0 0 14px;break-inside:avoid}.team{padding:7px 8px;font-weight:700;border-bottom:1px solid #aaa;min-height:18px}.team:nth-child(2){border-bottom:0}.team.winner{background:#e8f7ed;border-left:5px solid #16803b;font-weight:900}.winmark{float:right;font-size:10px;color:#166534;letter-spacing:.03em}.meta{font-size:10px;color:#555;background:#f2f2f2;padding:5px 7px;border-top:1px solid #aaa}footer{margin-top:14px;text-align:center;font-size:9px;color:#666}@media print{button{display:none}}</style></head><body><h1>${esc(title)}</h1><div class="sub">${esc(details)} • Knockout Draw</div><div class="br">${columns}</div><footer>Generated by One Stop Bowling Software</footer><script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`
 }
