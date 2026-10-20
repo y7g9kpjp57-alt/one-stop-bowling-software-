@@ -1523,40 +1523,73 @@ function sharedMatOverlap(rows){
  }
  return conflicts;
 }
-function showSundayMatManager(){
- let old=document.getElementById('sundayMatManager');if(old){old.remove();return}
- const {ladies,pairs}=sharedMatPlan(),comps=db.competitions||[];
+// Sunday venue manager: look up account-linked tournaments, not only the current local state.
+async function showSundayMatManager(){
+ const old=document.getElementById('sundayMatManager');if(old){old.remove();return}
  const modal=document.createElement('div');modal.id='sundayMatManager';modal.className='modal';modal.style.cssText='display:flex;z-index:10001;align-items:flex-start;overflow:auto;padding:12px';
- modal.innerHTML=`<div class="card" style="margin:30px auto;max-width:900px;width:100%;max-height:90vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:0">Sunday · Shared Mats</h2><button class="btn secondary" id="smClose">Close ✕</button></div>
- <p class="muted">Link two existing tournaments. Upload each official draw in its own Teams & Players section; each tournament keeps its own results and standings.</p>
- <div class="formgrid"><div class="field"><label>Ladies Singles · mats 1–8</label><select id="smLadies"><option value="">Choose tournament</option>${comps.map(c=>`<option value="${esc(c.id)}" ${ladies?.id===c.id?'selected':''}>${esc(c.title||'Untitled tournament')}</option>`).join('')}</select></div>
- <div class="field"><label>Open 3-Bowl Pairs · mats 9–18</label><select id="smPairs"><option value="">Choose tournament</option>${comps.map(c=>`<option value="${esc(c.id)}" ${pairs?.id===c.id?'selected':''}>${esc(c.title||'Untitled tournament')}</option>`).join('')}</select></div></div>
- <div class="oknotice"><b>Sunday agreed setup</b><p>Singles: 21 players · groups 6, 5, 5, 5 · 10 ends · 4 bowls each · 8 qualifiers.</p><p>Pairs: 43 pairs · groups 6, 6, 6, 5, 5, 5, 5, 5 · 6 ends · 3 bowls each.</p><p>Rink booking: Singles mats 1–8, Pairs mats 9–18. Use the controls below only after confirming the right competitions.</p></div>
- <button class="btn primary" id="smSave">Save linked tournaments & mat ranges</button>
- <div id="smStatus" style="margin-top:12px"></div><div id="smTools"></div>
- </div>`;
+ modal.innerHTML=`<div class="card" style="margin:30px auto;max-width:900px;width:100%;max-height:90vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:0">Sunday · Shared Mats</h2><button type="button" class="btn secondary" id="smClose">Close ✕</button></div>
+ <p class="muted">Choose the two tournaments saved under your account. Their players, groups and results stay separate. Apply mat numbers in each tournament individually, without regenerating fixtures.</p>
+ <div id="smStatus" class="muted" aria-live="polite">Loading your account tournaments…</div>
+ <div class="formgrid"><div class="field"><label>Ladies Singles · mats 1–8</label><select id="smLadies"><option value="">Loading…</option></select></div><div class="field"><label>Open 3-Bowl Pairs · mats 9–18</label><select id="smPairs"><option value="">Loading…</option></select></div></div>
+ <p class="muted">Sunday: Ladies Singles · 21 players · 10 ends · 4 bowls each; Open Pairs · 43 teams · 6 ends · 3 bowls each.</p>
+ <div style="display:flex;flex-wrap:wrap;gap:8px"><button type="button" class="btn primary" id="smSave">Remember tournament selection</button><button type="button" class="btn secondary" id="smApply">Apply mats to currently open tournament</button></div>
+ <div id="smCurrent" style="margin:12px 0"></div><div id="smTools"></div></div>`;
  document.body.append(modal);
- const e=id=>modal.querySelector('#'+id);
+ const e=id=>modal.querySelector('#'+id),localComps=db.competitions||[];
  e('smClose').onclick=()=>modal.remove();modal.addEventListener('click',ev=>{if(ev.target===modal)modal.remove()});
- const refresh=()=>{
-  const a=comps.find(c=>c.id===e('smLadies').value),b=comps.find(c=>c.id===e('smPairs').value);
-  const records=[...sharedMatchRecords(a),...sharedMatchRecords(b)];const problems=sharedMatOverlap(records);
-  e('smTools').innerHTML=`<h3>Draw upload and timetable</h3><div style="display:flex;flex-wrap:wrap;gap:8px">${a?'<button class="btn secondary" data-sm-go="ladies">Open Singles · Import Draw</button>':''}${b?'<button class="btn secondary" data-sm-go="pairs">Open Pairs · Import Draw</button>':''}<button class="btn secondary" id="smPrint">Print Sunday Mat Overview</button></div>
-  <p class="muted">To import: open the tournament, choose Teams & Players → Import Excel / CSV, preview the official group letters, then confirm. Imported draws do not need to be redrawn.</p>
-  <div class="${problems.length?'notice':'oknotice'}" style="margin:12px 0"><b>${problems.length?`${problems.length} possible mat/time overlap(s)`:records.length?'No overlapping booked mats found':'No fixtures yet to check'}</b>${problems.length?'<ul>'+problems.slice(0,12).map(([x,y])=>`<li>Mat ${x.mat}: ${esc(x.name)} ${esc(x.start)} overlaps ${esc(y.name)} ${esc(y.start)}</li>`).join('')+'</ul>':''}<p class="muted">Checks use saved fixture times. Unsaved live changes, unassigned knockout times and other events cannot be verified.</p></div>
-  <h3>How mats can be released</h3><div class="tablewrap"><table><thead><tr><th>Singles stage</th><th>Keep for Singles</th><th>Available to Pairs</th></tr></thead><tbody><tr><td>Group games</td><td>1–8</td><td>9–18 (10)</td></tr><tr><td>Quarter-finals</td><td>1–4</td><td>5–18 (14)</td></tr><tr><td>Semi-finals</td><td>1–2</td><td>3–18 (16)</td></tr><tr><td>Final</td><td>1</td><td>2–18 (17)</td></tr><tr><td>Singles finished</td><td>None</td><td>1–18 (18)</td></tr></tbody></table></div>
-  <p class="muted">Mat handovers are a guide, not automatic bookings. Confirm each Singles match is finished and the mat is clear before moving a Pairs match in the Schedule editor.</p>`;
-  modal.querySelectorAll('[data-sm-go]').forEach(btn=>btn.onclick=()=>{let c=btn.dataset.smGo==='ladies'?a:b;db.active=c.id;tab='teams';modal.remove();render()});
-  e('smPrint').onclick=()=>{let styles='body{font:13px Arial;margin:24px;color:#122e4a}table{border-collapse:collapse;width:100%}td,th{border:1px solid #b9c8d8;padding:9px;text-align:left}';let content=`<h1>Sunday · Shared Mat Plan</h1><p>Ladies Singles: ${esc(a?.title||'Not linked')} · Mats 1–8 · 10 ends · 4 bowls each.</p><p>Open 3-Bowl Pairs: ${esc(b?.title||'Not linked')} · Mats 9–18 · 6 ends · 3 bowls each.</p><h2>Mat handover</h2>${e('smTools').querySelector('table')?.outerHTML||''}<h2>Conflict check</h2><p>${problems.length?problems.length+' possible overlap(s)':'No overlaps detected in saved fixtures.'}</p><p>Check actual match completion before releasing mats. Times are estimates.</p>`;let w=window.open('','_blank');if(!w){appAlert('Allow pop-ups to print the Sunday overview.');return}w.document.write('<!doctype html><html><head><title>Sunday Shared Mats</title><style>'+styles+'</style></head><body>'+content+'</body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),250)};
- };
+ let rows=[];
+ const saved=(()=>{try{return JSON.parse(localStorage.getItem('bowlsSundayLinkedRemoteIds')||'{}')}catch(_){return {}}})();
+ const optionText=r=>{let c=tournamentStatePrimary(r);return (c?.title||r.title||'Untitled tournament')+' · '+(r.code||'No code')};
+ try{
+  if(cloud&&currentUser){const response=await cloud.rpc('bowls_list_my_tournaments');if(response.error)throw response.error;rows=(Array.isArray(response.data)?response.data:[]).filter(r=>tournamentStateStatus(r)!=='Archived');}
+  if(!rows.length){rows=localComps.map(c=>({id:c.id,code:'',state:{competitions:[c],active:c.id},localOnly:true}));}
+  const options=rows.map(r=>`<option value="${esc(String(r.id))}">${esc(optionText(r))}</option>`).join('');
+  e('smLadies').innerHTML='<option value="">Choose Ladies Singles</option>'+options;
+  e('smPairs').innerHTML='<option value="">Choose Open Pairs</option>'+options;
+  const match=(term)=>rows.find(r=>String(tournamentStatePrimary(r)?.title||r.title||'').toLowerCase().includes(term));
+  const ladies=rows.find(r=>String(r.id)===String(saved.ladies))||match('ladies singles');
+  const pairs=rows.find(r=>String(r.id)===String(saved.pairs))||match('open pairs')||match('pairs 3 bowls');
+  if(ladies)e('smLadies').value=String(ladies.id);
+  if(pairs)e('smPairs').value=String(pairs.id);
+  e('smStatus').textContent=rows.length+' available tournament(s) found'+(rows.some(r=>r.localOnly)?' on this device. Sign in to see all your account tournaments.': ' in your account.');
+ }catch(err){e('smStatus').textContent='Unable to list online tournaments: '+String(err.message||err)+'. Your fixtures have not been changed.';return}
+ const chosen=id=>rows.find(r=>String(r.id)===String(e(id).value));
+ const activeLocal=()=>localComps.find(c=>String(c.id)===String(db.active))||localComps[0];
+ const currentRemote=()=>rows.find(r=>String(r.id)===String(remoteTournamentId))||rows.find(r=>String(tournamentStatePrimary(r)?.id)===String(activeLocal()?.id));
+ function refresh(){
+  const a=chosen('smLadies'),b=chosen('smPairs'),here=currentRemote(),isLadies=!!a&&here&&String(a.id)===String(here.id),isPairs=!!b&&here&&String(b.id)===String(here.id),c=activeLocal();
+  const kind=isLadies?'Singles':isPairs?'Pairs':null;
+  const fixtures=[...(c?.fixtures||[]),...(c?.knockout||[]).flat()].filter(f=>f&&f.rink!==undefined&&f.rink!==null&&f.rink!=='');
+  const done=fixtures.filter(f=>completed(f)).length;
+  e('smApply').disabled=!kind||!c||!fixtures.length;
+  e('smCurrent').innerHTML=`<div class="${kind?'oknotice':'notice'}"><b>Currently open: ${esc(c?.title||'None')}</b><p>${kind?'Recognised as '+kind+'. '+fixtures.length+' allocated matches; '+done+' completed.':'Open the Singles or Pairs tournament from the buttons below, then return here to apply its mat range.'}</p>${kind?'<p>Only mat numbers will change. Fixtures, teams, groups, opponents, scores and match IDs will not be regenerated.</p>':''}</div>`;
+  e('smTools').innerHTML='<h3>Open each tournament to set its mats</h3><div style="display:flex;flex-wrap:wrap;gap:8px">'+(a?'<button type="button" class="btn secondary" data-sm-open="smLadies">Open Ladies Singles</button>':'')+(b?'<button type="button" class="btn secondary" data-sm-open="smPairs">Open Open Pairs</button>':'')+'</div><p class="muted">Mat handover later: Singles quarter-finals keep 1–4; semi-finals 1–2; final mat 1. Only release mats when clear. This manager does not automatically move live matches or book released mats.</p>';
+  e('smTools').querySelectorAll('[data-sm-open]').forEach(btn=>btn.onclick=async()=>{
+   const row=chosen(btn.dataset.smOpen);if(!row)return;
+   localStorage.setItem('bowlsSundayLinkedRemoteIds',JSON.stringify({ladies:e('smLadies').value,pairs:e('smPairs').value}));
+   if(!row.code){let c=tournamentStatePrimary(row);if(c){db.active=c.id;modal.remove();render()}return}
+   modal.remove();await openSavedTournament(row);
+  });
+ }
  e('smSave').onclick=()=>{
-  const a=comps.find(c=>c.id===e('smLadies').value),b=comps.find(c=>c.id===e('smPairs').value);
-  if(!a||!b||a.id===b.id){e('smStatus').textContent='Choose two different existing competitions first.';return}
-  if((a.fixtures?.length||0)||(b.fixtures?.length||0)){if(!confirm('These tournaments already have fixtures. This changes their mat range settings, but will NOT move existing games automatically. Continue?'))return}
-  comps.forEach(c=>{if(['singles','pairs'].includes(c.settings?.sharedEventRole))delete c.settings.sharedEventRole});
-  Object.assign(a.settings,{sharedEventRole:'singles',sharedMatFirst:1,sharedMatLast:8,rinks:8,gameType:'singles',shortMat:true,ends:10,singlesScoring:'ends'});
-  Object.assign(b.settings,{sharedEventRole:'pairs',sharedMatFirst:9,sharedMatLast:18,rinks:10,gameType:'pairs',shortMat:true,ends:6});
-  saveDB();e('smStatus').innerHTML='<div class="oknotice">Linked and saved. Check your match durations and qualification rules in each tournament setup. Draw import is available through each Teams & Players screen.</div>';refresh();
+  if(!e('smLadies').value||!e('smPairs').value||e('smLadies').value===e('smPairs').value){e('smStatus').textContent='Please select two different tournaments.';return}
+  localStorage.setItem('bowlsSundayLinkedRemoteIds',JSON.stringify({ladies:e('smLadies').value,pairs:e('smPairs').value}));
+  e('smStatus').textContent='Tournament selection remembered on this device. Open each tournament and apply its mat numbers separately.';
+  refresh();
+ };
+ e('smApply').onclick=()=>{
+  const a=chosen('smLadies'),b=chosen('smPairs'),here=currentRemote(),c=activeLocal();
+  const kind=a&&here&&String(a.id)===String(here.id)?'singles':b&&here&&String(b.id)===String(here.id)?'pairs':null;
+  if(!kind||!c){e('smStatus').textContent='First open one of the linked tournaments.';return}
+  const first=kind==='singles'?1:9,last=kind==='singles'?8:18,count=last-first+1;
+  const fixtures=[...(c.fixtures||[]),...(c.knockout||[]).flat()].filter(f=>f&&f.rink!==undefined&&f.rink!==null&&f.rink!=='');
+  const invalid=fixtures.filter(f=>{const n=Number(f.rink);return !Number.isInteger(n)||n<1||(!f.sharedPhysicalMat&&n>count)||(f.sharedPhysicalMat&&(n<first||n>last))});
+  if(invalid.length){e('smStatus').textContent=invalid.length+' fixture(s) have rink numbers outside the expected range. No changes made; please check the Schedule editor.';return}
+  if(!confirm('Update '+fixtures.length+' saved match mat allocations for '+c.title+' to mats '+first+'–'+last+'? Teams, opponents, scores and fixtures are retained. Continue?'))return;
+  for(const f of fixtures){if(!f.sharedPhysicalMat){f.rink=Number(f.rink)+first-1;f.sharedPhysicalMat=true}}
+  Object.assign(c.settings,{sharedEventRole:kind,sharedMatFirst:first,sharedMatLast:last,rinks:count});
+  saveDB();e('smStatus').innerHTML='<div class="oknotice">Updated the currently open tournament to mats '+first+'–'+last+'. The fixtures remain intact. Please review the Schedule and confirm cloud save before switching tournaments.</div>';
+  refresh();
  };
  ['smLadies','smPairs'].forEach(id=>e(id).addEventListener('change',refresh));refresh();
 }
