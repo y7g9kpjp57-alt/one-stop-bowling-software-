@@ -3554,8 +3554,8 @@ function printPlayingSchedule(){
  const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — A3 Playing Schedule</title><style>
  @page{size:A3 landscape;margin:8mm}
  *{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#142638;background:#fff}
- .sheet{break-after:page;page-break-after:always;height:279mm;display:flex;flex-direction:column;overflow:hidden}
- .sheet:last-child{break-after:auto;page-break-after:auto}
+ .sheet{height:260mm;max-height:260mm;width:100%;display:flex;flex-direction:column;overflow:hidden;break-after:auto;page-break-after:auto}
+ .sheet + .sheet{break-before:page;page-break-before:always}
  .sheet-head{display:flex;justify-content:space-between;align-items:center;border-bottom:2.5px solid #123b5a;padding:2mm 1mm 4mm;margin-bottom:5mm}
  .brand{font-size:10px;font-weight:bold;letter-spacing:1.6px;color:#326b91;margin-bottom:1.5mm}
  h1{font-size:23px;margin:0 0 2mm;line-height:1.15}.subhead{font-size:11px;color:#465c70;text-transform:uppercase;letter-spacing:.4px}
@@ -3570,7 +3570,8 @@ function printPlayingSchedule(){
  th:nth-child(1){width:10%}th:nth-child(2){width:12%}th:nth-child(3){width:11%}th:nth-child(4),th:nth-child(5){width:33.5%}
  td.mat{font-size:14px;font-weight:bold;color:#123b5a}.panel-foot{font-size:9px;color:#657487;padding:7px 10px}
  footer{margin-top:auto;border-top:1px solid #cbd5df;padding:3mm 1mm 0;display:flex;justify-content:space-between;color:#637589;font-size:9px}
- @media screen{body{background:#e8edf2;padding:18px}.sheet{background:#fff;max-width:420mm;margin:0 auto 20px;padding:8mm;box-shadow:0 3px 15px #0002;height:297mm}}
+ @media screen{body{background:#e8edf2;padding:18px}.sheet{background:#fff;max-width:420mm;margin:0 auto 20px;padding:8mm;box-shadow:0 3px 15px #0002;height:277mm;max-height:none}}
+ @media print{html,body{width:100%;height:auto;overflow:visible}.sheet{padding:0;margin:0}.sheet-head,.session-panel,footer{break-inside:avoid;page-break-inside:avoid}}
  </style></head><body>${pageHtml}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));<\/script></body></html>`;
  const win=window.open('','_blank');if(!win){appAlert('Please allow pop-ups to print the playing schedule.');return}
  win.document.open();win.document.write(html);win.document.close();
