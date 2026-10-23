@@ -3971,12 +3971,22 @@ function rankingTeamStageMap(c){
  }
  return map
 }
+function rankingGroupForm(c){
+ let form=new Map();(c.teams||[]).forEach(t=>form.set(String(t.id),{played:0,wins:0,draws:0,losses:0,shotsFor:0,shotsAgainst:0}));
+ (c.fixtures||[]).forEach(f=>{
+  if(f.scoreA===''||f.scoreB===''||f.scoreA==null||f.scoreB==null||!Number.isFinite(+f.scoreA)||!Number.isFinite(+f.scoreB))return;
+  [[f.a,+f.scoreA,+f.scoreB],[f.b,+f.scoreB,+f.scoreA]].forEach(([id,sc,against])=>{
+   let r=form.get(String(id));if(!r)return;r.played++;r.shotsFor+=sc;r.shotsAgainst+=against;
+   if(sc>against)r.wins++;else if(sc===against)r.draws++;else r.losses++;
+  });
+ });return form;
+}
 function rankingTournamentRows(c){
  if(!c?.settings?.rankingTournament)return [];
- let stages=rankingTeamStageMap(c),rows=[];
+ let stages=rankingTeamStageMap(c),form=rankingGroupForm(c),rows=[];
  (c.teams||[]).forEach(t=>{
   let players=rankingPlayerNames(t,c),st=stages.get(String(t.id))||{stage:'group',points:DEFAULT_RANKING_POINTS.group,label:'Group stage'};
-  players.forEach(name=>rows.push({name,team:t.name||'',club:t.clubName||'',points:st.points,stage:st.stage,finish:st.label,event:c.title||'Tournament',eventId:c.id}))
+  players.forEach(name=>{let g=form.get(String(t.id))||{played:0,wins:0,draws:0,losses:0,shotsFor:0,shotsAgainst:0};rows.push({name,team:t.name||'',club:t.clubName||'',points:st.points+2*g.wins+g.draws,groupPoints:2*g.wins+g.draws,groupForm:g,stage:st.stage,finish:st.label,event:c.title||'Tournament',eventId:c.id})})
  });
  return rows
 }
@@ -3985,16 +3995,16 @@ function seasonRankingData(season){
  let byPlayer=new Map();
  events.forEach(c=>rankingTournamentRows(c).forEach(r=>{
   let key=r.name.trim().toLocaleLowerCase();if(!key)return;
-  let row=byPlayer.get(key)||{name:r.name,club:r.club||'',events:{},played:0,total:0,wins:0,finals:0,semis:0,bestPoints:-1,bestFinish:''};
-  row.events[r.eventId]={title:r.event,points:r.points,finish:r.finish};row.club=row.club||r.club||'';
+  let row=byPlayer.get(key)||{name:r.name,club:r.club||'',events:{},played:0,total:0,wins:0,finals:0,semis:0,bestPoints:-1,bestFinish:'',groupPlayed:0,groupWins:0,groupDraws:0,groupLosses:0,groupDifference:0};
+  row.events[r.eventId]={title:r.event,points:r.points,finish:r.finish,groupForm:r.groupForm,groupPoints:r.groupPoints};row.club=row.club||r.club||'';
   byPlayer.set(key,row)
  }));
  let rows=[...byPlayer.values()];
  rows.forEach(row=>{
-  let vals=Object.values(row.events);row.played=vals.length;row.total=vals.reduce((a,e)=>a+(+e.points||0),0);row.wins=vals.filter(e=>e.finish==='Winner').length;row.finals=vals.filter(e=>['Winner','Final'].includes(e.finish)).length;row.semis=vals.filter(e=>['Winner','Final','Semi-final'].includes(e.finish)).length;
+  let vals=Object.values(row.events);row.played=vals.length;row.groupPlayed=vals.reduce((n,e)=>n+(e.groupForm?.played||0),0);row.groupWins=vals.reduce((n,e)=>n+(e.groupForm?.wins||0),0);row.groupDraws=vals.reduce((n,e)=>n+(e.groupForm?.draws||0),0);row.groupLosses=vals.reduce((n,e)=>n+(e.groupForm?.losses||0),0);row.groupDifference=vals.reduce((n,e)=>n+(e.groupForm?.shotsFor||0)-(e.groupForm?.shotsAgainst||0),0);row.total=vals.reduce((a,e)=>a+(+e.points||0),0);row.wins=vals.filter(e=>e.finish==='Winner').length;row.finals=vals.filter(e=>['Winner','Final'].includes(e.finish)).length;row.semis=vals.filter(e=>['Winner','Final','Semi-final'].includes(e.finish)).length;
   let best=vals.slice().sort((a,b)=>b.points-a.points)[0];row.bestPoints=best?.points||0;row.bestFinish=best?.finish||''
  });
- rows.sort((a,b)=>b.total-a.total||b.wins-a.wins||b.finals-a.finals||b.bestPoints-a.bestPoints||a.name.localeCompare(b.name));
+ rows.sort((a,b)=>b.total-a.total||b.wins-a.wins||b.finals-a.finals||b.groupDifference-a.groupDifference||b.bestPoints-a.bestPoints||a.name.localeCompare(b.name));
  return {events,rows,start,end,excluded:allEvents.filter(c=>!rankingEventInDateRange(c,start,end))}
 }
 function renderRankings(s){
@@ -4002,7 +4012,7 @@ function renderRankings(s){
  let currentSeason=String(rankingSeasonSelected||comp()?.settings?.rankingSeason||seasons[0]||defaultRankingSeasonLabel());if(!seasons.includes(currentSeason)&&seasons.length)currentSeason=seasons[0];rankingSeasonSelected=currentSeason;
  let {events,rows,start,end,excluded}=seasonRankingData(currentSeason),eventCols=events.map((e,i)=>({id:e.id,title:e.title||('Event '+(i+1))}));
  let missing=events.reduce((n,c)=>n+(c.teams||[]).filter(t=>rankingPlayerNames(t,c).length===0&&String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())).length,0);
- s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2 style="margin-bottom:4px">Season Rankings</h2><p class="muted" style="margin:0">A separate player performance table built only from tournaments marked as ranking events.</p></div><div class="field" style="min-width:160px"><label>Season</label><select id="rankingSeasonPick">${(seasons.length?seasons:[currentSeason]).map(x=>`<option value="${esc(x)}" ${x===currentSeason?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div><div class="oknotice notice" style="margin-top:12px"><b>Points:</b> Winner 20 • Runner-up 15 • Semi-final 10 • Quarter-final 6 • Last 16 3 • Group stage 1</div><div class="notice" style="margin-top:10px"><b>${esc(currentSeason)} ranking window:</b> ${esc(start)} to ${esc(end)}</div>${excluded?.length?`<div class="notice warn" style="margin-top:10px"><b>${excluded.length} marked ranking event${excluded.length===1?' is':'s are'} outside this date range or missing a tournament date</b> and therefore not included.</div>`:''}${events.length?`<p class="muted">${events.length} ranking tournament${events.length===1?'':'s'} included: ${events.map(e=>esc(e.title||'Tournament')).join(' • ')}</p>`:'<div class="notice" style="margin-top:12px"><b>No ranking tournaments in this season yet.</b><br>Open Tournament Setup and set <b>Season ranking event</b> to Yes.</div>'}${missing?`<div class="notice" style="margin-top:10px"><b>${missing} team${missing===1?'':'s'} have no player names.</b> Add individual player names under Players / Teams so they can appear in the ranking table.</div>`:''}</div>${rows.length?`<div class="card"><div class="tablewrap"><table><thead><tr><th>Pos</th><th>Player</th><th>Club</th><th>Played</th>${eventCols.map(e=>`<th>${esc(e.title)}</th>`).join('')}<th>Total</th><th>Best Finish</th><th>Wins</th><th>Finals</th><th>SF+</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><b>${i+1}</b></td><td><b>${esc(r.name)}</b></td><td>${esc(r.club||'—')}</td><td>${r.played}</td>${eventCols.map(e=>{let x=r.events[e.id];return `<td>${x?`<b>${x.points}</b><div class="meta">${esc(x.finish)}</div>`:'—'}</td>`}).join('')}<td><b>${r.total}</b></td><td>${esc(r.bestFinish||'—')}</td><td>${r.wins}</td><td>${r.finals}</td><td>${r.semis}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+ s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2 style="margin-bottom:4px">Season Rankings</h2><p class="muted" style="margin:0">A separate player performance table built only from tournaments marked as ranking events.</p></div><div class="field" style="min-width:160px"><label>Season</label><select id="rankingSeasonPick">${(seasons.length?seasons:[currentSeason]).map(x=>`<option value="${esc(x)}" ${x===currentSeason?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div><div class="oknotice notice" style="margin-top:12px"><b>Points:</b> Group win 2 • Group draw 1 • Winner 20 • Runner-up 15 • Semi-final 10 • Quarter-final 6 • Last 16 3 • Group stage 1</div><div class="notice" style="margin-top:10px"><b>${esc(currentSeason)} ranking window:</b> ${esc(start)} to ${esc(end)}</div>${excluded?.length?`<div class="notice warn" style="margin-top:10px"><b>${excluded.length} marked ranking event${excluded.length===1?' is':'s are'} outside this date range or missing a tournament date</b> and therefore not included.</div>`:''}${events.length?`<p class="muted">${events.length} ranking tournament${events.length===1?'':'s'} included: ${events.map(e=>esc(e.title||'Tournament')).join(' • ')}</p>`:'<div class="notice" style="margin-top:12px"><b>No ranking tournaments in this season yet.</b><br>Open Tournament Setup and set <b>Season ranking event</b> to Yes.</div>'}${missing?`<div class="notice" style="margin-top:10px"><b>${missing} team${missing===1?'':'s'} have no player names.</b> Add individual player names under Players / Teams so they can appear in the ranking table.</div>`:''}</div>${rows.length?`<div class="card"><div class="tablewrap"><table><thead><tr><th>Pos</th><th>Player</th><th>Club</th><th>Played</th>${eventCols.map(e=>`<th>${esc(e.title)}</th>`).join('')}<th>Total</th><th>Group W-D-L</th><th>Group Shot +/-</th><th>Best Finish</th><th>Wins</th><th>Finals</th><th>SF+</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><b>${i+1}</b></td><td><b>${esc(r.name)}</b></td><td>${esc(r.club||'—')}</td><td>${r.played}</td>${eventCols.map(e=>{let x=r.events[e.id];return `<td>${x?`<b>${x.points}</b><div class="meta">${esc(x.finish)}</div>`:'—'}</td>`}).join('')}<td><b>${r.total}</b></td><td>${r.groupWins}-${r.groupDraws}-${r.groupLosses}</td><td>${r.groupDifference>0?'+':''}${r.groupDifference}</td><td>${esc(r.bestFinish||'—')}</td><td>${r.wins}</td><td>${r.finals}</td><td>${r.semis}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
  let pick=document.getElementById('rankingSeasonPick');if(pick)pick.onchange=()=>{rankingSeasonSelected=pick.value;renderRankings(s)}
 }
 // ===== End season rankings =====
