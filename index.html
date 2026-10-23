@@ -3736,14 +3736,16 @@ function printPlayingSchedule(){
 
 function prepareScorecardPrint(){
  let source=document.getElementById('cardsGrid');if(!source)return;
- let cards=[...source.querySelectorAll('.scorecard')].map(x=>x.outerHTML);if(!cards.length)return;
+ let cardNodes=[...source.querySelectorAll('.scorecard')];if(!cardNodes.length)return;
+ let teamPacks=document.getElementById('scorecardPrintOrder')?.value==='team'&&!source.dataset.blank;
+ let cards=cardNodes.map(x=>x.outerHTML);
  let c=comp(),ends=scoringEnds(c),paper=(document.getElementById('scorecardPaperSize')?.value||'A4').toUpperCase(),isA3=paper==='A3';
  // Keep both paper sizes portrait for reliable iPhone/AirPrint sizing. A4 uses 2x2; A3 uses 3x3 at roughly the same tall-card proportions.
  let perPage=isA3?9:4,cols=isA3?3:2,rows=isA3?3:2,pageW=isA3?297:210,pageH=isA3?420:297,pageMargin=5,pad=1,gap=3;
  // Keep each generated sheet inside Safari/AirPrint's printable box. The @page margin owns the outer margin; the sheet must not equal the full physical paper height.
  let sheetW=pageW-(pageMargin*2)-6,sheetH=isA3?pageH-(pageMargin*2)-18:pageH-(pageMargin*2)-28;
  let usableH=sheetH-(pad*2)-(gap*(rows-1)),cardH=usableH/rows;
- let pages=[];for(let i=0;i<cards.length;i+=perPage)pages.push(cards.slice(i,i+perPage));
+ let pages=[];if(teamPacks){let packs=[];for(let node of cardNodes){let key=node.dataset.pack||'Other';let last=packs[packs.length-1];if(!last||last.key!==key)packs.push({key,cards:[node.outerHTML]});else last.cards.push(node.outerHTML)}for(let pack of packs){for(let i=0;i<pack.cards.length;i+=perPage)pages.push(pack.cards.slice(i,i+perPage))}}else{for(let i=0;i<cards.length;i+=perPage)pages.push(cards.slice(i,i+perPage))}
  let css=`
   @page{size:${paper} portrait;margin:${pageMargin}mm}
   *{box-sizing:border-box}
@@ -3752,17 +3754,17 @@ function prepareScorecardPrint(){
   .sheet + .sheet{break-before:page;page-break-before:always}.sheet:last-of-type{break-after:auto!important;page-break-after:auto!important}
     .scorecard{width:100%;height:100%;min-height:0;overflow:hidden;background:#fff;display:flex;flex-direction:column;border:1.5px solid #111;padding:2.2mm;break-inside:avoid;page-break-inside:avoid;color:#111}
   .scorecard-title{text-align:center;font-size:10px;font-weight:800;border:1.5px solid #111;padding:1.2mm;margin-bottom:1.2mm;text-transform:uppercase}
-  .scorecard-info{display:grid;grid-template-columns:1fr 1fr;gap:.8mm 3mm;font-size:6.8px;margin-bottom:1mm;line-height:1.1}
+  .scorecard-info{display:grid;grid-template-columns:1fr 1fr;gap:.8mm 3mm;font-size:8.5px;font-weight:600;margin-bottom:1mm;line-height:1.15}
   .scorecard-info div{border-bottom:1px dotted #333;min-height:3.4mm}
-  .scorecard-vs{text-align:center;font-size:8px;font-weight:700;border-bottom:1.5px solid #111;padding:1mm 0;margin-bottom:.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .scorecard-vs{text-align:center;font-size:11px;font-weight:800;border-bottom:1.5px solid #111;padding:1mm 0;margin-bottom:.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .player-lines{display:grid;grid-template-columns:1fr 13mm 1fr;border-left:1px solid #111;border-right:1px solid #111}
-  .player-lines>div{min-height:3.5mm;border-bottom:1px solid #777;padding:.5mm 1mm;font-size:6.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .player-lines>div{min-height:3.5mm;border-bottom:1px solid #777;padding:.5mm 1mm;font-size:8.5px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   .player-lines .pos{text-align:center;font-weight:700;border-left:1px solid #111;border-right:1px solid #111}
   .score-table{width:100%;border-collapse:collapse;table-layout:fixed;flex:1}
-  .score-table th,.score-table td{border:1px solid #111;padding:0;text-align:center;font-size:6px;height:${ends<=10?'6.5':ends<=12?'5.8':ends<=18?'4.0':'3.3'}mm}
-  .score-table th{height:4mm;font-size:5.8px;background:#fff}.score-table .endnum{width:12%;font-weight:700}.score-table .shot,.score-table .running{width:22%}
-  .scorecard-total{display:grid;grid-template-columns:1fr 1fr;gap:3mm;font-size:7px;font-weight:800;margin-top:.8mm}.scorecard-total div{border-bottom:1.5px solid #111;padding:.7mm}
-  .scorecard-foot{font-size:4.8px;text-align:center;margin-top:.8mm}
+  .score-table th,.score-table td{border:1px solid #111;padding:0;text-align:center;font-size:8px;height:${ends<=10?'6.5':ends<=12?'5.8':ends<=18?'4.0':'3.3'}mm}
+  .score-table th{height:4mm;font-size:7.5px;font-weight:800;background:#fff}.score-table .endnum{width:12%;font-weight:700}.score-table .shot,.score-table .running{width:22%}
+  .scorecard-total{display:grid;grid-template-columns:1fr 1fr;gap:3mm;font-size:9px;font-weight:800;margin-top:.8mm}.scorecard-total div{border-bottom:1.5px solid #111;padding:.7mm}
+  .scorecard-foot{font-size:6.5px;text-align:center;margin-top:.8mm}
   .print-toolbar{display:flex;position:sticky;top:0;z-index:9999;gap:8px;align-items:center;justify-content:center;padding:10px;background:#073b59;color:#fff;font-family:Arial,sans-serif;flex-wrap:wrap}
   .print-toolbar button{appearance:none;border:0;border-radius:10px;padding:11px 16px;font-size:16px;font-weight:800;cursor:pointer}
   .print-toolbar .back{background:#fff;color:#073b59}.print-toolbar .print{background:#0b79b2;color:#fff;border:1px solid #fff}
@@ -3770,7 +3772,7 @@ function prepareScorecardPrint(){
   @media screen{body{background:#d7dce2;padding:0 8px 8px}.sheet{margin:8px auto 10px;box-shadow:0 2px 12px #777;transform-origin:top center}}
   @media print{html,body{margin:0!important;padding:0!important;width:auto!important;height:auto!important}.print-toolbar{display:none!important}.sheet{margin:0!important;box-shadow:none!important}.sheet{break-after:auto!important;page-break-after:auto!important}.sheet + .sheet{break-before:page!important;page-break-before:always!important}}
  `;
- let note=paper+' • '+perPage+' tall scorecards per sheet • portrait';
+ let note=paper+' • '+perPage+' cards per sheet • '+(teamPacks?'team packs (new page per team)':'fixture order');
  let html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(c.title)+' - Scorecards</title><style>'+css+'</style></head><body><div class="print-toolbar"><button class="back" onclick="if(window.opener&&!window.opener.closed){window.close()}else if(history.length>1){history.back()}else{window.close()}">← Back to App</button><span class="paper-note">'+note+'</span><button class="print" onclick="window.print()">🖨 Print / Share / Save PDF</button></div>'+pages.map(pg=>'<section class="sheet">'+pg.join('')+'</section>').join('')+'<script>async function shareScorecards(){try{const clone=document.documentElement.cloneNode(true);clone.querySelectorAll(\'.print-toolbar,script\').forEach(x=>x.remove());const content=\'<!doctype html>\'+clone.outerHTML;const file=new File([content],\'one-stop-bowling-scorecards.html\',{type:\'text/html\'});if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){await navigator.share({title:document.title,files:[file]});return}if(navigator.share){await navigator.share({title:document.title,text:\'One Stop Bowling scorecards\'});return}alert(\'Sharing is not available in this browser. Use Print / Save PDF instead.\')}catch(e){if(e&&e.name!==\'AbortError\')alert(\'Could not open sharing. Use Print / Save PDF instead.\')}}<\\/script></body></html>';
  let w=window.open('','_blank');if(!w)return appAlert('Please allow pop-ups to print the scorecards.');w.document.open();w.document.write(html);w.document.close();
 }
@@ -3796,13 +3798,29 @@ function scorecardCard(f,blank=false,reverse=false){let c=comp(),x=c.settings,po
  let endRows=Array.from({length:scoringEnds(c)},(_,i)=>`<tr><td class="shot"></td><td class="running"></td><td class="endnum">${i+1}</td><td class="shot"></td><td class="running"></td></tr>`).join('');
  let baseSi=matchSideInfo(c),si=reverse?{...baseSi,a:baseSi.b,b:baseSi.a,aLong:baseSi.bLong,bLong:baseSi.aLong,aStyle:baseSi.bStyle,bStyle:baseSi.aStyle}:baseSi;
  return `<div class="scorecard"><div class="scorecard-title">${esc(x.clubName||'Your Bowls Club')}</div><div class="scorecard-info"><div><b>Competition:</b> ${esc(c.title)}</div><div><b>Date:</b> __________________</div><div><b>Group / Game:</b> ${grp} / ${game}</div><div><b>Rink No:</b> ${rink}</div><div><b>Start:</b> ${start}</div><div><b>Format:</b> ${esc((x.gameType||'rinks').replace(/^./,m=>m.toUpperCase()))}${isSingles(c)?(isSinglesTo21(c)?' • First to 21':` • ${Math.max(1,Number(x.ends)||10)} ends`):(x.ends?` • ${x.ends} ends`:'')}</div></div><div class="scorecard-vs"><span style="font-weight:900;${si.aStyle};padding:2px 6px;border-radius:5px">${esc(si.aLong)}</span> ${esc(a)} &nbsp; vs &nbsp; <span style="font-weight:900;${si.bStyle};padding:2px 6px;border-radius:5px">${esc(si.bLong)}</span> ${esc(b)}</div><div class="player-lines">${playerRows}</div><table class="score-table"><thead><tr><th>SHOTS</th><th>TOTAL</th><th>ENDS</th><th>SHOTS</th><th>TOTAL</th></tr></thead><tbody>${endRows}</tbody></table><div class="scorecard-total"><div>TOTAL __________</div><div style="text-align:right">TOTAL __________</div></div><div class="scorecard-foot">One Stop Bowling Software • Traditional bowls scorecard</div></div>`}
+function scorecardOrderedHtml(fs,c,order){
+ if(order==='fixture')return fs.map(f=>scorecardCard(f,false,false)+scorecardCard(f,false,true)).join('');
+ let packs=new Map();
+ fs.forEach((f,i)=>{for(let side of ['a','b']){
+   let id=f[side],team=c.teams.find(t=>String(t.id)===String(id));
+   let name=team?.name||fixtureTeamName(f,side,c)||'Unassigned';
+   let key=team?String(team.id):'unknown-'+String(id||name);
+   if(!packs.has(key))packs.set(key,{name,cards:[]});
+   packs.get(key).cards.push({f,i,reverse:side==='b'});
+ }});
+ return [...packs.values()].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true})).map(pack=>pack.cards.sort((a,b)=>{
+   let aa=String(a.f.start||'')+' '+String(a.f.game||a.i),bb=String(b.f.start||'')+' '+String(b.f.game||b.i);
+   return aa.localeCompare(bb,undefined,{numeric:true});
+ }).map(item=>scorecardCard(item.f,false,item.reverse).replace('<div class="scorecard">','<div class="scorecard" data-pack="'+esc(pack.name)+'">')).join('')).join('');
+}
 function renderScorecards(s){let c=comp(),tt=(c.settings.tournamentType||'standard');if(isAggregate(c)){s.innerHTML='<div class="card"><h2>Scorecards</h2><p>Aggregate team-match scorecards will use one card per rink. Individual rink scoring is available now from Scores.</p></div>';return}
  let fs=tt==='knockout'?(c.knockout||[]).flat().map(m=>({...m,game:m.label||'',group:m.roundName||'Knockout'})):c.fixtures;
  if(!fs.length){s.innerHTML=`<div class="card"><h2>Scorecards</h2><p>${tt==='knockout'?'Generate the knockout draw first.':'Generate the draw and rink schedule first.'}</p></div>`;return}
  let desc=tt==='knockout'?'Two portrait scorecards per knockout match — one for each team, with the second card mirrored. Later rounds show the winning-source labels until the teams are known.':'Two portrait scorecards per scheduled game — Team A v Team B and a mirrored Team B v Team A card.';
- s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} Choose A4 for 4 tall scorecards per sheet or A3 for 9 tall scorecards per sheet. The layout uses the available paper area and keeps every card together.</p><div class="scorecard-actions"><label style="display:flex;align-items:center;gap:8px;font-weight:800">Paper size <select id="scorecardPaperSize" style="width:auto"><option value="A4">A4 — 4 tall cards</option><option value="A3">A3 — 9 tall cards</option></select></label><button class="btn primary" id="printCards">Print ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${fs.map(f=>scorecardCard(f,false,false)+scorecardCard(f,false,true)).join('')}</div>`;
+ s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} Choose A4 for 4 tall scorecards per sheet or A3 for 9 tall scorecards per sheet. The layout uses the available paper area and keeps every card together.</p><div class="scorecard-actions"><label style="display:flex;align-items:center;gap:8px;font-weight:800">Print order <select id="scorecardPrintOrder" style="width:auto"><option value="team" selected>Team packs — one set per team</option><option value="fixture">Fixture order — original</option></select></label><label style="display:flex;align-items:center;gap:8px;font-weight:800">Paper size <select id="scorecardPaperSize" style="width:auto"><option value="A4">A4 — 4 tall cards</option><option value="A3">A3 — 9 tall cards</option></select></label><button class="btn primary" id="printCards">Print ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${scorecardOrderedHtml(fs,c,'team')}</div>`;
  document.getElementById('printCards').onclick=prepareScorecardPrint;
- document.getElementById('showBlanks').onclick=()=>{document.getElementById('cardsGrid').innerHTML=Array.from({length:4},()=>scorecardCard({game:'',group:'',start:'',rink:'',a:'',b:''},true)).join('');document.getElementById('printCards').textContent='Print Blank Scorecards'}
+ document.getElementById('scorecardPrintOrder').onchange=e=>{let grid=document.getElementById('cardsGrid');grid.dataset.blank='';grid.innerHTML=scorecardOrderedHtml(fs,c,e.target.value);document.getElementById('printCards').textContent='Print Scorecards'};
+ document.getElementById('showBlanks').onclick=()=>{document.getElementById('cardsGrid').dataset.blank='yes';document.getElementById('cardsGrid').innerHTML=Array.from({length:4},()=>scorecardCard({game:'',group:'',start:'',rink:'',a:'',b:''},true)).join('');document.getElementById('printCards').textContent='Print Blank Scorecards'}
 }
 function renderFixtures(s){
  let c=comp(),x=c.settings;
