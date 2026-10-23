@@ -1873,7 +1873,58 @@ function undoLastLiveEnd(obj,c=comp()){
  if(obj.singlesAutoFinal){obj.scoreA='';obj.scoreB='';obj.singlesAutoFinal=false}
  saveDB();render();return true
 }
-function render(){let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='dashboard')appendSundayMatAccess(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+
+/* Main app overview: independent of the currently selected competition. */
+function seasonHomeWinner(c){
+ const rounds=Array.isArray(c?.knockout)?c.knockout:[];
+ const last=rounds.length?rounds[rounds.length-1]:null;
+ const matches=Array.isArray(last)?last:(Array.isArray(last?.matches)?last.matches:[]);
+ if(matches.length!==1)return '';
+ const f=matches[0];if(!f||f.scoreA===''||f.scoreB===''||f.scoreA==null||f.scoreB==null)return '';
+ const a=Number(f.scoreA),b=Number(f.scoreB);if(!Number.isFinite(a)||!Number.isFinite(b)||a===b)return '';
+ const id=a>b?(f.teamA??f.a):(f.teamB??f.b);
+ const team=(c.teams||[]).find(t=>String(t.id)===String(id));
+ return team?.name|| (typeof id==='string'&&!/^t\d+$/.test(id)?id:'');
+}
+function showAppOverview(){
+ document.getElementById('appOverviewModal')?.remove();
+ const el=document.createElement('div');el.className='modal';el.id='appOverviewModal';
+ el.innerHTML=`<div class="modalbox" style="width:min(880px,100%);max-height:92vh;overflow:auto">
+ <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><h2 style="margin:0">🏆 One Stop Bowling Software</h2><p class="muted" style="margin:5px 0">Tournament management • Overall dashboard</p></div><button class="btn secondary" id="closeAppOverview">Close</button></div>
+ <div id="appOverviewBody"><p class="muted">Loading tournaments…</p></div>
+ <div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:16px"><button class="btn primary" id="overviewNew">+ New Tournament</button><button class="btn secondary" id="overviewRankings">★ Season Rankings</button><button class="btn secondary" id="overviewCurrent">Current Tournament</button></div>
+ </div>`;
+ document.body.appendChild(el);
+ el.querySelector('#closeAppOverview').onclick=()=>el.remove();
+ el.onclick=e=>{if(e.target===el)el.remove()};
+ el.querySelector('#overviewNew').onclick=()=>{el.remove();showNewTournamentWizard()};
+ el.querySelector('#overviewRankings').onclick=()=>{el.remove();tab='rankings';render()};
+ el.querySelector('#overviewCurrent').onclick=()=>el.remove();
+ const local=(db?.competitions||[]).map(c=>({c,code:'',local:true}));
+ const draw=items=>{
+  const seen=new Set();items=items.filter(item=>{const k=String(item.code||item.c?.id||'');if(seen.has(k))return false;seen.add(k);return true});
+  const finished=items.filter(x=>!!x.c?.archivedAt),open=items.filter(x=>!x.c?.archivedAt);
+  const body=el.querySelector('#appOverviewBody');if(!body)return;
+  body.innerHTML=`<div class="grid" style="margin:14px 0"><div class="kpi"><b>${open.length}</b><span>Open tournaments</span></div><div class="kpi"><b>${finished.length}</b><span>Completed / archived</span></div><div class="kpi"><b>${items.length}</b><span>Total tournaments</span></div></div>
+  <p class="meta">Completed means archived. A final score alone does not automatically archive a tournament.</p>
+  ${[['Open tournaments',open],['Completed / archived tournaments',finished]].map(([heading,arr])=>`<h3>${heading}</h3>${arr.length?arr.map((x,i)=>{const winner=seasonHomeWinner(x.c);return `<div class="card" style="box-shadow:none;margin:8px 0"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>${esc(x.c?.title||'Untitled tournament')}</b><div class="meta">${x.code?'Code '+esc(x.code)+' • ':''}${x.c?.teams?.length||0} teams${winner?' • 🏆 Winner: '+esc(winner):''}</div></div><button class="btn secondary" data-overview-open="${esc(x.code||'')}" data-overview-local="${esc(x.c?.id||'')}">Open</button></div></div>`}).join(''):'<p class="muted">None yet</p>'}`).join('')}`;
+  body.querySelectorAll('[data-overview-open]').forEach(b=>b.onclick=()=>{el.remove();if(b.dataset.overviewOpen)openTournamentByCode(b.dataset.overviewOpen);else{db.active=b.dataset.overviewLocal;saveDB();tab='dashboard';render()}});
+ };
+ draw(local);
+ if(cloud&&currentUser){cloud.rpc('bowls_list_my_tournaments').then(({data,error})=>{
+  if(error||!Array.isArray(data))return;
+  const remote=data.map(r=>({c:tournamentStatePrimary(r),code:r.code,local:false})).filter(x=>x.c);
+  draw(remote.length?remote:local);
+ }).catch(()=>{});}
+}
+function ensureOverviewEntry(){
+ let btn=document.getElementById('appOverviewEntry');if(btn)return;
+ const target=document.getElementById('homeLanding')||document.getElementById('screen');if(!target)return;
+ btn=document.createElement('button');btn.id='appOverviewEntry';btn.className='btn primary';btn.textContent='⌂ Main App Dashboard';btn.style.cssText='margin:10px 0;width:100%;';btn.onclick=showAppOverview;
+ target.parentNode.insertBefore(btn,target);
+}
+
+function render(){if(role==='admin')ensureOverviewEntry();let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='dashboard')appendSundayMatAccess(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();if(sessionStorage.getItem('bowlsNavFreshV1')==='1'){sessionStorage.removeItem('bowlsNavFreshV1');requestAnimationFrame(()=>{let target=document.getElementById('screen');if(target){let y=target.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,y),behavior:'smooth'})}else window.scrollTo({top:0,behavior:'smooth'})})}else restoreScoringUiState();appendScorerNextMatchCard(s,c);
  if(role==='admin'&&tab==='dashboard'){
   appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);
