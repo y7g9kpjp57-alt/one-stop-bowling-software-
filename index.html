@@ -3737,7 +3737,7 @@ function printPlayingSchedule(){
 function prepareScorecardPrint(){
  let source=document.getElementById('cardsGrid');if(!source)return;
  let cardNodes=[...source.querySelectorAll('.scorecard')];if(!cardNodes.length)return;
- let teamPacks=document.getElementById('scorecardPrintOrder')?.value==='team'&&!source.dataset.blank;
+ let teamPacks=!source.dataset.blank; // All scorecards print together in team order.
  let cards=cardNodes.map(x=>x.outerHTML);
  let c=comp(),ends=scoringEnds(c),paper=(document.getElementById('scorecardPaperSize')?.value||'A4').toUpperCase(),isA3=paper==='A3';
  // Keep both paper sizes portrait for reliable iPhone/AirPrint sizing. A4 uses 2x2; A3 uses 3x3 at roughly the same tall-card proportions.
@@ -3745,7 +3745,7 @@ function prepareScorecardPrint(){
  // Keep each generated sheet inside Safari/AirPrint's printable box. The @page margin owns the outer margin; the sheet must not equal the full physical paper height.
  let sheetW=pageW-(pageMargin*2)-6,sheetH=isA3?pageH-(pageMargin*2)-18:pageH-(pageMargin*2)-28;
  let usableH=sheetH-(pad*2)-(gap*(rows-1)),cardH=usableH/rows;
- let pages=[];if(teamPacks){let packs=[];for(let node of cardNodes){let key=node.dataset.pack||'Other';let last=packs[packs.length-1];if(!last||last.key!==key)packs.push({key,cards:[node.outerHTML]});else last.cards.push(node.outerHTML)}for(let pack of packs){for(let i=0;i<pack.cards.length;i+=perPage)pages.push(pack.cards.slice(i,i+perPage))}}else{for(let i=0;i<cards.length;i+=perPage)pages.push(cards.slice(i,i+perPage))}
+ let pages=[];for(let i=0;i<cards.length;i+=perPage)pages.push(cards.slice(i,i+perPage)); // Continuous sheets, no forced page breaks between teams.
  let css=`
   @page{size:${paper} portrait;margin:${pageMargin}mm}
   *{box-sizing:border-box}
@@ -3772,7 +3772,7 @@ function prepareScorecardPrint(){
   @media screen{body{background:#d7dce2;padding:0 8px 8px}.sheet{margin:8px auto 10px;box-shadow:0 2px 12px #777;transform-origin:top center}}
   @media print{html,body{margin:0!important;padding:0!important;width:auto!important;height:auto!important}.print-toolbar{display:none!important}.sheet{margin:0!important;box-shadow:none!important}.sheet{break-after:auto!important;page-break-after:auto!important}.sheet + .sheet{break-before:page!important;page-break-before:always!important}}
  `;
- let note=paper+' • '+perPage+' cards per sheet • '+(teamPacks?'team packs (new page per team)':'fixture order');
+ let note=paper+' • '+perPage+' cards per sheet • '+(teamPacks?'all team scorecards in team order':'blank spare cards');
  let html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(c.title)+' - Scorecards</title><style>'+css+'</style></head><body><div class="print-toolbar"><button class="back" onclick="if(window.opener&&!window.opener.closed){window.close()}else if(history.length>1){history.back()}else{window.close()}">← Back to App</button><span class="paper-note">'+note+'</span><button class="print" onclick="window.print()">🖨 Print / Share / Save PDF</button></div>'+pages.map(pg=>'<section class="sheet">'+pg.join('')+'</section>').join('')+'<script>async function shareScorecards(){try{const clone=document.documentElement.cloneNode(true);clone.querySelectorAll(\'.print-toolbar,script\').forEach(x=>x.remove());const content=\'<!doctype html>\'+clone.outerHTML;const file=new File([content],\'one-stop-bowling-scorecards.html\',{type:\'text/html\'});if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){await navigator.share({title:document.title,files:[file]});return}if(navigator.share){await navigator.share({title:document.title,text:\'One Stop Bowling scorecards\'});return}alert(\'Sharing is not available in this browser. Use Print / Save PDF instead.\')}catch(e){if(e&&e.name!==\'AbortError\')alert(\'Could not open sharing. Use Print / Save PDF instead.\')}}<\\/script></body></html>';
  let w=window.open('','_blank');if(!w)return appAlert('Please allow pop-ups to print the scorecards.');w.document.open();w.document.write(html);w.document.close();
 }
@@ -3817,9 +3817,8 @@ function renderScorecards(s){let c=comp(),tt=(c.settings.tournamentType||'standa
  let fs=tt==='knockout'?(c.knockout||[]).flat().map(m=>({...m,game:m.label||'',group:m.roundName||'Knockout'})):c.fixtures;
  if(!fs.length){s.innerHTML=`<div class="card"><h2>Scorecards</h2><p>${tt==='knockout'?'Generate the knockout draw first.':'Generate the draw and rink schedule first.'}</p></div>`;return}
  let desc=tt==='knockout'?'Two portrait scorecards per knockout match — one for each team, with the second card mirrored. Later rounds show the winning-source labels until the teams are known.':'Two portrait scorecards per scheduled game — Team A v Team B and a mirrored Team B v Team A card.';
- s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} Choose A4 for 4 tall scorecards per sheet or A3 for 9 tall scorecards per sheet. The layout uses the available paper area and keeps every card together.</p><div class="scorecard-actions"><label style="display:flex;align-items:center;gap:8px;font-weight:800">Print order <select id="scorecardPrintOrder" style="width:auto"><option value="team" selected>Team packs — one set per team</option><option value="fixture">Fixture order — original</option></select></label><label style="display:flex;align-items:center;gap:8px;font-weight:800">Paper size <select id="scorecardPaperSize" style="width:auto"><option value="A4">A4 — 4 tall cards</option><option value="A3">A3 — 9 tall cards</option></select></label><button class="btn primary" id="printCards">Print ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${scorecardOrderedHtml(fs,c,'team')}</div>`;
+ s.innerHTML=`<div class="card noPrint"><h2>Traditional Scorecard Print Centre</h2><p class="muted">${desc} Print or save/share every team’s scorecards in one document, grouped alphabetically by team. Each team receives its own copy of every match. A4 fits 4 cards per sheet and A3 fits 9, with no unnecessary new page between teams.</p><div class="scorecard-actions"><label style="display:flex;align-items:center;gap:8px;font-weight:800">Paper size <select id="scorecardPaperSize" style="width:auto"><option value="A4">A4 — 4 tall cards</option><option value="A3">A3 — 9 tall cards</option></select></label><button class="btn primary" id="printCards">Print / Share All ${tt==='knockout'?'Knockout':'Scheduled'} Scorecards</button><button class="btn secondary" id="showBlanks">Show 4 Blank Spare Cards</button></div></div><div class="scorecards-grid" id="cardsGrid">${scorecardOrderedHtml(fs,c,'team')}</div>`;
  document.getElementById('printCards').onclick=prepareScorecardPrint;
- document.getElementById('scorecardPrintOrder').onchange=e=>{let grid=document.getElementById('cardsGrid');grid.dataset.blank='';grid.innerHTML=scorecardOrderedHtml(fs,c,e.target.value);document.getElementById('printCards').textContent='Print Scorecards'};
  document.getElementById('showBlanks').onclick=()=>{document.getElementById('cardsGrid').dataset.blank='yes';document.getElementById('cardsGrid').innerHTML=Array.from({length:4},()=>scorecardCard({game:'',group:'',start:'',rink:'',a:'',b:''},true)).join('');document.getElementById('printCards').textContent='Print Blank Scorecards'}
 }
 function renderFixtures(s){
