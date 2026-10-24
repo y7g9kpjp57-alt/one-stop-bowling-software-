@@ -4143,19 +4143,68 @@ function renderRankings(s){
  let {events,rows,start,end,excluded}=seasonRankingData(currentSeason),eventCols=events.map((e,i)=>({id:e.id,title:e.title||('Event '+(i+1))}));
  let missing=events.reduce((n,c)=>n+(c.teams||[]).filter(t=>rankingPlayerNames(t,c).length===0&&String(t.name||'').trim()&&!/^Team\s+\d+$/i.test(String(t.name||'').trim())).length,0);
  s.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><h2 style="margin-bottom:4px">Season Rankings</h2><p class="muted" style="margin:0">A separate player performance table built only from tournaments marked as ranking events.</p></div><div class="field" style="min-width:160px"><label>Season</label><select id="rankingSeasonPick">${(seasons.length?seasons:[currentSeason]).map(x=>`<option value="${esc(x)}" ${x===currentSeason?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div><div class="oknotice notice" style="margin-top:12px"><b>Points:</b> Group win 2 • Group draw 1 • Winner 20 • Runner-up 15 • Semi-final 10 • Quarter-final 6 • Last 16 3 • Group stage 1</div><div class="notice" style="margin-top:10px"><b>${esc(currentSeason)} ranking window:</b> ${esc(start)} to ${esc(end)}</div>${excluded?.length?`<div class="notice warn" style="margin-top:10px"><b>${excluded.length} marked ranking event${excluded.length===1?' is':'s are'} outside this date range or missing a tournament date</b> and therefore not included.</div>`:''}${events.length?`<p class="muted">${events.length} ranking tournament${events.length===1?'':'s'} included: ${events.map(e=>esc(e.title||'Tournament')).join(' • ')}</p>`:'<div class="notice" style="margin-top:12px"><b>No ranking tournaments in this season yet.</b><br>Open Tournament Setup and set <b>Season ranking event</b> to Yes.</div>'}${missing?`<div class="notice" style="margin-top:10px"><b>${missing} team${missing===1?'':'s'} have no player names.</b> Add individual player names under Players / Teams so they can appear in the ranking table.</div>`:''}</div>${rows.length?`<div class="card"><p class="muted" style="margin:0 0 10px">All players from either event. Ranked by combined total points.</p><div class="tablewrap"><table style="width:100%;min-width:0;table-layout:fixed"><thead><tr><th style="width:38px">Pos</th><th>Player</th>${eventCols.map(e=>`<th style="width:66px;overflow-wrap:anywhere;font-size:11px">${esc(e.title)}</th>`).join('')}<th style="width:68px">Total</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><b>${rows.findIndex(x=>x.total===r.total)+1}</b></td><td style="overflow-wrap:anywhere"><b>${esc(r.name)}</b>${r.club?`<div class="meta">${esc(r.club)}</div>`:''}</td>${eventCols.map(e=>{let x=r.events[e.id];return `<td style="text-align:center"><b>${x?x.points:0}</b>${x?`<div class="meta" style="font-size:10px;overflow-wrap:anywhere">${esc(x.finish)}</div>`:''}</td>`}).join('')}<td style="text-align:center"><b style="font-size:18px">${r.total}</b></td></tr>`).join('')}</tbody></table></div><p class="meta" style="margin-top:12px">Played = number of ranking tournaments entered. Group wins and draws plus one knockout finishing bonus per event are included in each event's points.</p></div>`:''}`;
- let share=document.createElement('button');share.className='btn primary';share.textContent='↗ Share Rankings';
+ // Create a real, multi-page PDF locally, without an internet PDF library.
+ function rankingPdfBytes(data,season){
+  const clean=v=>String(v??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[\u2010-\u2015]/g,'-').replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/[^\x20-\x7e]/g,' ');
+  const escPdf=v=>clean(v).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+  const events=data.events;
+  const pageW=842,pageH=595,left=35,right=807,top=65,bottom=42;
+  const posW=38,totalW=56,playerW=Math.max(140,Math.min(210,300-events.length*14));
+  const eventW=(right-left-posW-playerW-totalW)/Math.max(1,events.length);
+  const widths=[posW,playerW,...events.map(()=>eventW),totalW];
+  const labels=['POS','PLAYER',...events.map(e=>e.title||'EVENT'),'TOTAL'];
+  const xs=[left];widths.forEach(w=>xs.push(xs[xs.length-1]+w));
+  const pages=[],perPage=32;
+  for(let offset=0;offset<data.rows.length;offset+=perPage){
+   const subset=data.rows.slice(offset,offset+perPage);let commands=[];
+   const txt=(x,y,v,size=9,bold=false)=>{commands.push(`BT /${bold?'F2':'F1'} ${size} Tf 1 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)} Tm (${escPdf(v)}) Tj ET`)};
+   const line=(x1,y1,x2,y2)=>commands.push(`${x1} ${y1} m ${x2} ${y2} l S`);
+   commands.push('0.12 0.19 0.32 rg');commands.push(`0 ${pageH-51} ${pageW} 51 re f`);commands.push('1 1 1 rg');
+   txt(left,pageH-30,'ONE STOP BOWLING  |  SEASON RANKINGS '+season,16,true);
+   commands.push('0.16 0.23 0.35 rg');txt(left,pageH-64,'Individual player standings - group points and knockout finishing bonus',9);
+   const headerY=pageH-94,rowH=13.2;
+   commands.push('0.88 0.92 0.97 rg');commands.push(`${left} ${headerY-9} ${right-left} 23 re f`);
+   commands.push('0.14 0.22 0.35 rg');
+   labels.forEach((label,i)=>{const max=Math.floor((widths[i]-8)/5.2);txt(xs[i]+4,headerY,clean(label).slice(0,max),8,true)});
+   subset.forEach((r,j)=>{
+    const y=headerY-25-j*rowH;
+    if(j%2===1){commands.push('0.96 0.97 0.99 rg');commands.push(`${left} ${y-4} ${right-left} ${rowH} re f`)}
+    commands.push('0.13 0.19 0.30 rg');
+    const rank=data.rows.findIndex(x=>x.total===r.total)+1;
+    const vals=[rank,r.name,...events.map(e=>r.events[e.id]?.points??0),r.total];
+    vals.forEach((v,i)=>{const max=Math.floor((widths[i]-8)/(i===1?4.6:5.2));txt(xs[i]+4,y,clean(v).slice(0,max),i===1?8.7:9,i===0||i===vals.length-1)})
+   });
+   commands.push('0.75 0.80 0.87 RG 0.5 w');line(left,headerY-11,right,headerY-11);
+   commands.push('0.35 0.42 0.52 rg');txt(left,24,'Group win: 2  |  Group draw: 1  |  Knockout finishing bonus included',8);
+   txt(right-108,24,`Page ${pages.length+1} of ${Math.ceil(data.rows.length/perPage)}`,8);
+   pages.push(commands.join('\n'));
+  }
+  const objects=[];const add=o=>(objects.push(o),objects.length);
+  const catalog=add('');const pageTree=add('');const regular=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');const bold=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
+  const pageIds=[];
+  pages.forEach(content=>{const bytes=new TextEncoder().encode(content);const stream=add(`<< /Length ${bytes.length} >>\nstream\n${content}\nendstream`);const page=add(`<< /Type /Page /Parent ${pageTree} 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /Font << /F1 ${regular} 0 R /F2 ${bold} 0 R >> >> /Contents ${stream} 0 R >>`);pageIds.push(page)});
+  objects[catalog-1]=`<< /Type /Catalog /Pages ${pageTree} 0 R >>`;
+  objects[pageTree-1]=`<< /Type /Pages /Kids [${pageIds.map(id=>id+' 0 R').join(' ')}] /Count ${pageIds.length} >>`;
+  let pdf='%PDF-1.4\n';const offsets=[0];const encoder=new TextEncoder();
+  objects.forEach((o,i)=>{offsets.push(encoder.encode(pdf).length);pdf+=`${i+1} 0 obj\n${o}\nendobj\n`});
+  const xref=encoder.encode(pdf).length;
+  pdf+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;
+  for(let i=1;i<offsets.length;i++)pdf+=`${String(offsets[i]).padStart(10,'0')} 00000 n \n`;
+  pdf+=`trailer\n<< /Size ${objects.length+1} /Root ${catalog} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return encoder.encode(pdf);
+ }
+ let share=document.createElement('button');share.className='btn primary';share.textContent='📄 Share Rankings PDF';
  share.onclick=async()=>{
   const data=seasonRankingData(rankingSeasonSelected);
   if(!data.rows.length){appAlert('No rankings to share for this season yet.');return}
-  const eventNames=data.events.map(e=>e.title||'Tournament');
-  const lines=['One Stop Bowling — Season Rankings '+rankingSeasonSelected,'',
-   'Pos | Player | '+eventNames.join(' | ')+' | Total'];
-  data.rows.forEach(r=>{const pos=data.rows.findIndex(x=>x.total===r.total)+1;lines.push(pos+' | '+r.name+' | '+data.events.map(e=>r.events[e.id]?.points??0).join(' | ')+' | '+r.total)});
-  lines.push('','Group win 2 • Draw 1 • Finishing bonus included');
-  const content=lines.join('\n');
-  try{if(navigator.share){await navigator.share({title:'One Stop Bowling — '+rankingSeasonSelected+' Season Rankings',text:content});return}}
-  catch(e){if(e?.name==='AbortError')return}
-  try{await navigator.clipboard.writeText(content);appAlert('Full season rankings copied — paste into WhatsApp, Messenger or email.')}catch(e){prompt('Copy season rankings:',content)}
+  const fileName='One-Stop-Bowling-Rankings-'+String(rankingSeasonSelected).replace(/[^a-z0-9-]/gi,'-')+'.pdf';
+  const file=new File([rankingPdfBytes(data,rankingSeasonSelected)],fileName,{type:'application/pdf'});
+  try{
+   if(navigator.share&&navigator.canShare?.({files:[file]})){
+    await navigator.share({title:'One Stop Bowling - Season Rankings '+rankingSeasonSelected,files:[file]});return;
+   }
+  }catch(e){if(e?.name==='AbortError')return}
+  const url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
  };
  s.querySelector('.card')?.appendChild(share);
  let refresh=document.createElement('button');refresh.className='btn';refresh.textContent='↻ Refresh all tournament rankings';
