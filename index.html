@@ -4106,22 +4106,57 @@ function renderTables(s){
  let b=document.getElementById('printTablesBtn');if(b)b.onclick=printGroupTables;let cg=document.getElementById('completeGroups');if(cg)cg.onclick=completeGroupStage;let rg=document.getElementById('reopenGroups');if(rg)rg.onclick=reopenGroupStage;document.querySelectorAll('[data-save-tie]').forEach(btn=>btn.onclick=()=>{let key=btn.dataset.saveTie,sel=document.querySelector(`[data-tie-key="${key}"]`),winner=sel?.value;if(!winner)return appAlert('Select the tie-break winner first.');setManualTieWinner(key,winner)});
 }
 
-function manualKnockoutSelectionHTML(q){
- let size=1;while(size<q.length)size*=2;let byes=size-q.length,opts=q.map(x=>`<option value="${x.id}">${esc(x.name)} (${esc(x.group||'')}${x.pos||''})</option>`).join('');
- return `<div class="card" id="manualKoEditor"><h2>Select Knockout Draw</h2><p class="muted">Choose exactly who goes into each position. Each qualifier can only be used once. Leave exactly ${byes} position${byes===1?'':'s'} as BYE.</p><div class="oknotice notice"><b>${q.length} qualifiers</b> • ${size}-team bracket • ${byes} bye${byes===1?'':'s'}</div><div class="formgrid" style="margin-top:12px">${Array.from({length:size},(_,i)=>`<div class="field"><label>Position ${i+1}</label><select data-ko-slot="${i}"><option value="">BYE</option>${opts}</select></div>`).join('')}</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn success" id="saveManualKo">Save Selected Knockout</button><button class="btn secondary" id="cancelManualKo">Cancel</button></div></div>`
+const MANUAL_KO_DRAFT_PREFIX='osb-manual-ko-draft-';
+function manualKoDraftKey(c=comp()){return MANUAL_KO_DRAFT_PREFIX+String(c.id)}
+function storeManualKoDraft(){
+ const fields=[...document.querySelectorAll('#manualKoEditor [data-ko-slot]')];
+ if(!fields.length)return;
+ try{localStorage.setItem(manualKoDraftKey(),JSON.stringify(fields.map(f=>f.value||'')))}catch(e){console.warn('Unable to save manual draw draft',e)}
 }
-function saveManualKnockoutSelection(){
- let c=comp(),q=qualifiers(),size=1;while(size<q.length)size*=2,byes=size-q.length;
- let slots=[...document.querySelectorAll('[data-ko-slot]')].sort((a,b)=>+a.dataset.koSlot-+b.dataset.koSlot).map(x=>x.value||null),used=slots.filter(Boolean);
+function manualKnockoutSelectionHTML(q){
+ let size=1;while(size<q.length)size*=2;
+ let byes=size-q.length,opts=q.map(x=>`<option value="${esc(x.id)}">${esc(x.name)} (${esc(x.group||'')}${x.pos||''})</option>`).join('');
+ return `<div class="card" id="manualKoEditor"><h2>Select Knockout Draw</h2><p class="muted">Choose exactly who goes into each position. Your selections are saved automatically on this device while you work.</p><div class="oknotice notice"><b>${q.length} qualifiers</b> • ${size}-team bracket • ${byes} bye${byes===1?'':'s'}</div><div class="formgrid" style="margin-top:12px">${Array.from({length:size},(_,i)=>`<div class="field"><label>Position ${i+1}</label><select data-ko-slot="${i}"><option value="">BYE</option>${opts}</select></div>`).join('')}</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button type="button" class="btn success" id="saveManualKo">Save Selected Knockout</button><button type="button" class="btn secondary" id="cancelManualKo">Close (keep draft)</button></div><div id="manualKoSaveStatus" class="meta" aria-live="polite" style="margin-top:10px">Selections saved automatically as you choose teams.</div></div>`
+}
+async function saveManualKnockoutSelection(){
+ let c=comp(),q=qualifiers(),size=1;while(size<q.length)size*=2;
+ let byes=size-q.length;
+ let fields=[...document.querySelectorAll('#manualKoEditor [data-ko-slot]')];
+ if(fields.length!==size)return appAlert('The manual draw editor has changed. Please reopen it; your draft is saved.');
+ let slots=fields.sort((a,b)=>+a.dataset.koSlot-+b.dataset.koSlot).map(x=>x.value||null),used=slots.filter(Boolean);
+ storeManualKoDraft();
  if(used.length!==q.length)return appAlert(`Please select all ${q.length} qualifiers once.`);
  if(new Set(used).size!==used.length)return appAlert('A qualifier has been selected more than once.');
  if(slots.filter(x=>!x).length!==byes)return appAlert(`There must be exactly ${byes} BYE position${byes===1?'':'s'}.`);
  let valid=new Set(q.map(x=>String(x.id)));if(used.some(x=>!valid.has(String(x))))return appAlert('One of the selected teams is not an eligible qualifier.');
+ // Never silently replace knockout results, later rounds, or an existing bracket.
+ if(c.knockout?.length){
+  let existing=c.knockout.some(round=>round.some(m=>m.scoreA!==''&&m.scoreA!=null||m.scoreB!==''&&m.scoreB!=null));
+  if(existing||c.knockout.length>1)return appAlert('This tournament already has knockout results or later rounds. The existing draw has NOT been replaced. Preserve your backup before making changes.');
+  if(!confirm('Replace the existing UNSCORED first-round knockout draw?'))return;
+ }
  let matches=[];for(let i=0;i<size;i+=2){let a=slots[i],b=slots[i+1],qa=q.find(x=>String(x.id)===String(a)),qb=q.find(x=>String(x.id)===String(b));matches.push({id:'koM'+(i/2+1),label:'KO'+(i/2+1),a:a||null,b:b||null,scoreA:'',scoreB:'',sameGroupRematch:!!(qa&&qb&&qa.group===qb.group),groupA:qa?.group||null,groupB:qb?.group||null})}
- matches.forEach((m,i)=>{m.id=m.id||`sko1_${i+1}`;m.label=m.label||`R1-${i+1}`;m.roundName=koRoundNameFromCount(matches.length);m.venue=m.venue||knockoutVenueOptions(c)[0]||'Main Green';m.rink=m.rink||i%Math.max(1,+c.settings.rinks||1)+1});c.knockout=[matches];c.manualKnockout=true;c.knockoutLiveDrawRound='';c.knockoutLiveDrawDone={};advanceStandardKnockout(c);saveDB();render();
+ matches.forEach((m,i)=>{m.roundName=koRoundNameFromCount(matches.length);m.venue=knockoutVenueOptions(c)[0]||'Main Green';m.rink=i%Math.max(1,+c.settings.rinks||1)+1});
+ let previous={knockout:c.knockout,manualKnockout:c.manualKnockout,knockoutLiveDrawRound:c.knockoutLiveDrawRound,knockoutLiveDrawDone:c.knockoutLiveDrawDone};
+ c.knockout=[matches];c.manualKnockout=true;c.knockoutLiveDrawRound='';c.knockoutLiveDrawDone={};advanceStandardKnockout(c);
+ saveDB();
+ const status=document.getElementById('manualKoSaveStatus');if(status)status.textContent='Saved on this device. Checking online save…';
+ if(cloudReady&&remoteTournamentId&&canWriteRemoteTournament()){
+  for(let i=0;i<20&&remoteSaveBusy;i++)await new Promise(r=>setTimeout(r,250));
+  let ok=await pushRemoteTournament();
+  if(!ok){if(status)status.textContent='Saved on this device, but online save was not confirmed. The editor remains open; do not refresh.';appAlert('The manual knockout was saved locally, but online saving failed. Keep this screen open and retry when your connection is stable.');return}
+ }
+ try{localStorage.removeItem(manualKoDraftKey(c))}catch(e){}
+ render();appToast('Manual knockout draw saved.','ok');
 }
 function openManualKnockoutSelection(){
- let q=qualifiers();if(q.length<2)return appAlert('Not enough qualifiers yet.');let s=document.getElementById('screen');s.innerHTML=manualKnockoutSelectionHTML(q);document.getElementById('saveManualKo').onclick=saveManualKnockoutSelection;document.getElementById('cancelManualKo').onclick=render;
+ let q=qualifiers();if(q.length<2)return appAlert('Not enough qualifiers yet.');
+ let s=document.getElementById('screen');s.innerHTML=manualKnockoutSelectionHTML(q);
+ let fields=[...s.querySelectorAll('[data-ko-slot]')];
+ try{let draft=JSON.parse(localStorage.getItem(manualKoDraftKey())||'null');if(Array.isArray(draft)&&draft.length===fields.length)fields.forEach((f,i)=>{if([...f.options].some(o=>o.value===draft[i]))f.value=draft[i]||''})}catch(e){}
+ fields.forEach(f=>f.addEventListener('change',storeManualKoDraft));
+ document.getElementById('saveManualKo').onclick=saveManualKnockoutSelection;
+ document.getElementById('cancelManualKo').onclick=()=>{storeManualKoDraft();render()};
 }
 
 function knockoutVenueName(m,c=comp()){return (m?.venue||m?.green||scheduleVenueNames(c)[0]||'Main Green').trim()||'Main Green'}
