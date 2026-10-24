@@ -591,7 +591,7 @@ teams:Array.from({length:16},(_,i)=>({id:'t'+(i+1),name:'Team '+(i+1),group:'',p
 let formEditRevision=0,lastFormEditAt=0,scoreWritesPending=0;
 let scoreWriteChain=Promise.resolve();
 document.addEventListener('input',()=>{formEditRevision++;lastFormEditAt=Date.now()},true);
-function scoringRefreshBlocked(){let a=document.activeElement;return scoreWritesPending>0||Date.now()-lastFormEditAt<1800||!!(a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))}
+function scoringRefreshBlocked(){if(document.getElementById('manualKoEditor'))return true;let a=document.activeElement;return scoreWritesPending>0||Date.now()-lastFormEditAt<1800||!!(a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName))}
 let db=loadDB();let role='public', tab='dashboard',setupDirty=false;
 setTimeout(applySimpleMode,0);
 let startupSoftNotice='';
@@ -707,6 +707,7 @@ function stopRemoteRefresh(){
  if(cloudChannel&&cloud){try{cloud.removeChannel(cloudChannel)}catch(e){console.warn('Realtime channel cleanup failed',e)}cloudChannel=null}
 }
 function scheduleRealtimeRender(delay=120){
+ if(document.getElementById('manualKoEditor'))return;
  if(realtimeRenderTimer)clearTimeout(realtimeRenderTimer);
  realtimeRenderTimer=setTimeout(()=>{
   realtimeRenderTimer=null;
@@ -725,6 +726,7 @@ function persistRealtimeState(){
  try{let serialized=JSON.stringify(db);localStorage.setItem(APPKEY,serialized);lastLocalSerialized=serialized}catch(e){console.warn('Realtime local cache save failed',e)}
 }
 function handleRealtimeScorePatch(message){
+ if(document.getElementById('manualKoEditor'))return;
  let m=message?.payload||message||{};
  if(!m||String(m.tournament_id||'')!==String(remoteTournamentId||''))return;
  let rev=Number(m.revision||0)||0;
@@ -738,6 +740,7 @@ function handleRealtimeScorePatch(message){
  persistRealtimeState();scheduleRealtimeRender()
 }
 function scheduleRealtimeFullRefresh(delay=180){
+ if(document.getElementById('manualKoEditor'))return;
  if(realtimeFullRefreshTimer)clearTimeout(realtimeFullRefreshTimer);
  realtimeFullRefreshTimer=setTimeout(async()=>{
   realtimeFullRefreshTimer=null;
@@ -830,6 +833,7 @@ async function requestScorerAccess(){
 }
 
 async function refreshRemoteTournament(){
+ if(document.getElementById('manualKoEditor'))return;
  const requestedCode=remoteTournamentCode,requestedTab=tab,editRevision=formEditRevision;
  if(document.hidden||scoringRefreshBlocked())return;
  if(!remoteTournamentCode||!cloud||!navigator.onLine)return;
