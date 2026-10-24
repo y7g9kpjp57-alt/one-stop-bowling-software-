@@ -4026,26 +4026,26 @@ function rankingPlayerNames(team,c){
  return []
 }
 function rankingTeamStageMap(c){
- let map=new Map();(c.teams||[]).forEach(t=>map.set(String(t.id),{stage:'group',points:DEFAULT_RANKING_POINTS.group,label:'Group stage'}));
- let rounds=(c.knockout||[]).filter(r=>Array.isArray(r)&&r.length);
- if(!rounds.length)return map;
+ const map=new Map();(c.teams||[]).forEach(t=>map.set(String(t.id),{stage:'group',points:DEFAULT_RANKING_POINTS.group,label:'Group stage'}));
+ const rounds=(c.knockout||[]).filter(r=>Array.isArray(r)&&r.length);
  const refId=ref=>String(typeof ref==='object'?(ref?.id||ref?.teamId||''):ref||'');
- // Award knockout finishing points only when a match has a recorded final result.
- // A player still in the competition must not be awarded runner-up or a later finish prematurely.
- rounds.forEach((round,ri)=>{
-  let remaining=rounds.length-1-ri;
-  let stage=remaining===0?'runner':remaining===1?'semi':remaining===2?'quarter':'last16';
-  let pts=DEFAULT_RANKING_POINTS[stage];
-  let label=remaining===0?'Runner-up':remaining===1?'Semi-final':remaining===2?'Quarter-final':'Last 16';
+ // Determine finish from the actual number of teams in the round, not the
+ // number of saved rounds. A Last 32 loss must NOT receive Last 16 points.
+ rounds.forEach(round=>{
+  const entrants=new Set();round.forEach(m=>{if(m?.a)entrants.add(refId(m.a));if(m?.b)entrants.add(refId(m.b))});
+  const count=entrants.size;
+  const stage=count<=2?'runner':count<=4?'semi':count<=8?'quarter':count<=16?'last16':'group';
+  const pts=DEFAULT_RANKING_POINTS[stage];
+  const label={runner:'Runner-up',semi:'Semi-final',quarter:'Quarter-final',last16:'Last 16',group:'Group stage'}[stage];
   round.forEach(m=>{
    if(!completed(m)||!m.a||!m.b)return;
-   let winner=refId(koWinner(m)),loser=[refId(m.a),refId(m.b)].find(id=>id&&id!==winner);
-   if(!loser||!winner)return;
-   let cur=map.get(loser);if(!cur||pts>cur.points)map.set(loser,{stage,points:pts,label});
-   if(remaining===0)map.set(winner,{stage:'winner',points:DEFAULT_RANKING_POINTS.winner,label:'Winner'});
+   const winner=refId(koWinner(m)),loser=[refId(m.a),refId(m.b)].find(id=>id&&id!==winner);
+   if(!winner||!loser)return;
+   const cur=map.get(loser);if(cur&&pts>cur.points)map.set(loser,{stage,points:pts,label});
+   if(count===2)map.set(winner,{stage:'winner',points:DEFAULT_RANKING_POINTS.winner,label:'Winner'});
   });
  });
- return map
+ return map;
 }
 function rankingGroupForm(c){
  let form=new Map();(c.teams||[]).forEach(t=>form.set(String(t.id),{played:0,wins:0,draws:0,losses:0,shotsFor:0,shotsAgainst:0}));
@@ -4078,7 +4078,7 @@ async function loadSeasonRankingCloudEvents(){
   const seen=new Map();
   (Array.isArray(response.data)?response.data:[]).forEach(row=>{
    (row?.state?.competitions||[]).forEach(c=>{
-    if(c?.id&&c.settings?.rankingTournament)seen.set(String(c.id),c);
+    if(c?.id&&c.settings?.rankingTournament){let id=String(c.id),old=seen.get(id);if(!old||rankingSnapshotScore(c)>rankingSnapshotScore(old))seen.set(id,c);}
    });
   });
   seasonRankingCloudEvents=[...seen.values()];
@@ -4088,11 +4088,15 @@ async function loadSeasonRankingCloudEvents(){
   if(tab==='rankings')renderRankings(document.getElementById('screen'));
  }
 }
+function rankingSnapshotScore(c){
+ const completedGroups=(c.fixtures||[]).filter(f=>f.scoreA!==''&&f.scoreB!==''&&f.scoreA!=null&&f.scoreB!=null&&Number.isFinite(+f.scoreA)&&Number.isFinite(+f.scoreB)).length;
+ const completedKnockout=(c.knockout||[]).reduce((n,r)=>n+(Array.isArray(r)?r.filter(m=>m?.a&&m?.b&&completed(m)).length:0),0);
+ return completedGroups+completedKnockout*2;
+}
 function rankingEventPool(){
  const byId=new Map();
- (seasonRankingCloudEvents||[]).forEach(c=>{if(c?.id)byId.set(String(c.id),c)});
- // Current tournament takes precedence over a possibly older list snapshot.
- (db.competitions||[]).forEach(c=>{if(c?.id)byId.set(String(c.id),c)});
+ (seasonRankingCloudEvents||[]).forEach(c=>{if(c?.id){let id=String(c.id),old=byId.get(id);if(!old||rankingSnapshotScore(c)>rankingSnapshotScore(old))byId.set(id,c)}});
+ (db.competitions||[]).forEach(c=>{if(c?.id){let id=String(c.id),old=byId.get(id);if(!old||rankingSnapshotScore(c)>=rankingSnapshotScore(old))byId.set(id,c)}});
  return [...byId.values()];
 }
 function seasonRankingData(season){
