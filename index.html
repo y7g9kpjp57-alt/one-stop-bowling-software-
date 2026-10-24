@@ -4099,12 +4099,33 @@ function rankingEventPool(){
  (db.competitions||[]).forEach(c=>{if(c?.id){let id=String(c.id),old=byId.get(id);if(!old||rankingSnapshotScore(c)>=rankingSnapshotScore(old))byId.set(id,c)}});
  return [...byId.values()];
 }
+// Confirmed name variants across SSMBF Rinks and Pairs (24 October 2026).
+// Rankings only: tournament team sheets and stored results remain unchanged.
+const RANKING_NAME_ALIASES={
+ 'allan finlay':'Allan Findlay',
+ 'ashley geddes':'Ashley Geddes','ashely geddes':'Ashley Geddes',
+ 'chris mckay':'Chris McKay','chirs mckay':'Chris McKay',
+ 'chrisitine docherty':'Christine Docherty',
+ 'k paterson':'K Patterson','k patterson':'K Patterson',
+ 'kate kirkpatrick':'Kate Kirkpatrick','kate kirkpatick':'Kate Kirkpatrick',
+ 'steve reynard':'Steve Reynard','steve reyanrd':'Steve Reynard',
+ 'd sheilds':'Davie Sheilds','davie sheilds':'Davie Sheilds',
+ 'gary stewart':'Gary Stewart','g stewart':'Gary Stewart',
+ 's mcdowall':'S McDowall','mcdowall':'S McDowall',
+ 'w mair':'Wullie Mair','wullie mair':'Wullie Mair',
+ 'zander munro':'Zander Munro','z munro':'Zander Munro'
+};
+function rankingCanonicalName(name){
+ const original=String(name||'').trim();
+ const key=original.toLocaleLowerCase().replace(/[.]/g,'').replace(/\s+/g,' ').trim();
+ return RANKING_NAME_ALIASES[key]||original;
+}
 function seasonRankingData(season){
  let allEvents=rankingEventPool().filter(c=>c?.settings?.rankingTournament&&String(c.settings.rankingSeason||defaultRankingSeasonLabel())===String(season));let cfg=allEvents.find(c=>c.settings?.rankingSeasonStart||c.settings?.rankingSeasonEnd)?.settings||{};let rd=defaultRankingSeasonDates(season),start=cfg.rankingSeasonStart||rd.start,end=cfg.rankingSeasonEnd||rd.end;let events=allEvents.filter(c=>rankingEventInDateRange(c,start,end));
  let byPlayer=new Map();
  events.forEach(c=>rankingTournamentRows(c).forEach(r=>{
-  let key=r.name.trim().toLocaleLowerCase();if(!key)return;
-  let row=byPlayer.get(key)||{name:r.name,club:r.club||'',events:{},played:0,total:0,wins:0,finals:0,semis:0,bestPoints:-1,bestFinish:'',groupPlayed:0,groupWins:0,groupDraws:0,groupLosses:0,groupDifference:0};
+  let canonical=rankingCanonicalName(r.name),key=canonical.toLocaleLowerCase();if(!key)return;
+  let row=byPlayer.get(key)||{name:canonical,club:r.club||'',events:{},played:0,total:0,wins:0,finals:0,semis:0,bestPoints:-1,bestFinish:'',groupPlayed:0,groupWins:0,groupDraws:0,groupLosses:0,groupDifference:0};
   row.events[r.eventId]={title:r.event,points:r.points,finish:r.finish,groupForm:r.groupForm,groupPoints:r.groupPoints};row.club=row.club||r.club||'';
   byPlayer.set(key,row)
  }));
