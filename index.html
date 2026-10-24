@@ -4034,14 +4034,14 @@ function rankingTeamStageMap(c){
  rounds.forEach(round=>{
   const entrants=new Set();round.forEach(m=>{if(m?.a)entrants.add(refId(m.a));if(m?.b)entrants.add(refId(m.b))});
   const count=entrants.size;
-  const stage=count<=2?'runner':count<=4?'semi':count<=8?'quarter':count<=16?'last16':'group';
-  const pts=DEFAULT_RANKING_POINTS[stage];
-  const label={runner:'Runner-up',semi:'Semi-final',quarter:'Quarter-final',last16:'Last 16',group:'Group stage'}[stage];
+  const stage=count<=2?'runner':count<=4?'semi':count<=8?'quarter':count<=16?'last16':'last32';
+  const pts=stage==='last32'?DEFAULT_RANKING_POINTS.group:DEFAULT_RANKING_POINTS[stage];
+  const label={runner:'Runner-up',semi:'Semi-final',quarter:'Quarter-final',last16:'Last 16',last32:'Last 32'}[stage];
   round.forEach(m=>{
    if(!completed(m)||!m.a||!m.b)return;
    const winner=refId(koWinner(m)),loser=[refId(m.a),refId(m.b)].find(id=>id&&id!==winner);
    if(!winner||!loser)return;
-   const cur=map.get(loser);if(cur&&pts>cur.points)map.set(loser,{stage,points:pts,label});
+   const cur=map.get(loser);if(cur&&(pts>cur.points||(pts===cur.points&&stage==='last32'&&cur.stage==='group')))map.set(loser,{stage,points:pts,label});
    if(count===2)map.set(winner,{stage:'winner',points:DEFAULT_RANKING_POINTS.winner,label:'Winner'});
   });
  });
