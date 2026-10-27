@@ -1408,19 +1408,35 @@ async function refreshRinkGuest(silent=false){
  if(error){document.getElementById('screen').innerHTML='<div class="card"><h2>Rink Scoring Unavailable</h2><p>'+esc(error.message)+'</p><p>Ask the organiser to check or renew this rink QR code.</p></div>';return}
  rinkGuestData=data;renderRinkGuest();
 }
+function rinkShotSelector(team, label){
+ return `<div style="min-width:0"><b style="display:block;margin-bottom:8px;overflow-wrap:anywhere">${esc(label)}</b><div id="rinkShots${team}" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px">${Array.from({length:10},(_,n)=>`<button type="button" class="btn rink-shot" data-team="${team}" data-shots="${n}" style="min-width:0;padding:11px 2px;font-size:18px;background:${n===0?'#dbeafe':'#f1f5f9'};color:#13294b;border:2px solid ${n===0?'#1769aa':'#cbd5e1'}">${n}</button>`).join('')}</div></div>`;
+}
 function renderRinkGuest(){
  let d=rinkGuestData,f=d?.fixture,s=document.getElementById('screen');if(!s)return;
  let ends=Array.isArray(f?.liveEnds)?f.liveEnds:[],a=ends.reduce((n,e)=>n+(+e.a||0),0),b=ends.reduce((n,e)=>n+(+e.b||0),0);
- let max=+(d?.settings?.ends||12);
- s.innerHTML=`<div class="card" style="max-width:650px;margin:12px auto"><h2 style="text-align:center">${esc(d.title||'One Stop Bowling')}</h2><h1 style="text-align:center;color:#173d7a">MAT ${esc(d.rink)}</h1>${f?`<p style="text-align:center">Session ${esc(f.session||'')} · Game ${esc(f.game||'')}</p><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;text-align:center;align-items:center"><b>${esc(rinkGuestTeamName(f.a))}</b><strong>v</strong><b>${esc(rinkGuestTeamName(f.b))}</b><strong style="font-size:36px">${a}</strong><span>—</span><strong style="font-size:36px">${b}</strong></div><p style="text-align:center">${ends.length} of ${max} ends entered</p><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px"><label>Shots — ${esc(rinkGuestTeamName(f.a))}<input id="rinkEndA" type="number" min="0" max="20" value="0" style="width:100%;padding:13px;font-size:24px"></label><label>Shots — ${esc(rinkGuestTeamName(f.b))}<input id="rinkEndB" type="number" min="0" max="20" value="0" style="width:100%;padding:13px;font-size:24px"></label></div><button id="rinkSaveEnd" class="btn primary" style="width:100%;margin-top:14px" ${ends.length>=max?'disabled':''}>Confirm End ${ends.length+1}</button><details style="margin-top:15px"><summary>Previous ends</summary>${ends.map((e,i)=>`<p>End ${i+1}: ${esc(e.a)} – ${esc(e.b)}</p>`).join('')}</details><button id="rinkComplete" class="btn secondary" style="width:100%;margin-top:18px">Submit Completed Game</button>`:'<p style="text-align:center">No unfinished games assigned to this mat. Check back when the next game is scheduled.</p>'}<button id="rinkRefresh" class="btn secondary" style="width:100%;margin-top:12px">Refresh Mat</button><p class="muted" style="text-align:center">Digital scores are provisional until checked against the paper scorecard.</p></div>`;
+ let max=+(d?.settings?.ends||12),editing=0,selectedA=0,selectedB=0;
+ s.innerHTML=`<div class="card" style="max-width:650px;margin:12px auto"><h2 style="text-align:center">${esc(d.title||'One Stop Bowling')}</h2><h1 style="text-align:center;color:#173d7a">MAT ${esc(d.rink)}</h1>${f?`<p style="text-align:center">Session ${esc(f.session||'')} · Game ${esc(f.game||'')}</p><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;text-align:center;align-items:center"><b>${esc(rinkGuestTeamName(f.a))}</b><strong>v</strong><b>${esc(rinkGuestTeamName(f.b))}</b><strong style="font-size:36px">${a}</strong><span>—</span><strong style="font-size:36px">${b}</strong></div><p style="text-align:center">${ends.length} of ${max} ends entered</p><h3 id="rinkEndTitle" style="text-align:center">End ${ends.length+1}</h3><p style="text-align:center" class="muted">Tap the shots won by one team (0–9)</p><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">${rinkShotSelector('A',rinkGuestTeamName(f.a))}${rinkShotSelector('B',rinkGuestTeamName(f.b))}</div><p id="rinkSelected" style="text-align:center;font-size:22px;font-weight:bold;margin-top:14px">Selected: 0 – 0</p><button id="rinkSaveEnd" class="btn primary" style="width:100%;margin-top:8px" ${ends.length>=max?'disabled':''}>Confirm End ${ends.length+1}</button><button id="rinkCancelEdit" class="btn secondary" style="width:100%;margin-top:8px;display:none">Cancel Correction</button><div style="margin-top:18px"><h3>Previous ends</h3>${ends.length?ends.map((e,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #ddd;padding:8px 0"><span>End ${i+1}: <b>${esc(e.a)} – ${esc(e.b)}</b></span><button class="btn secondary rink-edit" data-end="${i+1}" type="button">Edit</button></div>`).join(''):'<p class="muted">No ends recorded yet.</p>'}</div><button id="rinkComplete" class="btn secondary" style="width:100%;margin-top:18px">Submit Completed Game</button>`:'<p style="text-align:center">No unfinished games assigned to this mat. Check back when the next game is scheduled.</p>'}<button id="rinkRefresh" class="btn secondary" style="width:100%;margin-top:12px">Refresh Mat</button><p class="muted" style="text-align:center">Digital scores are provisional until checked against the paper scorecard.</p></div>`;
  s.querySelector('#rinkRefresh').onclick=()=>refreshRinkGuest();
  if(!f)return;
+ const redraw=()=>{
+  s.querySelectorAll('.rink-shot').forEach(btn=>{let active=Number(btn.dataset.shots)===(btn.dataset.team==='A'?selectedA:selectedB);btn.style.background=active?'#1769aa':'#f1f5f9';btn.style.color=active?'white':'#13294b';btn.style.borderColor=active?'#1769aa':'#cbd5e1'});
+  s.querySelector('#rinkSelected').textContent=`Selected: ${selectedA} – ${selectedB}`;
+  s.querySelector('#rinkEndTitle').textContent=editing?`Correct End ${editing}`:`End ${ends.length+1}`;
+  s.querySelector('#rinkSaveEnd').textContent=editing?`Save Correction — End ${editing}`:`Confirm End ${ends.length+1}`;
+  s.querySelector('#rinkSaveEnd').disabled=!editing&&ends.length>=max;
+  s.querySelector('#rinkCancelEdit').style.display=editing?'block':'none';
+ };
+ s.querySelectorAll('.rink-shot').forEach(btn=>btn.onclick=()=>{let n=Number(btn.dataset.shots);if(btn.dataset.team==='A'){selectedA=n;if(n>0)selectedB=0}else{selectedB=n;if(n>0)selectedA=0}redraw()});
+ s.querySelectorAll('.rink-edit').forEach(btn=>btn.onclick=()=>{editing=Number(btn.dataset.end);selectedA=Number(ends[editing-1].a)||0;selectedB=Number(ends[editing-1].b)||0;redraw();s.querySelector('#rinkEndTitle').scrollIntoView({behavior:'smooth',block:'center'})});
+ s.querySelector('#rinkCancelEdit').onclick=()=>{editing=0;selectedA=0;selectedB=0;redraw()};
  s.querySelector('#rinkSaveEnd').onclick=async()=>{
-  let ea=Number(s.querySelector('#rinkEndA').value),eb=Number(s.querySelector('#rinkEndB').value);
-  if(!Number.isInteger(ea)||!Number.isInteger(eb)||ea<0||eb<0||(ea>0&&eb>0))return appAlert('Enter valid shots for one team only.');
-  if(!confirm(`Confirm end ${ends.length+1}: ${ea} – ${eb}?`))return;
-  rinkGuestBusy=true;let {error}=await cloud.rpc('bowls_rink_save_end',{p_token:rinkGuestToken,p_fixture:String(f.id),p_a:ea,p_b:eb});rinkGuestBusy=false;
-  if(error)appAlert(error.message);await refreshRinkGuest();
+  let ea=selectedA,eb=selectedB;
+  if(ea===0&&eb===0&&!confirm('Record a 0–0 end?'))return;
+  if(!confirm(editing?`Correct end ${editing} to ${ea} – ${eb}?`:`Confirm end ${ends.length+1}: ${ea} – ${eb}?`))return;
+  rinkGuestBusy=true;
+  let result=editing?await cloud.rpc('bowls_rink_edit_end',{p_token:rinkGuestToken,p_fixture:String(f.id),p_end:editing,p_a:ea,p_b:eb}):await cloud.rpc('bowls_rink_save_end',{p_token:rinkGuestToken,p_fixture:String(f.id),p_a:ea,p_b:eb});
+  rinkGuestBusy=false;
+  if(result.error)appAlert(result.error.message);await refreshRinkGuest();
  };
  s.querySelector('#rinkComplete').onclick=async()=>{
   if(!ends.length)return appAlert('Enter at least one end first.');
@@ -1429,6 +1445,7 @@ function renderRinkGuest(){
   if(error)appAlert(error.message);await refreshRinkGuest();
  };
 }
+
 async function initCloudSync(){
  try{
   if(!navigator.onLine){cloudReady=false;updateConnectivityNotice();return}
