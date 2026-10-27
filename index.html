@@ -1393,6 +1393,42 @@ async function openBestActiveTournament(){
  let pick=active[0];if(!pick?.code)return false;
  return await openTournamentByCode(pick.code);
 }
+let rinkGuestToken='',rinkGuestData=null,rinkGuestBusy=false;
+function rinkGuestTeamName(id){let teams=rinkGuestData?.teams||[];let t=teams.find(x=>String(x.id)===String(id));return t?.name||String(id||'TBC')}
+async function startRinkGuest(){
+ rinkGuestToken=new URLSearchParams(location.search).get('rink_token')||'';
+ if(!rinkGuestToken)return;
+ document.querySelectorAll('header,nav,#tabs,#bottomNav,#homeLanding').forEach(x=>{if(x)x.style.display='none'});
+ await refreshRinkGuest();
+ if(!window.__rinkGuestPoll)window.__rinkGuestPoll=setInterval(()=>{if(!rinkGuestBusy&&!document.hidden)refreshRinkGuest(true)},12000);
+}
+async function refreshRinkGuest(silent=false){
+ if(!cloud)return;
+ let {data,error}=await cloud.rpc('bowls_rink_view',{p_token:rinkGuestToken});
+ if(error){document.getElementById('screen').innerHTML='<div class="card"><h2>Rink Scoring Unavailable</h2><p>'+esc(error.message)+'</p><p>Ask the organiser to check or renew this rink QR code.</p></div>';return}
+ rinkGuestData=data;renderRinkGuest();
+}
+function renderRinkGuest(){
+ let d=rinkGuestData,f=d?.fixture,s=document.getElementById('screen');if(!s)return;
+ let ends=Array.isArray(f?.liveEnds)?f.liveEnds:[],a=ends.reduce((n,e)=>n+(+e.a||0),0),b=ends.reduce((n,e)=>n+(+e.b||0),0);
+ let max=+(d?.settings?.ends||12);
+ s.innerHTML=`<div class="card" style="max-width:650px;margin:12px auto"><h2 style="text-align:center">${esc(d.title||'One Stop Bowling')}</h2><h1 style="text-align:center;color:#173d7a">MAT ${esc(d.rink)}</h1>${f?`<p style="text-align:center">Session ${esc(f.session||'')} · Game ${esc(f.game||'')}</p><div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;text-align:center;align-items:center"><b>${esc(rinkGuestTeamName(f.a))}</b><strong>v</strong><b>${esc(rinkGuestTeamName(f.b))}</b><strong style="font-size:36px">${a}</strong><span>—</span><strong style="font-size:36px">${b}</strong></div><p style="text-align:center">${ends.length} of ${max} ends entered</p><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px"><label>Shots — ${esc(rinkGuestTeamName(f.a))}<input id="rinkEndA" type="number" min="0" max="20" value="0" style="width:100%;padding:13px;font-size:24px"></label><label>Shots — ${esc(rinkGuestTeamName(f.b))}<input id="rinkEndB" type="number" min="0" max="20" value="0" style="width:100%;padding:13px;font-size:24px"></label></div><button id="rinkSaveEnd" class="btn primary" style="width:100%;margin-top:14px" ${ends.length>=max?'disabled':''}>Confirm End ${ends.length+1}</button><details style="margin-top:15px"><summary>Previous ends</summary>${ends.map((e,i)=>`<p>End ${i+1}: ${esc(e.a)} – ${esc(e.b)}</p>`).join('')}</details><button id="rinkComplete" class="btn secondary" style="width:100%;margin-top:18px">Submit Completed Game</button>`:'<p style="text-align:center">No unfinished games assigned to this mat. Check back when the next game is scheduled.</p>'}<button id="rinkRefresh" class="btn secondary" style="width:100%;margin-top:12px">Refresh Mat</button><p class="muted" style="text-align:center">Digital scores are provisional until checked against the paper scorecard.</p></div>`;
+ s.querySelector('#rinkRefresh').onclick=()=>refreshRinkGuest();
+ if(!f)return;
+ s.querySelector('#rinkSaveEnd').onclick=async()=>{
+  let ea=Number(s.querySelector('#rinkEndA').value),eb=Number(s.querySelector('#rinkEndB').value);
+  if(!Number.isInteger(ea)||!Number.isInteger(eb)||ea<0||eb<0||(ea>0&&eb>0))return appAlert('Enter valid shots for one team only.');
+  if(!confirm(`Confirm end ${ends.length+1}: ${ea} – ${eb}?`))return;
+  rinkGuestBusy=true;let {error}=await cloud.rpc('bowls_rink_save_end',{p_token:rinkGuestToken,p_fixture:String(f.id),p_a:ea,p_b:eb});rinkGuestBusy=false;
+  if(error)appAlert(error.message);await refreshRinkGuest();
+ };
+ s.querySelector('#rinkComplete').onclick=async()=>{
+  if(!ends.length)return appAlert('Enter at least one end first.');
+  if(!confirm('Submit and lock this game? The organiser will check the paper scorecard.'))return;
+  rinkGuestBusy=true;let {error}=await cloud.rpc('bowls_rink_complete',{p_token:rinkGuestToken,p_fixture:String(f.id)});rinkGuestBusy=false;
+  if(error)appAlert(error.message);await refreshRinkGuest();
+ };
+}
 async function initCloudSync(){
  try{
   if(!navigator.onLine){cloudReady=false;updateConnectivityNotice();return}
@@ -1401,6 +1437,7 @@ async function initCloudSync(){
   cloud.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){document.getElementById('authModal').classList.remove('hidden');setAuthMode('reset');setTimeout(()=>document.getElementById('authPassword').focus(),50)}});
   let {data:sessionData}=await cloud.auth.getSession();currentUser=sessionData?.session?.user||null;await loadCurrentProfile();
   cloudReady=true;startNotificationRefresh();if(navigator.onLine)setTimeout(flushOfflineQueue,250);
+  if(new URLSearchParams(location.search).has('rink_token')){await startRinkGuest();return}
   let params=new URLSearchParams(location.search),code=params.get('code');
   if(code){await openTournamentByCode(code);return}
   if(remoteTournamentCode){
@@ -1996,7 +2033,7 @@ function uxNextAction(c=comp()){
  return {tab:'dashboard',title:'Tournament complete',text:'All games are complete. You can now share results, print them or archive the tournament.',button:'Finish Tournament'}
 }
 function uxContextHelp(tabName=tab){
- let map={dashboard:['Home','This is your tournament overview. The blue “What do I do next?” card points you to the next job.'],builder:['Setup','Set the tournament format, entries, rinks, ends and timings. Quick Start keeps the choices simple.'],teams:['Players / Teams','Enter the names taking part. You can edit names at any time before the draw.'],draw:['Draw','Create or adjust the groups. Check the preview before moving on.'],schedule:['Rinks & Schedule','Set which rink and time each game uses. Rinks are the number of games that can be played at once.'],quick:['Enter Scores','Open the match, enter the score end by end, then confirm the final result. Green means finished; amber means still waiting.'],fixtures:['Fixtures','Use this list to find who is playing, where and when.'],tables:['Results & Tables','Tables update automatically from confirmed final scores. Check them before completing the group stage.'],rinkqr:['Rink QR Codes','Print mat-specific QR labels based on your schedule. Live scoring is not yet enabled.'],scorecards:['Scorecards','Print the cards needed for the competition. Singles cards allow extra ends for 21-up games.'],knockout:['Finals / Knockout','Create the knockout draw, enter scores and progress winners through each round.'],admin:['Admin','Tournament access, backups, archive and account controls are here.']};return map[tabName]||['Help','Use the main buttons on this screen. Your tournament saves automatically.']
+ let map={dashboard:['Home','This is your tournament overview. The blue “What do I do next?” card points you to the next job.'],builder:['Setup','Set the tournament format, entries, rinks, ends and timings. Quick Start keeps the choices simple.'],teams:['Players / Teams','Enter the names taking part. You can edit names at any time before the draw.'],draw:['Draw','Create or adjust the groups. Check the preview before moving on.'],schedule:['Rinks & Schedule','Set which rink and time each game uses. Rinks are the number of games that can be played at once.'],quick:['Enter Scores','Open the match, enter the score end by end, then confirm the final result. Green means finished; amber means still waiting.'],fixtures:['Fixtures','Use this list to find who is playing, where and when.'],tables:['Results & Tables','Tables update automatically from confirmed final scores. Check them before completing the group stage.'],rinkqr:['Rink QR Codes','Generate mat-specific scoring QR codes, then print four per A4 sheet.'],scorecards:['Scorecards','Print the cards needed for the competition. Singles cards allow extra ends for 21-up games.'],knockout:['Finals / Knockout','Create the knockout draw, enter scores and progress winners through each round.'],admin:['Admin','Tournament access, backups, archive and account controls are here.']};return map[tabName]||['Help','Use the main buttons on this screen. Your tournament saves automatically.']
 }
 function openUxSearch(){
  document.getElementById('uxSearchModal')?.remove();let c=comp(),qbox=document.createElement('div');qbox.className='modal ux-search-modal';qbox.id='uxSearchModal';qbox.innerHTML=`<div class="modalbox"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><h2 style="margin:0">Find a player, team or match</h2><p class="muted" style="margin:4px 0 0">Search the current tournament.</p></div><button class="btn secondary" id="uxSearchClose">Close</button></div><input id="uxSearchInput" placeholder="Start typing a name…" style="margin-top:12px;text-align:left;letter-spacing:0;font-size:18px"><div id="uxSearchResults" style="margin-top:8px"></div></div>`;document.body.appendChild(qbox);
@@ -3840,12 +3877,21 @@ function rinkQrMats(c=comp()){
  const names=new Set(fs.map(f=>String(fixtureVenue(f,c)||'Main venue')+'|'+String(fixtureLocalRink(f,c))));
  return [...names].map(k=>{let i=k.lastIndexOf('|');return {venue:k.slice(0,i),rink:k.slice(i+1)}}).sort((a,b)=>a.venue.localeCompare(b.venue)||Number(a.rink)-Number(b.rink));
 }
+let rinkQrTokens=[];
+async function loadRinkQrTokens(){
+ if(!cloud||!remoteTournamentId||!['owner','admin'].includes(remoteAccessRole||''))return;
+ const {data,error}=await cloud.rpc('bowls_manage_rink_access',{p_id:remoteTournamentId});
+ if(error){appAlert('Could not prepare rink access: '+error.message);return}
+ rinkQrTokens=Array.isArray(data)?data:[];if(tab==='rinkqr')render();
+}
 function renderRinkQr(s){
  const c=comp(),mats=rinkQrMats(c),code=String(remoteTournamentCode||'').trim();
- s.innerHTML=`<div class="card noPrint"><h2>Rink QR Codes</h2><p>Detected <b>${mats.length}</b> rink${mats.length===1?'':'s'} from the saved schedule. Print these labels to place beside the mats.</p><div class="notice"><b>Live scoring not yet enabled:</b> These QR labels currently open the tournament's public view, not a restricted rink scoring form. Do not use them to collect scores until the online scorer and verification system is connected and tested.</div>${!code?'<div class="notice">Publish or open the online tournament to obtain a tournament access code before generating QR labels.</div>':''}<button class="btn primary" id="printRinkQr" ${!code||!mats.length?'disabled':''}>Print / Save QR Labels</button><p class="muted">Four labels per A4 page. The same printed label can be reused across sessions.</p></div><div id="rinkQrPrint" class="rink-qr-grid">${mats.map((m,i)=>`<div class="rink-qr-label"><h2>${esc(m.venue)} — MAT ${esc(m.rink)}</h2><div class="rink-qr-code" data-rink-qr="${i}"></div><strong>SCAN TO VIEW TOURNAMENT</strong><p>${esc(competitionDisplayName(c))}</p></div>`).join('')}</div>`;
- if(code)mats.forEach((m,i)=>{let u=publicEntryUrl(code);try{let x=new URL(u,location.href);x.searchParams.delete('entry');x.searchParams.set('view','public');x.searchParams.set('rink',m.rink);x.searchParams.set('venue',m.venue);u=x.toString()}catch(e){}renderEntryQr(s.querySelector(`[data-rink-qr="${i}"]`),u,160)});
+ s.innerHTML=`<div class="card noPrint"><h2>Rink QR Scoring</h2><p>Scan a label to open the assigned mat's scoring screen. No team password is needed.</p><p class="muted">A paper scorecard remains the official check. Completed digital games lock automatically.</p><button class="btn primary" id="prepareRinkQr" ${!code?'disabled':''}>Generate / Refresh Secure QR Codes</button> <button class="btn secondary" id="printRinkQr" ${!rinkQrTokens.length?'disabled':''}>Print / Save QR Labels</button><p class="muted">Four labels per A4 page. Keep QR codes at their assigned mats.</p></div><div id="rinkQrPrint" class="rink-qr-grid">${mats.map((m,i)=>{let access=rinkQrTokens.find(x=>String(x.rink)===String(m.rink));return `<div class="rink-qr-label"><h2>${esc(m.venue)} — MAT ${esc(m.rink)}</h2><div class="rink-qr-code" data-rink-qr="${i}"></div><strong>${access&&access.enabled?'SCAN TO SCORE':'NOT ACTIVATED'}</strong><p>${esc(competitionDisplayName(c))}</p></div>`}).join('')}</div>`;
+ s.querySelector('#prepareRinkQr').onclick=loadRinkQrTokens;
+ mats.forEach((m,i)=>{let access=rinkQrTokens.find(x=>String(x.rink)===String(m.rink));if(!access?.enabled||!access.token)return;let u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('rink_token',access.token);renderEntryQr(s.querySelector(`[data-rink-qr="${i}"]`),u.toString(),160)});
  const b=s.querySelector('#printRinkQr');if(b)b.onclick=()=>{document.body.classList.add('printing-rink-qr');window.print();setTimeout(()=>document.body.classList.remove('printing-rink-qr'),1000)};
 }
+
 function renderScorecards(s){let c=comp(),tt=(c.settings.tournamentType||'standard');if(isAggregate(c)){s.innerHTML='<div class="card"><h2>Scorecards</h2><p>Aggregate team-match scorecards will use one card per rink. Individual rink scoring is available now from Scores.</p></div>';return}
  let fs=tt==='knockout'?(c.knockout||[]).flat().map(m=>({...m,game:m.label||'',group:m.roundName||'Knockout'})):c.fixtures;
  if(!fs.length){s.innerHTML=`<div class="card"><h2>Scorecards</h2><p>${tt==='knockout'?'Generate the knockout draw first.':'Generate the draw and rink schedule first.'}</p></div>`;return}
@@ -5256,7 +5302,7 @@ function startTv(){
  if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
 window.addEventListener('offline',()=>updateConnectivityNotice());window.addEventListener('online',()=>{updateConnectivityNotice('Back online • checking for unsynced changes…');setTimeout(flushOfflineQueue,300)});
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});if(!params.has('code')&&!params.has('view')&&!params.has('rink')&&!params.has('mat')&&!params.has('score'))setTimeout(()=>{if(role==='admin'&&!document.querySelector('.modal:not(#appOverviewModal)'))showAppOverview()},450);}
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');if(!params.has('rink_token'))render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});if(!params.has('code')&&!params.has('view')&&!params.has('rink')&&!params.has('mat')&&!params.has('score'))setTimeout(()=>{if(role==='admin'&&!document.querySelector('.modal:not(#appOverviewModal)'))showAppOverview()},450);}
 // ===== Build 138 / basic regression checks =====
 function runCoreSelfTests(){
  const tests=[];const t=(name,fn)=>{try{if(!fn())throw new Error('failed');tests.push({name,ok:true})}catch(e){tests.push({name,ok:false,error:e.message});console.error('Self-test failed:',name,e)}};
