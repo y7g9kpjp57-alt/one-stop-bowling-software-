@@ -3909,11 +3909,30 @@ async function loadRinkQrTokens(){
  if(error){appAlert('Could not prepare rink access: '+error.message);return}
  rinkQrTokens=Array.isArray(data)?data:[];if(tab==='rinkqr')render();
 }
+function rinkScoringLink(token){
+ // Use the hosted app root, not the organiser's current query string or page fragment.
+ let u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('rink_token',token);return u.toString();
+}
+async function shareRinkScoringLink(token,mat){
+ let url=rinkScoringLink(token),title='One Stop Bowling — Mat '+mat+' Digital Scoring';
+ if(location.protocol==='file:'){appAlert('Open One Stop Bowling on your public Vercel website before sharing. A local file link will not work on another phone.');return}
+ if(navigator.share){try{await navigator.share({title,text:'Open this link to score on Mat '+mat+'. Only share with an authorised scorer.',url});return}catch(e){if(e?.name==='AbortError')return}}
+ try{await navigator.clipboard.writeText(url);appAlert('Mat '+mat+' scoring link copied. Paste it into WhatsApp, Messenger or email.')}catch(e){prompt('Copy and send this Mat '+mat+' scoring link:',url)}
+}
+async function copyRinkScoringLink(token,mat){
+ let url=rinkScoringLink(token);
+ if(location.protocol==='file:'){appAlert('Open the live Vercel app before copying a link for someone else.');return}
+ try{await navigator.clipboard.writeText(url);appAlert('Mat '+mat+' link copied. Send this link, not a screenshot of the QR code.')}catch(e){prompt('Copy this Mat '+mat+' scoring link:',url)}
+}
 function renderRinkQr(s){
  const c=comp(),mats=rinkQrMats(c),code=String(remoteTournamentCode||'').trim();
- s.innerHTML=`<div class="card noPrint"><h2>Rink QR Scoring</h2><p>Scan a label to open the assigned mat's scoring screen. No team password is needed.</p><p class="muted">A paper scorecard remains the official check. Completed digital games lock automatically.</p><button class="btn primary" id="prepareRinkQr" ${!code?'disabled':''}>Generate / Refresh Secure QR Codes</button> <button class="btn secondary" id="printRinkQr" ${!rinkQrTokens.length?'disabled':''}>Print / Save QR Labels</button><p class="muted">Four labels per A4 page. Keep QR codes at their assigned mats.</p></div><div id="rinkQrPrint" class="rink-qr-grid">${mats.map((m,i)=>{let access=rinkQrTokens.find(x=>String(x.rink)===String(m.rink));return `<div class="rink-qr-label"><h2>${esc(m.venue)} — MAT ${esc(m.rink)}</h2><div class="rink-qr-code" data-rink-qr="${i}"></div><strong>${access&&access.enabled?'SCAN TO SCORE':'NOT ACTIVATED'}</strong><p>${esc(competitionDisplayName(c))}</p></div>`}).join('')}</div>`;
+ s.innerHTML=`<div class="card noPrint"><h2>Rink QR Scoring</h2><p>Each mat has one secure QR code and one shareable scoring link for this tournament. They both open the same scoring screen.</p><p class="muted">Share only with authorised scorers. A paper scorecard remains the official check. Completed digital games lock automatically.</p><button class="btn primary" id="prepareRinkQr" ${!code?'disabled':''}>Load / Refresh Mat QR Codes</button> <button class="btn secondary" id="printRinkQr" ${!rinkQrTokens.length?'disabled':''}>Print / Save QR Labels</button><p class="muted">Existing codes stay the same when refreshed. Four labels per A4 page.</p></div><div id="rinkQrPrint" class="rink-qr-grid">${mats.map((m,i)=>{let access=rinkQrTokens.find(x=>String(x.rink)===String(m.rink));return `<div class="rink-qr-label"><h2>${esc(m.venue)} — MAT ${esc(m.rink)}</h2><div class="rink-qr-code" data-rink-qr="${i}"></div><strong>${access&&access.enabled?'SCAN TO SCORE':'NOT ACTIVATED'}</strong><p>${esc(competitionDisplayName(c))}</p>${access?.enabled&&access?.token?`<div class="noPrint" style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:10px"><button type="button" class="btn primary" data-share-rink="${i}">Share Scoring Link</button><button type="button" class="btn secondary" data-copy-rink="${i}">Copy Link</button></div>`:''}</div>`}).join('')}</div>`;
  s.querySelector('#prepareRinkQr').onclick=loadRinkQrTokens;
- mats.forEach((m,i)=>{let access=rinkQrTokens.find(x=>String(x.rink)===String(m.rink));if(!access?.enabled||!access.token)return;let u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('rink_token',access.token);renderEntryQr(s.querySelector(`[data-rink-qr="${i}"]`),u.toString(),160)});
+ mats.forEach((m,i)=>{let access=rinkQrTokens.find(x=>String(x.rink)===String(m.rink));if(!access?.enabled||!access.token)return;renderEntryQr(s.querySelector(`[data-rink-qr="${i}"]`),rinkScoringLink(access.token),160);
+  let share=s.querySelector(`[data-share-rink="${i}"]`),copy=s.querySelector(`[data-copy-rink="${i}"]`);
+  if(share)share.onclick=()=>shareRinkScoringLink(access.token,m.rink);
+  if(copy)copy.onclick=()=>copyRinkScoringLink(access.token,m.rink);
+ });
  const b=s.querySelector('#printRinkQr');if(b)b.onclick=()=>{document.body.classList.add('printing-rink-qr');window.print();setTimeout(()=>document.body.classList.remove('printing-rink-qr'),1000)};
 }
 
