@@ -406,6 +406,13 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
 </style>
 <style id="osb-tile-home-style">
 .osb-tile-home{border-radius:22px!important;padding:clamp(18px,3vw,30px)!important}.osb-tile-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}.osb-tile-heading h2{margin:5px 0;font-size:clamp(22px,4vw,30px)}.osb-eyebrow{font-size:11px;letter-spacing:.15em;font-weight:800;color:#435eb4}.osb-home-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:22px 0}.osb-home-tile,.osb-tournament-tile{font:inherit;cursor:pointer;text-align:left;border:1px solid #d8deeb;background:#f7f9fe;border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:9px;min-height:150px;color:#192b4d;transition:transform .15s,border-color .15s,box-shadow .15s}.osb-home-tile:hover,.osb-tournament-tile:hover{border-color:#526fc6;box-shadow:0 5px 18px #182d5a1a;transform:translateY(-2px)}.osb-home-tile:focus-visible,.osb-tournament-tile:focus-visible{outline:3px solid #6685db;outline-offset:2px}.osb-home-tile strong{font-size:16px}.osb-home-tile small{font-size:12px;color:#54627a;line-height:1.4}.osb-tile-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#e5eafe;color:#274b9c;font-size:26px;font-weight:700}.osb-section-heading{margin:20px 0 12px}.osb-list-heading{margin:16px 0 9px}.osb-tournament-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.osb-tournament-tile{min-height:118px;padding:15px;background:#fff}.osb-tournament-title{font-weight:800;font-size:16px}.osb-tournament-meta{font-size:12px;color:#58667a}.osb-open-hint{font-size:12px;font-weight:700;color:#3458ae;margin-top:auto}@media(max-width:540px){.osb-home-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.osb-home-tile{padding:13px;min-height:143px}.osb-tile-heading{align-items:center}.osb-tile-heading .muted{font-size:12px}.osb-tournament-grid{grid-template-columns:1fr}}
+
+.osb-tile-home{background:linear-gradient(155deg,#fff 0%,#f1f5ff 100%)!important;border:1px solid #cad6ee!important;box-shadow:0 22px 70px #071d3b4a!important}
+.osb-welcome-head{background:linear-gradient(120deg,#101e3e,#253f79 68%,#503a88);color:white;padding:clamp(20px,4vw,32px);border-radius:18px;align-items:center}
+.osb-welcome-head .osb-eyebrow{color:#bcd2ff}.osb-welcome-head h2{font-size:clamp(28px,5vw,43px);letter-spacing:-.025em;margin:8px 0}.osb-welcome-head p{color:#dce5fa;margin:4px 0}.osb-welcome-question{font-size:17px!important;font-weight:700;margin-top:18px!important;color:#fff!important}
+.osb-welcome-head .btn{background:#fff!important;color:#172b52!important;border:0!important;white-space:nowrap}
+.osb-home-tile{background:white;border:1px solid #d4dff3;box-shadow:0 3px 12px #1834620a}.osb-home-tile:nth-child(1) .osb-tile-icon{background:#ede6ff;color:#6245ad}.osb-home-tile:nth-child(2) .osb-tile-icon{background:#e4f1ff;color:#1261a8}
+@media(max-width:540px){.osb-welcome-head{display:block}.osb-welcome-head .btn{margin-top:16px}.osb-home-tile strong{font-size:14px}}
 </style></head>
 <body>
 <header class="top">
@@ -1978,7 +1985,7 @@ function showAppOverview(){
  document.getElementById('appOverviewModal')?.remove();
  const el=document.createElement('div');el.className='modal';el.id='appOverviewModal';
  el.innerHTML=`<div class="modalbox osb-tile-home" style="width:min(940px,100%);max-height:94vh;overflow:auto">
- <div class="osb-tile-heading"><div><div class="osb-eyebrow">ONE STOP BOWLING</div><h2>What would you like to do?</h2><p class="muted">Choose a tile to get started. No tournament is changed until you open it.</p></div><button class="btn secondary" id="closeAppOverview">Close</button></div>
+ <div class="osb-tile-heading osb-welcome-head"><div><div class="osb-eyebrow">WELCOME TO</div><h2>🏆 One Stop Bowling</h2><p>Your complete tournament management system</p><p class="osb-welcome-question">What would you like to do today?</p></div><button class="btn secondary" id="closeAppOverview">Continue to App</button></div>
  <div class="osb-home-tiles">
  <button class="osb-home-tile" id="overviewNew"><span class="osb-tile-icon">＋</span><strong>New Tournament</strong><small>Create and set up an event</small></button>
  <button class="osb-home-tile" id="overviewBrowse"><span class="osb-tile-icon">▦</span><strong>Open Tournament</strong><small>Choose from saved tournaments</small></button>
@@ -1989,6 +1996,7 @@ function showAppOverview(){
  <div id="appOverviewBody"><p class="muted">Loading saved tournaments…</p></div>
  </div>`;
  document.body.appendChild(el);
+ el.scrollTop=0;
  el.querySelector('#closeAppOverview').onclick=()=>el.remove();
  el.onclick=e=>{if(e.target===el)el.remove()};
  el.querySelector('#overviewNew').onclick=()=>{el.remove();showNewTournamentWizard()};
@@ -5359,7 +5367,7 @@ function startTv(){
  if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
 window.addEventListener('offline',()=>updateConnectivityNotice());window.addEventListener('online',()=>{updateConnectivityNotice('Back online • checking for unsynced changes…');setTimeout(flushOfflineQueue,300)});
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');if(!params.has('rink_token'))render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});if(!params.has('code')&&!params.has('view')&&!params.has('rink')&&!params.has('mat')&&!params.has('score'))setTimeout(()=>{if(role==='admin'&&!document.querySelector('.modal:not(#appOverviewModal)'))showAppOverview()},450);}
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');if(!params.has('rink_token'))render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});if(!params.has('code')&&!params.has('view')&&!params.has('rink')&&!params.has('mat')&&!params.has('score'))setTimeout(()=>{if(!document.querySelector('.modal:not(#appOverviewModal)'))showAppOverview()},450);}
 // ===== Build 138 / basic regression checks =====
 function runCoreSelfTests(){
  const tests=[];const t=(name,fn)=>{try{if(!fn())throw new Error('failed');tests.push({name,ok:true})}catch(e){tests.push({name,ok:false,error:e.message});console.error('Self-test failed:',name,e)}};
