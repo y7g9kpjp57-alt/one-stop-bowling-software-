@@ -369,6 +369,14 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
 
 </style>
 <!-- Build 171: removed duplicate visible utility actions from the global toolbar; Admin Centre is now their single visible home. Legacy hooks retained for compatibility. -->
+<!-- Prevent any previous tournament screen from flashing before the homepage is mounted. -->
+<script>
+(function(){try{var p=new URLSearchParams(location.search);if(!['tv','rink_token','code','view','rink','mat','score'].some(function(k){return p.has(k)}))document.documentElement.classList.add('osb-starting-home')}catch(e){}})();
+</script>
+<style>
+html.osb-starting-home body{visibility:hidden!important;background:#f3f6fc}
+html.osb-starting-home body.osb-home-open{visibility:visible!important}
+</style>
 <!-- Build 156: dashboard now opens as a true landing screen; old utility toolbar hidden on Home. -->
 <style>
 body.osb-home-open > :not(#appOverviewModal){visibility:hidden!important}
@@ -5375,7 +5383,7 @@ function startTv(){
  if(!boundCode)window.addEventListener('storage',()=>{db=loadDB();if(boundComp&&db?.competitions?.some(x=>x.id===boundComp))db.active=boundComp;renderTv()})
 }
 window.addEventListener('offline',()=>updateConnectivityNotice());window.addEventListener('online',()=>{updateConnectivityNotice('Back online • checking for unsynced changes…');setTimeout(flushOfflineQueue,300)});
-let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');if(!params.has('rink_token'))render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});if(!params.has('code')&&!params.has('view')&&!params.has('rink')&&!params.has('mat')&&!params.has('score'))setTimeout(()=>{if(!document.querySelector('.modal:not(#appOverviewModal)'))showAppOverview()},450);}
+let params=new URLSearchParams(location.search);if(params.get('tv')==='1'){initCloudSync().then(()=>startTv())}else{let initial=params.get('view');if(!params.has('rink_token'))render();surfaceStartupNotice();updateConnectivityNotice();initCloudSync().then(()=>{if(initial==='scorer'||initial==='admin')requestRole(initial);setTimeout(flushOfflineQueue,500)});if(!params.has('code')&&!params.has('view')&&!params.has('rink_token')&&!params.has('rink')&&!params.has('mat')&&!params.has('score')){showAppOverview();document.documentElement.classList.remove('osb-starting-home');}}
 // ===== Build 138 / basic regression checks =====
 function runCoreSelfTests(){
  const tests=[];const t=(name,fn)=>{try{if(!fn())throw new Error('failed');tests.push({name,ok:true})}catch(e){tests.push({name,ok:false,error:e.message});console.error('Self-test failed:',name,e)}};
