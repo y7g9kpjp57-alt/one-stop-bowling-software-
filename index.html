@@ -799,13 +799,16 @@ async function openTournamentByCode(code=null){
   if(!req.error){access='pending';setRemoteTournament(row.id,row.code,access);setTimeout(()=>appAlert('Scorer access requested. The organiser must approve you before you can enter scores.'),250)}
  }
  startRemoteRefresh();
- if(roleAllowed(openingRole)){
-  role=openingRole;
-  tab=openingTab;
- }else{
-  role='public';
-  tab='dashboard';
- }
+ // Opening a saved tournament should use the signed-in user's permitted workspace,
+ // not inherit Public View from the landing page or a previous tournament.
+ const preferredRole=currentUser&&roleAllowed('admin')?'admin':
+   currentUser&&roleAllowed('scorer')?'scorer':'public';
+ if(openingRole==='admin'&&roleAllowed('admin'))role='admin';
+ else if(openingRole==='scorer'&&roleAllowed('scorer'))role='scorer';
+ else role=preferredRole;
+ tab=(role===openingRole&&openingTab!=='dashboard')?openingTab:'dashboard';
+ setQueryRole(role);
+ sessionStorage.setItem('bowlsNavFreshV1','1');
  setTournamentNotice();render();
  if(access==='pending'&&role==='public')appAlert('Tournament opened in Public View. Your scorer access request is waiting for the organiser to approve it.');
  return true;
@@ -1285,10 +1288,11 @@ async function signInAccount(){
  if(error){err.textContent='Email or password not recognised. Check your details or use Forgot password?';return}currentUser=data.user;await loadCurrentProfile();document.getElementById('authModal').classList.add('hidden');
  let q=new URLSearchParams(location.search),inviteCode=q.get('code'),join=q.get('join');
  if(inviteCode&&join==='scorer'){await openTournamentByCode(inviteCode);return}
- if((authRequestedRole||'public')==='public'){
+ if(authRequestedRole==='public'){
    role='public';tab='dashboard';setQueryRole('public');render();
  }else{
-   await requestRole(authRequestedRole||'scorer');
+   const preferred=authRequestedRole||(roleAllowed('admin')?'admin':roleAllowed('scorer')?'scorer':'public');
+   await requestRole(preferred);
  }
 }
 async function createAccount(){
@@ -1448,8 +1452,17 @@ function renderRinkGuest(){
  };
  s.querySelector('#rinkComplete').onclick=async()=>{
   if(!ends.length)return appAlert('Enter at least one end first.');
-  if(!confirm('Submit and lock this game? The organiser will check the paper scorecard.'))return;
-  rinkGuestBusy=true;let {error}=await cloud.rpc('bowls_rink_complete',{p_token:rinkGuestToken,p_fixture:String(f.id)});rinkGuestBusy=false;
+  let earlyReason=null;
+  if(ends.length<max){
+   const message=`EARLY RESULT SUBMISSION\n\nOnly ${ends.length} of ${max} scheduled ends have been played.\n\nDo you wish to submit this score early? The result will be locked and sent to the organiser for verification.`;
+   if(!confirm(message))return;
+   const reason=prompt('Why is this game finishing early?\n\nEnter 1 = One team conceded\nEnter 2 = Other reason\n\nPress Cancel to continue scoring.');
+   if(reason===null)return;
+   if(reason.trim()==='1')earlyReason='conceded';
+   else if(reason.trim()==='2')earlyReason='other';
+   else {appAlert('Please choose 1 (conceded) or 2 (other). The game has not been submitted.');return;}
+  }else if(!confirm('Submit and lock this game? The organiser will check the paper scorecard.'))return;
+  rinkGuestBusy=true;let {error}=await cloud.rpc('bowls_rink_complete_with_reason',{p_token:rinkGuestToken,p_fixture:String(f.id),p_reason:earlyReason});rinkGuestBusy=false;
   if(error)appAlert(error.message);await refreshRinkGuest();
  };
 }
