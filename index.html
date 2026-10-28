@@ -370,6 +370,12 @@ body.public-dashboard-mode #syncNotice{margin-bottom:14px}
 </style>
 <!-- Build 171: removed duplicate visible utility actions from the global toolbar; Admin Centre is now their single visible home. Legacy hooks retained for compatibility. -->
 <!-- Build 156: dashboard now opens as a true landing screen; old utility toolbar hidden on Home. -->
+<style>
+body.osb-home-open > :not(#appOverviewModal){visibility:hidden!important}
+body.osb-home-open{overflow:hidden!important}
+.osb-standalone-home{position:fixed;inset:0;z-index:999999;background:#f3f6fc;overflow:auto;padding:clamp(12px,3vw,32px);box-sizing:border-box}
+.osb-standalone-home .modalbox{margin:0 auto;max-height:none!important;overflow:visible!important;width:min(1050px,100%)!important;box-shadow:0 10px 35px #12244a1a;border:1px solid #d9e3f3}
+</style>
 <!-- Build 155: redesigned product-style welcome/home screen. Tournament, scoring, draw and sync logic unchanged. -->
 <!-- Build 151: added in-app Feedback / Report Issue form and Admin feedback inbox. No tournament, scoring, draw or schedule logic changed. -->
 <!-- Build 137: simplified guided flow; removed progress strip; completed tabs get a check; saves advance to next step -->
@@ -1983,27 +1989,28 @@ function seasonHomeWinner(c){
 }
 function showAppOverview(){
  document.getElementById('appOverviewModal')?.remove();
- const el=document.createElement('div');el.className='modal';el.id='appOverviewModal';
+ const el=document.createElement('div');el.className='osb-standalone-home';el.id='appOverviewModal';document.body.classList.add('osb-home-open');
  el.innerHTML=`<div class="modalbox osb-tile-home" style="width:min(940px,100%);max-height:94vh;overflow:auto">
  <div class="osb-tile-heading osb-welcome-head"><div><div class="osb-eyebrow">WELCOME TO</div><h2>🏆 One Stop Bowling</h2><p>Your complete tournament management system</p><p class="osb-welcome-question">What would you like to do today?</p></div><button class="btn secondary" id="closeAppOverview">Continue to App</button></div>
  <div class="osb-home-tiles">
  <button class="osb-home-tile" id="overviewNew"><span class="osb-tile-icon">＋</span><strong>New Tournament</strong><small>Create and set up an event</small></button>
  <button class="osb-home-tile" id="overviewBrowse"><span class="osb-tile-icon">▦</span><strong>Open Tournament</strong><small>Choose from saved tournaments</small></button>
  <button class="osb-home-tile" id="overviewJoin"><span class="osb-tile-icon">⌕</span><strong>Join by Code</strong><small>Open an online tournament</small></button>
- <button class="osb-home-tile" id="overviewCurrent"><span class="osb-tile-icon">▶</span><strong>Continue Current</strong><small>${esc(competitionDisplayName(comp())||'Current tournament')}</small></button>
+ 
  <button class="osb-home-tile" id="overviewRankings" style="display:none"><span class="osb-tile-icon">★</span><strong>SSMBF Rankings</strong><small>View season standings</small></button>
  </div>
  <div id="appOverviewBody"><p class="muted">Loading saved tournaments…</p></div>
  </div>`;
  document.body.appendChild(el);
  el.scrollTop=0;
- el.querySelector('#closeAppOverview').onclick=()=>el.remove();
- el.onclick=e=>{if(e.target===el)el.remove()};
- el.querySelector('#overviewNew').onclick=()=>{el.remove();showNewTournamentWizard()};
+ const leaveHome=()=>{el.remove();document.body.classList.remove('osb-home-open')};
+ el.querySelector('#closeAppOverview').onclick=leaveHome;
+ // Standalone homepage stays open until a navigation choice is made.
+ el.querySelector('#overviewNew').onclick=()=>{leaveHome();showNewTournamentWizard()};
  el.querySelector('#overviewBrowse').onclick=()=>{el.querySelector('#appOverviewBody').scrollIntoView({behavior:'smooth',block:'start'})};
- el.querySelector('#overviewJoin').onclick=()=>{el.remove();openTournamentByCode()};
- el.querySelector('#overviewRankings').onclick=()=>{el.remove();openGlobalSeasonRankings()};
- el.querySelector('#overviewCurrent').onclick=()=>el.remove();
+ el.querySelector('#overviewJoin').onclick=()=>{leaveHome();openTournamentByCode()};
+ el.querySelector('#overviewRankings').onclick=()=>{leaveHome();openGlobalSeasonRankings()};
+ 
  const local=(db?.competitions||[]).map(c=>({c,code:'',local:true}));
  const draw=items=>{
   const seen=new Set();items=items.filter(item=>{const k=String(item.code||item.c?.id||'');if(seen.has(k))return false;seen.add(k);return true});
@@ -2013,7 +2020,7 @@ function showAppOverview(){
   body.innerHTML=`<h3 class="osb-section-heading">Your tournaments <span class="muted">(${items.length})</span></h3>
   ${[['Open tournaments',open],['Completed / archived tournaments',finished]].map(([heading,arr])=>`<h4 class="osb-list-heading">${heading}</h4><div class="osb-tournament-grid">${arr.length?arr.map(x=>{const winner=seasonHomeWinner(x.c);return `<button class="osb-tournament-tile" data-overview-open="${esc(x.code||'')}" data-overview-local="${esc(x.c?.id||'')}"><span class="osb-tournament-title">${esc(competitionDisplayName(x.c)||'Untitled tournament')}</span><span class="osb-tournament-meta">${x.code?'Code '+esc(x.code)+' · ':''}${x.c?.teams?.length||0} teams${winner?' · Winner: '+esc(winner):''}</span><span class="osb-open-hint">Open tournament →</span></button>`}).join(''):'<p class="muted">None yet</p>'}</div>`).join('')}
   <p class="meta">Completed means archived; results are not changed by opening a tournament.</p>`;
-  body.querySelectorAll('[data-overview-open]').forEach(b=>b.onclick=()=>{el.remove();if(b.dataset.overviewOpen)openTournamentByCode(b.dataset.overviewOpen);else{db.active=b.dataset.overviewLocal;saveDB();tab='dashboard';render()}});
+  body.querySelectorAll('[data-overview-open]').forEach(b=>b.onclick=()=>{leaveHome();if(b.dataset.overviewOpen)openTournamentByCode(b.dataset.overviewOpen);else{db.active=b.dataset.overviewLocal;saveDB();tab='dashboard';render()}});
  };
  draw(local);
  if(cloud&&currentUser){cloud.rpc('bowls_list_my_tournaments').then(({data,error})=>{
@@ -2029,7 +2036,7 @@ function ensureOverviewEntry(){
  target.parentNode.insertBefore(btn,target);
 }
 
-function render(){if(role==='admin')ensureOverviewEntry();let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,rinkqr:renderRinkQr,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='dashboard'&&isSSMBFTournament(c)){const rankAccess=document.createElement('div');rankAccess.className='card noPrint';rankAccess.innerHTML='<h3 style="margin-top:0">★ Season Rankings</h3><p class="muted">View overall player rankings across all eligible ranking tournaments, independently of this tournament.</p><button class="btn secondary" id="openGlobalRankingsDashboard">View Season Rankings</button>';s.appendChild(rankAccess);rankAccess.querySelector('button').onclick=openGlobalSeasonRankings;}if(tab==='dashboard'&&isSSMBFTournament(c))appendSundayMatAccess(s);if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
+function render(){if(role==='admin')ensureOverviewEntry();let brandName=comp().settings?.tournamentType==='league'?competitionDisplayName(comp()):'One Stop Bowling Software';document.querySelector('.brand h1').textContent=brandName;document.title=brandName;captureScoringUiState();renderSelect();renderNav();updateAccountButton();document.querySelectorAll('[data-role]').forEach(b=>b.classList.toggle('active',b.dataset.role===role));{let ct=competitionDisplayName(comp()),rl=role[0].toUpperCase()+role.slice(1);document.getElementById('subtitle').textContent=ct?ct+' • '+rl:rl;}let s=document.getElementById('screen'),c=comp();({dashboard:renderDashboard,builder:renderBuilder,teams:renderTeams,draw:renderDraw,schedule:renderSchedule,fixtures:renderFixtures,quick:renderQuick,tables:renderTables,rankings:renderRankings,scorecards:renderScorecards,rinkqr:renderRinkQr,knockout:renderKnockout,admin:renderAdmin}[tab]||renderDashboard)(s);document.body.classList.toggle('home-mode',tab==='dashboard');document.body.classList.toggle('public-dashboard-mode',role==='public'&&tab==='dashboard');let homeLanding=document.getElementById('homeLanding');if(homeLanding){homeLanding.innerHTML='';if(tab==='dashboard'&&role!=='public')appendWelcomeHome(homeLanding,c);if(tab==='dashboard'&&role==='admin')appendOrganiserCommandCentre(s,c)}if(role==='public'&&tab==='dashboard'){appendPublicEntryCard(s);appendPublicSignupPromo(s,c)}if(tab==='dashboard'&&isSSMBFTournament(c)){const rankAccess=document.createElement('div');rankAccess.className='card noPrint';rankAccess.innerHTML='<h3 style="margin-top:0">★ Season Rankings</h3><p class="muted">View overall player rankings across all eligible ranking tournaments, independently of this tournament.</p><button class="btn secondary" id="openGlobalRankingsDashboard">View Season Rankings</button>';s.appendChild(rankAccess);rankAccess.querySelector('button').onclick=openGlobalSeasonRankings;}if(tab==='draw')appendDrawActions();if(c.archivedAt&&['builder','teams','draw','schedule','quick'].includes(tab))applyArchivedReadOnly(s,c);
  wireGlobalToolbar();if(sessionStorage.getItem('bowlsNavFreshV1')==='1'){sessionStorage.removeItem('bowlsNavFreshV1');requestAnimationFrame(()=>{let target=document.getElementById('screen');if(target){let y=target.getBoundingClientRect().top+window.scrollY-12;window.scrollTo({top:Math.max(0,y),behavior:'smooth'})}else window.scrollTo({top:0,behavior:'smooth'})})}else restoreScoringUiState();appendScorerNextMatchCard(s,c);
  if(role==='admin'&&tab==='dashboard'){
   appendHealthCheckCard(s,c);appendSimpleModeHome(s,c);
@@ -5008,7 +5015,8 @@ function renderAdmin(s){
  <div class="admin-hub-card"><h3>💾 Data & Recovery</h3><p class="muted">Back up or restore tournament data. These tools are kept away from everyday running controls.</p><div class="admin-hub-actions"><button class="btn primary" id="adminBackup">Backup</button><button class="btn secondary" id="adminRestore">Restore</button></div></div>
  <div class="admin-hub-card"><h3>❓ Help & Settings</h3><p class="muted">Help, feedback and display options in one place.</p><div class="admin-hub-actions"><button class="btn primary" id="adminHelp">Help / User Guide</button><button class="btn secondary" id="adminFeedback">Feedback / Report Issue</button><button class="btn secondary" id="adminSimpleMode">Simple Mode</button><button class="btn secondary" id="adminLargeText">Larger Text</button></div></div>
  </div></div>`;
- s.innerHTML=`${adminHub}${archiveCard}${entryManagementCard}${clubOwnerCard}${remoteTournamentId&&tournamentAdmin?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>'+(remoteClubName?' • Club: <b>'+esc(remoteClubName)+'</b>':'')+'. Approve scorers for this tournament.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}${globalAccounts}<div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
+ s.innerHTML=`${adminHub}${isSSMBFTournament(c)?'<div class="card noPrint"><h3>SSMBF · Shared Mat Planning</h3><p class="muted">Manage Sunday mat allocations across linked events.</p><button type="button" class="btn secondary" id="adminSundayMats">Sunday Mats & Draws</button></div>':''}${archiveCard}${entryManagementCard}${clubOwnerCard}${remoteTournamentId&&tournamentAdmin?'<div class="card"><h2>Tournament Access</h2><p class="muted">Tournament code: <b>'+esc(remoteTournamentCode)+'</b>'+(remoteClubName?' • Club: <b>'+esc(remoteClubName)+'</b>':'')+'. Approve scorers for this tournament.</p><div id="tournamentMemberList"><p class="muted">Loading tournament users…</p></div></div>':''}${globalAccounts}<div class="card"><h2>Competition Admin</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="newComp">New Competition</button>${!c.archivedAt?'<button class="btn danger" id="resetComp">Reset Current Competition</button>':''}<button class="btn secondary" id="signOutAdmin">Sign out</button></div></div>`;
+ let sundayAdmin=document.getElementById('adminSundayMats');if(sundayAdmin)sundayAdmin.onclick=showSundayMatManager;
  let ca=document.getElementById('completeArchive');if(ca)ca.onclick=completeAndArchive;
  let da=document.getElementById('downloadArchive');if(da)da.onclick=()=>downloadCompetitionBackup(c);
  let ds=document.getElementById('downloadSummary');if(ds)ds.onclick=()=>downloadResultsSummary(c);
